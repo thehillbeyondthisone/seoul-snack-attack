@@ -1,0 +1,1509 @@
+{
+  "generated": "2026-08-15T19:58:15.916Z",
+  "texSize": 1024,
+  "packs": [
+    {
+      "id": "car-microvan",
+      "url": "assets/props/car-microvan.glb",
+      "sourceDir": "01- Car",
+      "gap": 0.02,
+      "packScale": 1.7,
+      "props": [
+        {
+          "index": 0,
+          "node": "car-microvan_000",
+          "tris": 8132,
+          "sizeNorm": [
+            0.95245,
+            1.1688,
+            2
+          ],
+          "size": [
+            1.6192,
+            1.987,
+            3.4
+          ],
+          "volume": 10.93857,
+          "footprint": 5.50517,
+          "aspect": "wide"
+        }
+      ]
+    },
+    {
+      "id": "car-truck",
+      "url": "assets/props/car-truck.glb",
+      "sourceDir": "02- Car",
+      "gap": 0.02,
+      "packScale": 2.5,
+      "props": [
+        {
+          "index": 0,
+          "node": "car-truck_000",
+          "tris": 7670,
+          "sizeNorm": [
+            0.78964,
+            0.98151,
+            2
+          ],
+          "size": [
+            1.9741,
+            2.4538,
+            5
+          ],
+          "volume": 24.21987,
+          "footprint": 9.87048,
+          "aspect": "wide"
+        }
+      ]
+    },
+    {
+      "id": "bikes",
+      "url": "assets/props/bikes.glb",
+      "sourceDir": "03- Seoul.Props.10",
+      "gap": 0.02,
+      "packScale": 1.8,
+      "props": [
+        {
+          "index": 0,
+          "node": "bikes_000",
+          "tris": 256,
+          "sizeNorm": [
+            0.37172,
+            0.05601,
+            0.4861
+          ],
+          "size": [
+            0.6691,
+            0.1008,
+            0.875
+          ],
+          "volume": 0.05902,
+          "footprint": 0.58544,
+          "aspect": "flat"
+        },
+        {
+          "index": 1,
+          "node": "bikes_001",
+          "tris": 6072,
+          "sizeNorm": [
+            0.44929,
+            0.5121,
+            1.03447
+          ],
+          "size": [
+            0.8087,
+            0.9218,
+            1.862
+          ],
+          "volume": 1.3881,
+          "footprint": 1.50589,
+          "aspect": "wide"
+        },
+        {
+          "index": 2,
+          "node": "bikes_002",
+          "tris": 6052,
+          "sizeNorm": [
+            0.2098,
+            0.4982,
+            0.86092
+          ],
+          "size": [
+            0.3776,
+            0.8968,
+            1.5497
+          ],
+          "volume": 0.5248,
+          "footprint": 0.58523,
+          "aspect": "wall"
+        },
+        {
+          "index": 3,
+          "node": "bikes_003",
+          "tris": 5490,
+          "sizeNorm": [
+            0.20512,
+            0.53808,
+            0.84807
+          ],
+          "size": [
+            0.3692,
+            0.9685,
+            1.5265
+          ],
+          "volume": 0.5459,
+          "footprint": 0.56363,
+          "aspect": "wall"
+        }
+      ]
+    },
+    {
+      "id": "barriers",
+      "url": "assets/props/barriers.glb",
+      "sourceDir": "04- Seoul.Props.9",
+      "gap": 0.02,
+      "packScale": 1.6,
+      "props": [
+        {
+          "index": 0,
+          "node": "barriers_000",
+          "tris": 648,
+          "sizeNorm": [
+            0.23591,
+            0.25662,
+            0.30379
+          ],
+          "size": [
+            0.3775,
+            0.4106,
+            0.4861
+          ],
+          "volume": 0.07533,
+          "footprint": 0.18347,
+          "aspect": "wide"
+        },
+        {
+          "index": 1,
+          "node": "barriers_001",
+          "tris": 844,
+          "sizeNorm": [
+            0.55477,
+            0.7079,
+            0.01851
+          ],
+          "size": [
+            0.8876,
+            1.1326,
+            0.0296
+          ],
+          "volume": 0.02978,
+          "footprint": 0.02629,
+          "aspect": "wall"
+        },
+        {
+          "index": 2,
+          "node": "barriers_002",
+          "tris": 236,
+          "sizeNorm": [
+            0.50252,
+            0.49203,
+            0.08921
+          ],
+          "size": [
+            0.804,
+            0.7872,
+            0.1427
+          ],
+          "volume": 0.09035,
+          "footprint": 0.11477,
+          "aspect": "wall"
+        },
+        {
+          "index": 3,
+          "node": "barriers_003",
+          "tris": 360,
+          "sizeNorm": [
+            0.46628,
+            0.46469,
+            0.02685
+          ],
+          "size": [
+            0.7461,
+            0.7435,
+            0.043
+          ],
+          "volume": 0.02383,
+          "footprint": 0.03205,
+          "aspect": "wall"
+        },
+        {
+          "index": 4,
+          "node": "barriers_004",
+          "tris": 1460,
+          "sizeNorm": [
+            0.46408,
+            0.47012,
+            0.12733
+          ],
+          "size": [
+            0.7425,
+            0.7522,
+            0.2037
+          ],
+          "volume": 0.11379,
+          "footprint": 0.15128,
+          "aspect": "wide"
+        },
+        {
+          "index": 5,
+          "node": "barriers_005",
+          "tris": 424,
+          "sizeNorm": [
+            0.46387,
+            0.41082,
+            0.01547
+          ],
+          "size": [
+            0.7422,
+            0.6573,
+            0.0247
+          ],
+          "volume": 0.01207,
+          "footprint": 0.01837,
+          "aspect": "wall"
+        },
+        {
+          "index": 6,
+          "node": "barriers_006",
+          "tris": 992,
+          "sizeNorm": [
+            0.46681,
+            0.48275,
+            0.02532
+          ],
+          "size": [
+            0.7469,
+            0.7724,
+            0.0405
+          ],
+          "volume": 0.02337,
+          "footprint": 0.03026,
+          "aspect": "wall"
+        },
+        {
+          "index": 7,
+          "node": "barriers_007",
+          "tris": 564,
+          "sizeNorm": [
+            0.46351,
+            0.33836,
+            0.01547
+          ],
+          "size": [
+            0.7416,
+            0.5414,
+            0.0247
+          ],
+          "volume": 0.00994,
+          "footprint": 0.01835,
+          "aspect": "wall"
+        },
+        {
+          "index": 8,
+          "node": "barriers_008",
+          "tris": 672,
+          "sizeNorm": [
+            0.27719,
+            0.53408,
+            0.27719
+          ],
+          "size": [
+            0.4435,
+            0.8545,
+            0.4435
+          ],
+          "volume": 0.16808,
+          "footprint": 0.1967,
+          "aspect": "wide"
+        }
+      ]
+    },
+    {
+      "id": "signage",
+      "url": "assets/props/signage.glb",
+      "sourceDir": "05- Seoul.Props.4",
+      "gap": 0.08,
+      "packScale": 1.4,
+      "props": [
+        {
+          "index": 0,
+          "node": "signage_000",
+          "tris": 249,
+          "sizeNorm": [
+            0.02349,
+            0.19395,
+            0.16498
+          ],
+          "size": [
+            0.0329,
+            0.2715,
+            0.231
+          ],
+          "volume": 0.00206,
+          "footprint": 0.0076,
+          "aspect": "wall"
+        },
+        {
+          "index": 1,
+          "node": "signage_001",
+          "tris": 484,
+          "sizeNorm": [
+            0.02349,
+            0.19673,
+            0.80641
+          ],
+          "size": [
+            0.0329,
+            0.2754,
+            1.129
+          ],
+          "volume": 0.01023,
+          "footprint": 0.03713,
+          "aspect": "flat"
+        },
+        {
+          "index": 2,
+          "node": "signage_002",
+          "tris": 529,
+          "sizeNorm": [
+            0.02349,
+            0.13096,
+            0.38036
+          ],
+          "size": [
+            0.0329,
+            0.1834,
+            0.5325
+          ],
+          "volume": 0.00321,
+          "footprint": 0.01751,
+          "aspect": "flat"
+        },
+        {
+          "index": 3,
+          "node": "signage_003",
+          "tris": 218,
+          "sizeNorm": [
+            0.02349,
+            0.1934,
+            0.39329
+          ],
+          "size": [
+            0.0329,
+            0.2708,
+            0.5506
+          ],
+          "volume": 0.0049,
+          "footprint": 0.01811,
+          "aspect": "wall"
+        },
+        {
+          "index": 4,
+          "node": "signage_004",
+          "tris": 845,
+          "sizeNorm": [
+            0.02349,
+            0.55853,
+            0.65868
+          ],
+          "size": [
+            0.0329,
+            0.7819,
+            0.9222
+          ],
+          "volume": 0.02372,
+          "footprint": 0.03033,
+          "aspect": "wall"
+        },
+        {
+          "index": 5,
+          "node": "signage_005",
+          "tris": 835,
+          "sizeNorm": [
+            0.02349,
+            0.19645,
+            0.58085
+          ],
+          "size": [
+            0.0329,
+            0.275,
+            0.8132
+          ],
+          "volume": 0.00736,
+          "footprint": 0.02675,
+          "aspect": "flat"
+        },
+        {
+          "index": 6,
+          "node": "signage_006",
+          "tris": 352,
+          "sizeNorm": [
+            0.02349,
+            0.13096,
+            0.24636
+          ],
+          "size": [
+            0.0329,
+            0.1834,
+            0.3449
+          ],
+          "volume": 0.00208,
+          "footprint": 0.01134,
+          "aspect": "wall"
+        },
+        {
+          "index": 7,
+          "node": "signage_007",
+          "tris": 151,
+          "sizeNorm": [
+            0.02349,
+            0.19198,
+            0.19715
+          ],
+          "size": [
+            0.0329,
+            0.2688,
+            0.276
+          ],
+          "volume": 0.00244,
+          "footprint": 0.00908,
+          "aspect": "wall"
+        },
+        {
+          "index": 8,
+          "node": "signage_008",
+          "tris": 1168,
+          "sizeNorm": [
+            0.02349,
+            1.05142,
+            0.12394
+          ],
+          "size": [
+            0.0329,
+            1.472,
+            0.1735
+          ],
+          "volume": 0.0084,
+          "footprint": 0.00571,
+          "aspect": "upright"
+        },
+        {
+          "index": 9,
+          "node": "signage_009",
+          "tris": 402,
+          "sizeNorm": [
+            0.02349,
+            0.19108,
+            0.4424
+          ],
+          "size": [
+            0.0329,
+            0.2675,
+            0.6194
+          ],
+          "volume": 0.00545,
+          "footprint": 0.02037,
+          "aspect": "wall"
+        },
+        {
+          "index": 10,
+          "node": "signage_010",
+          "tris": 509,
+          "sizeNorm": [
+            0.02349,
+            0.19652,
+            0.44632
+          ],
+          "size": [
+            0.0329,
+            0.2751,
+            0.6248
+          ],
+          "volume": 0.00565,
+          "footprint": 0.02055,
+          "aspect": "wall"
+        },
+        {
+          "index": 11,
+          "node": "signage_011",
+          "tris": 53,
+          "sizeNorm": [
+            0.02349,
+            0.19643,
+            0.15155
+          ],
+          "size": [
+            0.0329,
+            0.275,
+            0.2122
+          ],
+          "volume": 0.00192,
+          "footprint": 0.00698,
+          "aspect": "wall"
+        },
+        {
+          "index": 12,
+          "node": "signage_012",
+          "tris": 58,
+          "sizeNorm": [
+            0.02349,
+            0.18446,
+            0.18254
+          ],
+          "size": [
+            0.0329,
+            0.2582,
+            0.2556
+          ],
+          "volume": 0.00217,
+          "footprint": 0.00841,
+          "aspect": "wall"
+        },
+        {
+          "index": 13,
+          "node": "signage_013",
+          "tris": 442,
+          "sizeNorm": [
+            0.02349,
+            0.19501,
+            0.16678
+          ],
+          "size": [
+            0.0329,
+            0.273,
+            0.2335
+          ],
+          "volume": 0.0021,
+          "footprint": 0.00768,
+          "aspect": "wall"
+        },
+        {
+          "index": 14,
+          "node": "signage_014",
+          "tris": 364,
+          "sizeNorm": [
+            0.02775,
+            1.11373,
+            1.29912
+          ],
+          "size": [
+            0.0388,
+            1.5592,
+            1.8188
+          ],
+          "volume": 0.11016,
+          "footprint": 0.07065,
+          "aspect": "wall"
+        },
+        {
+          "index": 15,
+          "node": "signage_015",
+          "tris": 396,
+          "sizeNorm": [
+            0.05004,
+            0.30051,
+            0.4437
+          ],
+          "size": [
+            0.0701,
+            0.4207,
+            0.6212
+          ],
+          "volume": 0.01831,
+          "footprint": 0.04352,
+          "aspect": "wall"
+        },
+        {
+          "index": 16,
+          "node": "signage_016",
+          "tris": 220,
+          "sizeNorm": [
+            0.02775,
+            1.11373,
+            1.29912
+          ],
+          "size": [
+            0.0388,
+            1.5592,
+            1.8188
+          ],
+          "volume": 0.11016,
+          "footprint": 0.07065,
+          "aspect": "wall"
+        }
+      ]
+    },
+    {
+      "id": "hvac",
+      "url": "assets/props/hvac.glb",
+      "sourceDir": "06- Seoul.Props.7",
+      "gap": 0.08,
+      "packScale": 1.3,
+      "props": [
+        {
+          "index": 0,
+          "node": "hvac_000",
+          "tris": 946,
+          "sizeNorm": [
+            0.38848,
+            0.38059,
+            0.91218
+          ],
+          "size": [
+            0.505,
+            0.4948,
+            1.1858
+          ],
+          "volume": 0.2963,
+          "footprint": 0.59887,
+          "aspect": "wide"
+        },
+        {
+          "index": 1,
+          "node": "hvac_001",
+          "tris": 582,
+          "sizeNorm": [
+            0.17156,
+            0.18708,
+            0.38077
+          ],
+          "size": [
+            0.223,
+            0.2432,
+            0.495
+          ],
+          "volume": 0.02685,
+          "footprint": 0.1104,
+          "aspect": "wide"
+        },
+        {
+          "index": 2,
+          "node": "hvac_002",
+          "tris": 852,
+          "sizeNorm": [
+            0.15319,
+            0.19347,
+            0.47745
+          ],
+          "size": [
+            0.1991,
+            0.2515,
+            0.6207
+          ],
+          "volume": 0.03109,
+          "footprint": 0.12361,
+          "aspect": "wide"
+        },
+        {
+          "index": 3,
+          "node": "hvac_003",
+          "tris": 28,
+          "sizeNorm": [
+            0.24064,
+            0.33428,
+            0.35773
+          ],
+          "size": [
+            0.3128,
+            0.4346,
+            0.4651
+          ],
+          "volume": 0.06322,
+          "footprint": 0.14548,
+          "aspect": "wide"
+        },
+        {
+          "index": 4,
+          "node": "hvac_004",
+          "tris": 132,
+          "sizeNorm": [
+            0.11284,
+            0.11284,
+            0.22567
+          ],
+          "size": [
+            0.1467,
+            0.1467,
+            0.2934
+          ],
+          "volume": 0.00631,
+          "footprint": 0.04303,
+          "aspect": "wide"
+        },
+        {
+          "index": 5,
+          "node": "hvac_005",
+          "tris": 376,
+          "sizeNorm": [
+            0.2627,
+            0.24534,
+            0.40591
+          ],
+          "size": [
+            0.3415,
+            0.3189,
+            0.5277
+          ],
+          "volume": 0.05748,
+          "footprint": 0.18021,
+          "aspect": "wide"
+        },
+        {
+          "index": 6,
+          "node": "hvac_006",
+          "tris": 242,
+          "sizeNorm": [
+            0.23986,
+            0.35935,
+            0.35935
+          ],
+          "size": [
+            0.3118,
+            0.4672,
+            0.4672
+          ],
+          "volume": 0.06805,
+          "footprint": 0.14567,
+          "aspect": "wide"
+        },
+        {
+          "index": 7,
+          "node": "hvac_007",
+          "tris": 108,
+          "sizeNorm": [
+            0.07522,
+            0.22567,
+            0.15045
+          ],
+          "size": [
+            0.0978,
+            0.2934,
+            0.1956
+          ],
+          "volume": 0.00561,
+          "footprint": 0.01913,
+          "aspect": "wide"
+        },
+        {
+          "index": 8,
+          "node": "hvac_008",
+          "tris": 588,
+          "sizeNorm": [
+            0.17967,
+            0.47913,
+            0.23956
+          ],
+          "size": [
+            0.2336,
+            0.6229,
+            0.3114
+          ],
+          "volume": 0.04531,
+          "footprint": 0.07274,
+          "aspect": "wide"
+        },
+        {
+          "index": 9,
+          "node": "hvac_009",
+          "tris": 28,
+          "sizeNorm": [
+            0.1339,
+            0.40553,
+            0.2426
+          ],
+          "size": [
+            0.1741,
+            0.5272,
+            0.3154
+          ],
+          "volume": 0.02894,
+          "footprint": 0.0549,
+          "aspect": "wide"
+        }
+      ]
+    },
+    {
+      "id": "trafficsigns",
+      "url": "assets/props/trafficsigns.glb",
+      "sourceDir": "07- Seoul.Props.2",
+      "gap": 0.08,
+      "packScale": 2.4,
+      "props": [
+        {
+          "index": 0,
+          "node": "trafficsigns_000",
+          "tris": 316,
+          "sizeNorm": [
+            0.10386,
+            0.42896,
+            0.42107
+          ],
+          "size": [
+            0.2493,
+            1.0295,
+            1.0106
+          ],
+          "volume": 0.25933,
+          "footprint": 0.2519,
+          "aspect": "wall"
+        },
+        {
+          "index": 1,
+          "node": "trafficsigns_001",
+          "tris": 196,
+          "sizeNorm": [
+            0.01703,
+            0.21749,
+            1.27899
+          ],
+          "size": [
+            0.0409,
+            0.522,
+            3.0696
+          ],
+          "volume": 0.06547,
+          "footprint": 0.12543,
+          "aspect": "flat"
+        },
+        {
+          "index": 2,
+          "node": "trafficsigns_002",
+          "tris": 192,
+          "sizeNorm": [
+            0.06785,
+            0.18396,
+            0.1485
+          ],
+          "size": [
+            0.1628,
+            0.4415,
+            0.3564
+          ],
+          "volume": 0.02563,
+          "footprint": 0.05804,
+          "aspect": "wide"
+        },
+        {
+          "index": 3,
+          "node": "trafficsigns_003",
+          "tris": 200,
+          "sizeNorm": [
+            0.14448,
+            0.75836,
+            0.02838
+          ],
+          "size": [
+            0.3467,
+            1.8201,
+            0.0681
+          ],
+          "volume": 0.04299,
+          "footprint": 0.02362,
+          "aspect": "upright"
+        },
+        {
+          "index": 4,
+          "node": "trafficsigns_004",
+          "tris": 136,
+          "sizeNorm": [
+            0.01359,
+            0.21749,
+            0.73895
+          ],
+          "size": [
+            0.0326,
+            0.522,
+            1.7735
+          ],
+          "volume": 0.0302,
+          "footprint": 0.05786,
+          "aspect": "flat"
+        },
+        {
+          "index": 5,
+          "node": "trafficsigns_005",
+          "tris": 136,
+          "sizeNorm": [
+            0.01359,
+            0.21749,
+            0.73895
+          ],
+          "size": [
+            0.0326,
+            0.522,
+            1.7735
+          ],
+          "volume": 0.0302,
+          "footprint": 0.05786,
+          "aspect": "flat"
+        },
+        {
+          "index": 6,
+          "node": "trafficsigns_006",
+          "tris": 32,
+          "sizeNorm": [
+            0.01359,
+            0.18638,
+            0.21294
+          ],
+          "size": [
+            0.0326,
+            0.4473,
+            0.5111
+          ],
+          "volume": 0.00746,
+          "footprint": 0.01667,
+          "aspect": "wall"
+        },
+        {
+          "index": 7,
+          "node": "trafficsigns_007",
+          "tris": 60,
+          "sizeNorm": [
+            0.01359,
+            0.21749,
+            0.21749
+          ],
+          "size": [
+            0.0326,
+            0.522,
+            0.522
+          ],
+          "volume": 0.00889,
+          "footprint": 0.01703,
+          "aspect": "wall"
+        },
+        {
+          "index": 8,
+          "node": "trafficsigns_008",
+          "tris": 60,
+          "sizeNorm": [
+            0.01359,
+            0.21749,
+            0.21749
+          ],
+          "size": [
+            0.0326,
+            0.522,
+            0.522
+          ],
+          "volume": 0.00889,
+          "footprint": 0.01703,
+          "aspect": "wall"
+        },
+        {
+          "index": 9,
+          "node": "trafficsigns_009",
+          "tris": 32,
+          "sizeNorm": [
+            0.01359,
+            0.18638,
+            0.21294
+          ],
+          "size": [
+            0.0326,
+            0.4473,
+            0.5111
+          ],
+          "volume": 0.00746,
+          "footprint": 0.01667,
+          "aspect": "wall"
+        },
+        {
+          "index": 10,
+          "node": "trafficsigns_010",
+          "tris": 60,
+          "sizeNorm": [
+            0.01359,
+            0.21749,
+            0.21749
+          ],
+          "size": [
+            0.0326,
+            0.522,
+            0.522
+          ],
+          "volume": 0.00889,
+          "footprint": 0.01703,
+          "aspect": "wall"
+        },
+        {
+          "index": 11,
+          "node": "trafficsigns_011",
+          "tris": 32,
+          "sizeNorm": [
+            0.01359,
+            0.18638,
+            0.21294
+          ],
+          "size": [
+            0.0326,
+            0.4473,
+            0.5111
+          ],
+          "volume": 0.00746,
+          "footprint": 0.01667,
+          "aspect": "wall"
+        },
+        {
+          "index": 12,
+          "node": "trafficsigns_012",
+          "tris": 32,
+          "sizeNorm": [
+            0.01359,
+            0.18638,
+            0.21294
+          ],
+          "size": [
+            0.0326,
+            0.4473,
+            0.5111
+          ],
+          "volume": 0.00746,
+          "footprint": 0.01667,
+          "aspect": "wall"
+        },
+        {
+          "index": 13,
+          "node": "trafficsigns_013",
+          "tris": 60,
+          "sizeNorm": [
+            0.01359,
+            0.21749,
+            0.21749
+          ],
+          "size": [
+            0.0326,
+            0.522,
+            0.522
+          ],
+          "volume": 0.00889,
+          "footprint": 0.01703,
+          "aspect": "wall"
+        },
+        {
+          "index": 14,
+          "node": "trafficsigns_014",
+          "tris": 60,
+          "sizeNorm": [
+            0.01359,
+            0.21749,
+            0.21749
+          ],
+          "size": [
+            0.0326,
+            0.522,
+            0.522
+          ],
+          "volume": 0.00889,
+          "footprint": 0.01703,
+          "aspect": "wall"
+        },
+        {
+          "index": 15,
+          "node": "trafficsigns_015",
+          "tris": 60,
+          "sizeNorm": [
+            0.01359,
+            0.21749,
+            0.21749
+          ],
+          "size": [
+            0.0326,
+            0.522,
+            0.522
+          ],
+          "volume": 0.00889,
+          "footprint": 0.01703,
+          "aspect": "wall"
+        }
+      ]
+    },
+    {
+      "id": "street",
+      "url": "assets/props/street.glb",
+      "sourceDir": "08- Seoul.Props.1",
+      "gap": 0.02,
+      "packScale": 3,
+      "props": [
+        {
+          "index": 0,
+          "node": "street_000",
+          "tris": 328,
+          "sizeNorm": [
+            0.14367,
+            0.2197,
+            0.13709
+          ],
+          "size": [
+            0.431,
+            0.6591,
+            0.4113
+          ],
+          "volume": 0.11684,
+          "footprint": 0.17727,
+          "aspect": "wide"
+        },
+        {
+          "index": 1,
+          "node": "street_001",
+          "tris": 136,
+          "sizeNorm": [
+            0.10852,
+            0.08949,
+            0.07717
+          ],
+          "size": [
+            0.3256,
+            0.2685,
+            0.2315
+          ],
+          "volume": 0.02024,
+          "footprint": 0.07537,
+          "aspect": "wide"
+        },
+        {
+          "index": 2,
+          "node": "street_002",
+          "tris": 92,
+          "sizeNorm": [
+            0.1429,
+            0.20049,
+            0.14291
+          ],
+          "size": [
+            0.4287,
+            0.6015,
+            0.4287
+          ],
+          "volume": 0.11055,
+          "footprint": 0.1838,
+          "aspect": "wide"
+        },
+        {
+          "index": 3,
+          "node": "street_003",
+          "tris": 820,
+          "sizeNorm": [
+            0.41197,
+            0.20477,
+            0.17936
+          ],
+          "size": [
+            1.2359,
+            0.6143,
+            0.5381
+          ],
+          "volume": 0.40853,
+          "footprint": 0.66501,
+          "aspect": "wide"
+        },
+        {
+          "index": 4,
+          "node": "street_004",
+          "tris": 848,
+          "sizeNorm": [
+            0.35921,
+            0.21549,
+            0.22111
+          ],
+          "size": [
+            1.0776,
+            0.6465,
+            0.6633
+          ],
+          "volume": 0.46213,
+          "footprint": 0.71485,
+          "aspect": "wide"
+        },
+        {
+          "index": 5,
+          "node": "street_005",
+          "tris": 192,
+          "sizeNorm": [
+            0.07891,
+            1.99991,
+            0.07717
+          ],
+          "size": [
+            0.2367,
+            5.9997,
+            0.2315
+          ],
+          "volume": 0.32885,
+          "footprint": 0.05481,
+          "aspect": "upright"
+        },
+        {
+          "index": 6,
+          "node": "street_006",
+          "tris": 456,
+          "sizeNorm": [
+            0.07526,
+            0.38578,
+            0.15092
+          ],
+          "size": [
+            0.2258,
+            1.1574,
+            0.4527
+          ],
+          "volume": 0.11831,
+          "footprint": 0.10222,
+          "aspect": "upright"
+        },
+        {
+          "index": 7,
+          "node": "street_007",
+          "tris": 78,
+          "sizeNorm": [
+            0.09767,
+            0.28236,
+            0.09768
+          ],
+          "size": [
+            0.293,
+            0.8471,
+            0.293
+          ],
+          "volume": 0.07273,
+          "footprint": 0.08586,
+          "aspect": "upright"
+        },
+        {
+          "index": 8,
+          "node": "street_008",
+          "tris": 62,
+          "sizeNorm": [
+            0.09767,
+            0.37862,
+            0.09768
+          ],
+          "size": [
+            0.293,
+            1.1359,
+            0.293
+          ],
+          "volume": 0.09752,
+          "footprint": 0.08586,
+          "aspect": "upright"
+        },
+        {
+          "index": 9,
+          "node": "street_009",
+          "tris": 60,
+          "sizeNorm": [
+            0.06431,
+            1.28622,
+            0.06431
+          ],
+          "size": [
+            0.1929,
+            3.8587,
+            0.1929
+          ],
+          "volume": 0.14363,
+          "footprint": 0.03722,
+          "aspect": "upright"
+        },
+        {
+          "index": 10,
+          "node": "street_010",
+          "tris": 110,
+          "sizeNorm": [
+            0.08572,
+            0.4674,
+            0.10271
+          ],
+          "size": [
+            0.2572,
+            1.4022,
+            0.3081
+          ],
+          "volume": 0.11111,
+          "footprint": 0.07924,
+          "aspect": "upright"
+        },
+        {
+          "index": 11,
+          "node": "street_011",
+          "tris": 60,
+          "sizeNorm": [
+            0.06431,
+            0.90035,
+            0.06431
+          ],
+          "size": [
+            0.1929,
+            2.701,
+            0.1929
+          ],
+          "volume": 0.10054,
+          "footprint": 0.03722,
+          "aspect": "upright"
+        },
+        {
+          "index": 12,
+          "node": "street_012",
+          "tris": 526,
+          "sizeNorm": [
+            0.40022,
+            0.14183,
+            0.11381
+          ],
+          "size": [
+            1.2007,
+            0.4255,
+            0.3414
+          ],
+          "volume": 0.17442,
+          "footprint": 0.40993,
+          "aspect": "flat"
+        },
+        {
+          "index": 13,
+          "node": "street_013",
+          "tris": 330,
+          "sizeNorm": [
+            0.06139,
+            0.21349,
+            0.0949
+          ],
+          "size": [
+            0.1842,
+            0.6405,
+            0.2847
+          ],
+          "volume": 0.03358,
+          "footprint": 0.05243,
+          "aspect": "upright"
+        },
+        {
+          "index": 14,
+          "node": "street_014",
+          "tris": 100,
+          "sizeNorm": [
+            0.21361,
+            0.23689,
+            0.07524
+          ],
+          "size": [
+            0.6408,
+            0.7107,
+            0.2257
+          ],
+          "volume": 0.1028,
+          "footprint": 0.14465,
+          "aspect": "wide"
+        },
+        {
+          "index": 15,
+          "node": "street_015",
+          "tris": 844,
+          "sizeNorm": [
+            0.27317,
+            0.08912,
+            0.19523
+          ],
+          "size": [
+            0.8195,
+            0.2674,
+            0.5857
+          ],
+          "volume": 0.12833,
+          "footprint": 0.47998,
+          "aspect": "flat"
+        },
+        {
+          "index": 16,
+          "node": "street_016",
+          "tris": 466,
+          "sizeNorm": [
+            0.27272,
+            0.18003,
+            0.07524
+          ],
+          "size": [
+            0.8182,
+            0.5401,
+            0.2257
+          ],
+          "volume": 0.09974,
+          "footprint": 0.18467,
+          "aspect": "wide"
+        },
+        {
+          "index": 17,
+          "node": "street_017",
+          "tris": 100,
+          "sizeNorm": [
+            0.15818,
+            0.197,
+            0.07524
+          ],
+          "size": [
+            0.4745,
+            0.591,
+            0.2257
+          ],
+          "volume": 0.0633,
+          "footprint": 0.10711,
+          "aspect": "wide"
+        },
+        {
+          "index": 18,
+          "node": "street_018",
+          "tris": 236,
+          "sizeNorm": [
+            0.06139,
+            0.14233,
+            0.0949
+          ],
+          "size": [
+            0.1842,
+            0.427,
+            0.2847
+          ],
+          "volume": 0.02239,
+          "footprint": 0.05243,
+          "aspect": "wide"
+        },
+        {
+          "index": 19,
+          "node": "street_019",
+          "tris": 310,
+          "sizeNorm": [
+            0.21349,
+            0.07116,
+            0.0949
+          ],
+          "size": [
+            0.6405,
+            0.2135,
+            0.2847
+          ],
+          "volume": 0.03893,
+          "footprint": 0.18234,
+          "aspect": "flat"
+        }
+      ]
+    },
+    {
+      "id": "crates",
+      "url": "assets/props/crates.glb",
+      "sourceDir": "_source-assets/props/crates",
+      "gap": 0,
+      "packScale": 1,
+      "props": [
+        {
+          "index": 0,
+          "node": "crates_000",
+          "tris": 45221,
+          "sizeNorm": [
+            1.02361,
+            2.09683,
+            4.0536
+          ],
+          "size": [
+            1.0236,
+            2.0968,
+            4.0536
+          ],
+          "volume": 8.70038,
+          "footprint": 4.14931,
+          "aspect": "wide"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,207 @@
+{
+  "generated": "2026-08-13T11:37:15.650Z",
+  "backend": "custom",
+  "results": [
+    {
+      "name": "staticSag",
+      "value": 0.06602908981128369,
+      "unit": "m",
+      "target": [
+        0.15,
+        0.23
+      ],
+      "pass": false
+    },
+    {
+      "name": "rideFrequencyHz",
+      "value": 1.3953488372093024,
+      "unit": "Hz",
+      "target": [
+        1.05,
+        1.35
+      ],
+      "pass": false
+    },
+    {
+      "name": "rideDampingZeta",
+      "value": null,
+      "unit": "",
+      "note": "overdamped / no peaks",
+      "target": [
+        0.25,
+        0.32
+      ],
+      "pass": false
+    },
+    {
+      "name": "settleOvershoots",
+      "value": 1,
+      "unit": "bounces",
+      "target": [
+        2,
+        4
+      ],
+      "pass": false
+    },
+    {
+      "name": "accel0to60Kmh",
+      "value": 3.0416666666666585,
+      "unit": "s",
+      "target": [
+        4,
+        7
+      ],
+      "pass": false
+    },
+    {
+      "name": "accel0to80Kmh",
+      "value": 5.516666666666731,
+      "unit": "s",
+      "target": [
+        7,
+        12
+      ],
+      "pass": false
+    },
+    {
+      "name": "braking80to0m",
+      "value": 28.491876413219213,
+      "unit": "m",
+      "target": [
+        28,
+        42
+      ],
+      "pass": true
+    },
+    {
+      "name": "brakeDiveDeg",
+      "value": 1.571198334242745,
+      "unit": "deg",
+      "target": [
+        2.5,
+        3.5
+      ],
+      "pass": false
+    },
+    {
+      "name": "skidpadLatG",
+      "value": 0.8114812229206885,
+      "unit": "g",
+      "target": [
+        0.78,
+        0.88
+      ],
+      "pass": true
+    },
+    {
+      "name": "skidpadLatGWet",
+      "value": 0.6558270260674421,
+      "unit": "g",
+      "target": [
+        0.55,
+        0.65
+      ],
+      "pass": false
+    },
+    {
+      "name": "rollPerG",
+      "value": 5.247873088773641,
+      "unit": "deg/g",
+      "target": [
+        9,
+        11
+      ],
+      "pass": false
+    },
+    {
+      "name": "cornerRollover",
+      "value": 0,
+      "unit": "stays upright",
+      "target": [
+        0,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "stepSteerT63",
+      "value": 0.325,
+      "unit": "s",
+      "target": [
+        0.22,
+        0.32
+      ],
+      "pass": false
+    },
+    {
+      "name": "yawOvershoot",
+      "value": 1.016636594292109,
+      "unit": "x",
+      "target": [
+        1.15,
+        1.35
+      ],
+      "pass": false
+    },
+    {
+      "name": "powerOversteerDeg",
+      "value": -0.4189119287007528,
+      "unit": "deg",
+      "target": [
+        4,
+        40
+      ],
+      "pass": false
+    },
+    {
+      "name": "obliqueWallSpin",
+      "value": 0.011305948147277483,
+      "unit": "rad/s",
+      "target": [
+        0.8,
+        2
+      ],
+      "pass": false
+    },
+    {
+      "name": "wallSpeedRetention",
+      "value": 0.9586265670990344,
+      "unit": "x",
+      "target": [
+        0.55,
+        0.75
+      ],
+      "pass": false
+    },
+    {
+      "name": "soak60s",
+      "value": 1,
+      "unit": "ok",
+      "target": [
+        1,
+        1
+      ],
+      "pass": true
+    },
+    {
+      "name": "perfMsPerStep",
+      "value": 0.03610088888888889,
+      "unit": "ms",
+      "target": [
+        0,
+        0.12
+      ],
+      "pass": true
+    },
+    {
+      "name": "determinism",
+      "value": 1,
+      "unit": "",
+      "target": [
+        1,
+        1
+      ],
+      "pass": true
+    }
+  ]
+}

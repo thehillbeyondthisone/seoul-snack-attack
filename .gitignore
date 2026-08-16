@@ -1,0 +1,36 @@
+node_modules/
+dist/
+.vite/
+.DS_Store
+
+# ---------------------------------------------------------------------------
+# Raw asset sources (~1.26 GB). These are the INPUTS to `npm run assets`.
+# They are deliberately untracked: git is a poor store for hundreds of MB of
+# OBJ + uncompressed PBR maps, and none of it is needed to run the game.
+# The optimized GLBs under public/assets/ ARE committed, so a fresh clone can
+# `npm install && npm run dev` without them.
+#
+# If you need to regenerate assets you need these trees locally; keep them
+# backed up outside git (or move them to git-lfs / an asset bucket).
+# See ATTRIBUTION.md — licensing for all of this is still TBD.
+# ---------------------------------------------------------------------------
+/_source-assets/
+/_staging/
+
+# Build intermediates from tools/ (build-vehicle.mjs cleans its own up unless
+# given --keep; the older builders leave theirs behind)
+/public/assets/**/*.raw.glb
+/public/assets/**/*.webp.glb
+/public/assets/**/*.norm.glb
+
+# Scratch
+*.tmp.mjs
+/.work/
+
+# Map-rebuild scratch area: intermediate city GLBs and QA screenshots (~258 MB).
+# The .mjs measurement/layout scripts in there are worth keeping, so they are
+# re-included below.
+/_work/*
+!/_work/city-rebuild/
+/_work/city-rebuild/*
+!/_work/city-rebuild/*.mjs
