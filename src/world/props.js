@@ -376,7 +376,12 @@ function layoutWorld(defs, city, seed, lampAnchors, t = () => 0, density = 1) {
       const ground = city.findGroundLocal(p.x, p.z);
       if (!ground || ground.point.y < city.roadBox.min.y + 0.06) return null;
       p.copy(ground.point);
-      const yaw = def.meta.yaw === 'street' ? a.streetYaw : rng() * Math.PI * 2;
+      // 'road' turns the prop's face toward the carriageway. Vending machines,
+      // kiosks and cabinets have a definite front, and a random yaw leaves half
+      // of them presenting their blank back to the street.
+      const yaw = def.meta.yaw === 'street' ? a.streetYaw
+        : def.meta.yaw === 'road' ? Math.atan2(-a.inward.x, -a.inward.z)
+          : rng() * Math.PI * 2;
       if (!tryPlace(def, p, yaw, 1.6)) return null;
       if (def.meta.lampAnchor) {
         lampAnchors.push(grid.localToWorld(t, p, new THREE.Vector3()));

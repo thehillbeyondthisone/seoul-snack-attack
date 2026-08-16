@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-15T19:58:15.916Z",
+  "generated": "2026-08-16T00:53:27.809Z",
   "texSize": 1024,
   "packs": [
     {
@@ -1474,6 +1474,276 @@
           ],
           "volume": 0.03893,
           "footprint": 0.18234,
+          "aspect": "flat"
+        }
+      ]
+    },
+    {
+      "id": "vending-xylitol",
+      "url": "assets/props/vending-xylitol.glb",
+      "sourceDir": "01- Xylitol.Vending.Machine",
+      "gap": 0.02,
+      "packScale": 0.925,
+      "props": [
+        {
+          "index": 0,
+          "node": "vending-xylitol_000",
+          "tris": 12,
+          "sizeNorm": [
+            0.95,
+            1.85,
+            0.8
+          ],
+          "size": [
+            0.8788,
+            1.7112,
+            0.74
+          ],
+          "volume": 1.11278,
+          "footprint": 0.65028,
+          "aspect": "wide"
+        }
+      ]
+    },
+    {
+      "id": "vending-korail",
+      "url": "assets/props/vending-korail.glb",
+      "sourceDir": "02- Korail.Coffee.Machine",
+      "gap": 0.02,
+      "packScale": 0.875,
+      "props": [
+        {
+          "index": 0,
+          "node": "vending-korail_000",
+          "tris": 12,
+          "sizeNorm": [
+            0.78,
+            1.75,
+            0.72
+          ],
+          "size": [
+            0.6825,
+            1.5313,
+            0.63
+          ],
+          "volume": 0.6584,
+          "footprint": 0.42997,
+          "aspect": "upright"
+        }
+      ]
+    },
+    {
+      "id": "vending-samsung",
+      "url": "assets/props/vending-samsung.glb",
+      "sourceDir": "03- Vintage.Samsung.Vending.Machine",
+      "gap": 0.02,
+      "packScale": 0.925,
+      "props": [
+        {
+          "index": 0,
+          "node": "vending-samsung_000",
+          "tris": 12,
+          "sizeNorm": [
+            0.95,
+            1.85,
+            0.8
+          ],
+          "size": [
+            0.8788,
+            1.7113,
+            0.74
+          ],
+          "volume": 1.11278,
+          "footprint": 0.65028,
+          "aspect": "wide"
+        }
+      ]
+    },
+    {
+      "id": "vending-drinks",
+      "url": "assets/props/vending-drinks.glb",
+      "sourceDir": "04- Vending",
+      "gap": 0.02,
+      "packScale": 0.94,
+      "props": [
+        {
+          "index": 0,
+          "node": "vending-drinks_000",
+          "tris": 12,
+          "sizeNorm": [
+            1,
+            1.88,
+            0.82
+          ],
+          "size": [
+            0.94,
+            1.7672,
+            0.7708
+          ],
+          "volume": 1.28043,
+          "footprint": 0.72455,
+          "aspect": "wide"
+        }
+      ]
+    },
+    {
+      "id": "kiosk-digital",
+      "url": "assets/props/kiosk-digital.glb",
+      "sourceDir": "05- Korean.Digital.Kiosk",
+      "gap": 0.02,
+      "packScale": 1.05,
+      "props": [
+        {
+          "index": 0,
+          "node": "kiosk-digital_000",
+          "tris": 553,
+          "sizeNorm": [
+            1.1,
+            2.1,
+            0.85
+          ],
+          "size": [
+            1.155,
+            2.205,
+            0.8925
+          ],
+          "volume": 2.273,
+          "footprint": 1.03084,
+          "aspect": "wide"
+        }
+      ]
+    },
+    {
+      "id": "vending-pokari",
+      "url": "assets/props/vending-pokari.glb",
+      "sourceDir": "06- Pokari.Sweat.Vending.Machine",
+      "gap": 0.02,
+      "packScale": 0.925,
+      "props": [
+        {
+          "index": 0,
+          "node": "vending-pokari_000",
+          "tris": 12,
+          "sizeNorm": [
+            0.95,
+            1.85,
+            0.8
+          ],
+          "size": [
+            0.8788,
+            1.7113,
+            0.74
+          ],
+          "volume": 1.11278,
+          "footprint": 0.65028,
+          "aspect": "wide"
+        }
+      ]
+    },
+    {
+      "id": "vending-toygo",
+      "url": "assets/props/vending-toygo.glb",
+      "sourceDir": "07- Korean.Toygo.Diorama.Vending.Machine.Low.poly.3D",
+      "gap": 0.02,
+      "packScale": 0.675,
+      "props": [
+        {
+          "index": 0,
+          "node": "vending-toygo_000",
+          "tris": 12,
+          "sizeNorm": [
+            0.72,
+            1.35,
+            0.62
+          ],
+          "size": [
+            0.486,
+            0.9113,
+            0.4185
+          ],
+          "volume": 0.18534,
+          "footprint": 0.20339,
+          "aspect": "wide"
+        }
+      ]
+    },
+    {
+      "id": "trash",
+      "url": "assets/props/trash.glb",
+      "sourceDir": "09- Lowpoly.Trash",
+      "gap": 0.03,
+      "packScale": 0.75,
+      "props": [
+        {
+          "index": 0,
+          "node": "trash_000",
+          "tris": 8,
+          "sizeNorm": [
+            0.00657,
+            0.00758,
+            0.02563
+          ],
+          "size": [
+            0.0049,
+            0.0057,
+            0.0192
+          ],
+          "volume": 0,
+          "footprint": 0.00009,
+          "aspect": "flat"
+        },
+        {
+          "index": 1,
+          "node": "trash_001",
+          "tris": 8,
+          "sizeNorm": [
+            0.00657,
+            0.00758,
+            0.06638
+          ],
+          "size": [
+            0.0049,
+            0.0057,
+            0.0498
+          ],
+          "volume": 0,
+          "footprint": 0.00025,
+          "aspect": "flat"
+        },
+        {
+          "index": 2,
+          "node": "trash_002",
+          "tris": 8,
+          "sizeNorm": [
+            0.00652,
+            0.00758,
+            0.09636
+          ],
+          "size": [
+            0.0049,
+            0.0057,
+            0.0723
+          ],
+          "volume": 0,
+          "footprint": 0.00035,
+          "aspect": "flat"
+        },
+        {
+          "index": 3,
+          "node": "trash_003",
+          "tris": 2507,
+          "sizeNorm": [
+            1.44812,
+            0.33607,
+            1.33284
+          ],
+          "size": [
+            1.0861,
+            0.252,
+            0.9996
+          ],
+          "volume": 0.27365,
+          "footprint": 1.08569,
           "aspect": "flat"
         }
       ]

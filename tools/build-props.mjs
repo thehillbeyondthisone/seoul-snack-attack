@@ -28,6 +28,8 @@ import path from 'node:path';
 import sharp from 'sharp';
 
 const SRC_ROOT = '_source-assets/props/NikolaJankovic';
+/** Seoul street furniture pulled in from the quarantined media library. */
+const SEOUL_ROOT = '_source-assets/props/seoul-street';
 const OUT_DIR = 'public/assets/props';
 const TMP_DIR = 'public/assets/props/.tmp';
 const TEX_SIZE = 1024;
@@ -43,6 +45,17 @@ const MIN_CLUSTER_TRIS = 8;
 // `packScale` converts normalized units to metres. One factor per pack is
 // correct: each pack came from a single authored scene, so props within it are
 // already mutually consistent. Calibrate with `?props=gallery`.
+//
+// Optional per-pack fields, needed by the Seoul street-furniture packs which do
+// not follow the NikolaJankovic conventions:
+//   `root`         source directory, when the pack is not under SRC_ROOT.
+//   `albedoSuffix` the trailing token identifying the base-colour map. The
+//                  NikolaJankovic packs all end `_albedo`; the photogrammetry
+//                  packs end `_0` (their single baked diffuse), and this is a
+//                  regex fragment, so anything exotic must arrive escaped.
+//   `zUp`          rotate -90 degrees about X at build time. Blender exports
+//                  Z-up by default and these packs kept it, so without this
+//                  every vending machine ships lying on its back.
 const PACKS = [
   { id: 'car-microvan', dir: '01- Car', gap: 0.02, packScale: 1.70 },
   { id: 'car-truck', dir: '02- Car', gap: 0.02, packScale: 2.50 },
@@ -52,6 +65,24 @@ const PACKS = [
   { id: 'hvac', dir: '06- Seoul.Props.7', gap: 0.08, packScale: 1.30 },
   { id: 'trafficsigns', dir: '07- Seoul.Props.2', gap: 0.08, packScale: 2.40 },
   { id: 'street', dir: '08- Seoul.Props.1', gap: 0.02, packScale: 3.00 },
+
+  // ---- Seoul street furniture ---------------------------------------------
+  // Vending machines and kiosks: the single most recognisable thing on a Seoul
+  // pavement, and almost free to render — the photogrammetry packs are literal
+  // textured cuboids, 12 triangles each, carrying a high-resolution photo.
+  // packScale is calibrated against a real machine height of roughly 1.85 m;
+  // re-check any change with `?props=gallery`.
+  { id: 'vending-xylitol', root: SEOUL_ROOT, dir: '01- Xylitol.Vending.Machine', gap: 0.02, albedoSuffix: '0', zUp: true, fitSize: [0.95, 1.85, 0.80] },
+  { id: 'vending-korail', root: SEOUL_ROOT, dir: '02- Korail.Coffee.Machine', gap: 0.02, albedoSuffix: '0', zUp: true, fitSize: [0.78, 1.75, 0.72] },
+  { id: 'vending-samsung', root: SEOUL_ROOT, dir: '03- Vintage.Samsung.Vending.Machine', gap: 0.02, albedoSuffix: '0', zUp: true, fitSize: [0.95, 1.85, 0.80] },
+  { id: 'vending-drinks', root: SEOUL_ROOT, dir: '04- Vending', gap: 0.02, albedoSuffix: '0', zUp: true, fitSize: [1.00, 1.88, 0.82] },
+  { id: 'kiosk-digital', root: SEOUL_ROOT, dir: '05- Korean.Digital.Kiosk', gap: 0.02, albedoSuffix: '0', zUp: true, fitSize: [1.10, 2.10, 0.85] },
+  { id: 'vending-pokari', root: SEOUL_ROOT, dir: '06- Pokari.Sweat.Vending.Machine', gap: 0.02, albedoSuffix: '0', zUp: true, fitSize: [0.95, 1.85, 0.80] },
+  { id: 'vending-toygo', root: SEOUL_ROOT, dir: '07- Korean.Toygo.Diorama.Vending.Machine.Low.poly.3D', gap: 0.02, albedoSuffix: '0', zUp: true, fitSize: [0.72, 1.35, 0.62] },
+  // Bagged street rubbish. Already Y-up (its flattest axis is Y), so no
+  // rotation. Its maps are suffixed with export counters rather than roles, so
+  // only the diffuse is picked up — no normal, no ORM.
+  { id: 'trash', root: SEOUL_ROOT, dir: '09- Lowpoly.Trash', gap: 0.03, packScale: 0.75, albedoSuffix: '\\(1\\)' },
 ];
 
 // Packs that arrive as a finished GLB rather than a NikolaJankovic OBJ atlas.
@@ -103,6 +134,55 @@ function parseOBJ(file) {
     }
   }
   return { V, VT, VN, F };
+}
+
+/**
+ * Rotate a parsed OBJ -90 degrees about X, turning Blender's Z-up export into
+ * the game's Y-up: (x, y, z) -> (x, z, -y). Normals get the same treatment —
+ * the rotation is rigid, so no inverse-transpose is needed.
+ */
+function rotateZUpToYUp(obj) {
+  for (const array of [obj.V, obj.VN]) {
+    for (let i = 0; i < array.length; i += 3) {
+      const y = array[i + 1];
+      array[i + 1] = array[i + 2];
+      array[i + 2] = -y;
+    }
+  }
+}
+
+/**
+ * Scale a parsed OBJ so its bounding box becomes exactly `[w, h, d]` metres.
+ *
+ * The photogrammetry packs are single textured cuboids whose proportions bear
+ * no relation to the object photographed — a vending machine arrives as tall as
+ * it is deep. A uniform packScale cannot fix that, so these packs state their
+ * real-world size instead and get a per-axis fit. Only meaningful for packs
+ * that hold ONE object; on a multi-object atlas it would distort the whole
+ * layout.
+ */
+function fitOBJToSize(obj, [w, h, d]) {
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < obj.V.length; i += 3) {
+    for (let k = 0; k < 3; k++) {
+      if (obj.V[i + k] < min[k]) min[k] = obj.V[i + k];
+      if (obj.V[i + k] > max[k]) max[k] = obj.V[i + k];
+    }
+  }
+  const target = [w, h, d];
+  const factor = target.map((t, k) => (max[k] - min[k] > 1e-6 ? t / (max[k] - min[k]) : 1));
+  for (let i = 0; i < obj.V.length; i += 3) {
+    for (let k = 0; k < 3; k++) obj.V[i + k] *= factor[k];
+  }
+  // Non-uniform scaling needs the inverse transpose on normals, which for a
+  // pure diagonal is just the reciprocal per axis.
+  for (let i = 0; i < obj.VN.length; i += 3) {
+    let len = 0;
+    for (let k = 0; k < 3; k++) { obj.VN[i + k] /= factor[k]; len += obj.VN[i + k] ** 2; }
+    len = Math.sqrt(len) || 1;
+    for (let k = 0; k < 3; k++) obj.VN[i + k] /= len;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -294,11 +374,22 @@ const catalog = { generated: new Date().toISOString(), texSize: TEX_SIZE, packs:
 let totalProps = 0;
 
 for (const pack of packs) {
-  const dir = path.join(SRC_ROOT, pack.dir);
+  const dir = path.join(pack.root || SRC_ROOT, pack.dir);
   const objName = readdirSync(dir).find((f) => f.endsWith('.obj'));
   if (!objName) { console.warn(`! ${pack.id}: no .obj in ${dir}`); continue; }
 
   const obj = parseOBJ(path.join(dir, objName));
+  // Blender's default export is Z-up; the game is Y-up. Rotate before
+  // clustering, so every downstream measurement — bbox, footprint, aspect, the
+  // catalog sizes — describes the prop as it will actually stand.
+  if (pack.zUp) rotateZUpToYUp(obj);
+  if (pack.fitSize) {
+    // Put the geometry in real metres, then set packScale to whatever undoes
+    // the clustering's normalization (which rescales the pack bbox to a max
+    // dimension of 2.0). Stating a size beats hand-tuning a scale factor.
+    fitOBJToSize(obj, pack.fitSize);
+    pack.packScale = Math.max(...pack.fitSize) / 2;
+  }
   const { clusters, islands, dropped } = clusterOBJ(obj, pack.gap);
   totalProps += clusters.length;
 
@@ -347,7 +438,7 @@ for (const pack of packs) {
     .setMetallicFactor(1)
     .setDoubleSided(true);
 
-  const albedo = await passthrough(findTex(dir, 'albedo'), TEX_SIZE);
+  const albedo = await passthrough(findTex(dir, pack.albedoSuffix || 'albedo'), TEX_SIZE);
   if (albedo) {
     mat.setBaseColorTexture(doc.createTexture(`${pack.id}_albedo`).setImage(albedo).setMimeType('image/png'));
   }
@@ -485,7 +576,22 @@ function aspectOf([x, y, z]) {
 }
 
 if (!dry) {
-  writeFileSync(path.join(OUT_DIR, 'catalog.json'), JSON.stringify(catalog, null, 2));
+  // A partial build (`build-props.mjs vending-pokari`) must not drop every pack
+  // it did not touch. The catalog is the runtime's only index, so overwriting it
+  // with a subset silently unplaces most of the city's props while leaving
+  // their GLBs on disk — which looks like a placement bug, not a build one.
+  const catalogPath = path.join(OUT_DIR, 'catalog.json');
+  if (wanted.length && existsSync(catalogPath)) {
+    const previous = JSON.parse(readFileSync(catalogPath, 'utf8'));
+    const rebuilt = new Set(catalog.packs.map((p) => p.id));
+    const kept = (previous.packs || []).filter(
+      (p) => !rebuilt.has(p.id) && existsSync(path.join(OUT_DIR, `${p.id}.glb`))
+    );
+    catalog.packs = [...kept, ...catalog.packs]
+      .sort((a, b) => a.id.localeCompare(b.id));
+    if (kept.length) console.log(`(kept ${kept.length} pack(s) from the previous catalog)`);
+  }
+  writeFileSync(catalogPath, JSON.stringify(catalog, null, 2));
   if (existsSync(TMP_DIR)) rmSync(TMP_DIR, { recursive: true, force: true });
   const bytes = catalog.packs.reduce((n, p) => n + statSync(path.join(OUT_DIR, `${p.id}.glb`)).size, 0);
   console.log(`\n${totalProps} props across ${catalog.packs.length} packs — ${(bytes / 1e6).toFixed(2)} MB total`);

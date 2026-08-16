@@ -48,7 +48,7 @@ export const PROPS = {
   'barriers:8': { name: 'tree guard', body: 'static', shape: 'cylinder', mass: 0, place: ['curb'], weight: 1 },
 
   // ---- HVAC / utility (pack scale 1.3) -----------------------------------
-  'hvac:0': { name: 'condenser unit', body: 'static', shape: 'box', mass: 0, place: ['curb'], weight: 2, yaw: 'wall' },
+  'hvac:0': { name: 'condenser unit', body: 'static', shape: 'box', mass: 0, place: ['curb'], weight: 2, yaw: 'road' },
   'hvac:1': { name: 'wall AC', body: 'decor', place: ['wall'], weight: 3, heightBand: [2.2, 4.2] },
   'hvac:2': { name: 'wall AC', body: 'decor', place: ['wall'], weight: 3, heightBand: [2.2, 4.2] },
   'hvac:5': { name: 'vent box', body: 'decor', place: ['wall'], weight: 2, heightBand: [1.8, 3.6] },
@@ -81,6 +81,30 @@ export const PROPS = {
   // awake set. It reads as shop overflow against the frontage. `weight` is low
   // so a 4 m pile stays an accent and does not line the whole kerb.
   'crates:0': { name: 'crate stack', body: 'static', shape: 'box', mass: 0, place: ['curb'], weight: 1, yaw: 'street' },
+
+  // ---- Seoul street furniture (fitSize packs, real metres) ----------------
+  // Vending machines are the single most recognisable thing on a Seoul
+  // pavement, and the cheapest geometry in the whole catalog: the
+  // photogrammetry packs are textured cuboids, 12 triangles each, so a machine
+  // costs less than a traffic cone. They have a definite front, so they take
+  // yaw 'road' and turn to face the carriageway.
+  //
+  // 'static', not 'dynamic': a loaded drinks machine is ~300 kg and bolted or
+  // wedged against a wall in practice, and letting a van punt one down the
+  // street would read as a physics toy rather than as a city.
+  'vending-pokari:0': { name: 'vending machine', body: 'static', shape: 'box', mass: 0, place: ['curb'], weight: 3, yaw: 'road' },
+  'vending-samsung:0': { name: 'vending machine', body: 'static', shape: 'box', mass: 0, place: ['curb'], weight: 3, yaw: 'road' },
+  'vending-xylitol:0': { name: 'vending machine', body: 'static', shape: 'box', mass: 0, place: ['curb'], weight: 3, yaw: 'road' },
+  'vending-drinks:0': { name: 'vending machine', body: 'static', shape: 'box', mass: 0, place: ['curb'], weight: 3, yaw: 'road' },
+  'vending-korail:0': { name: 'coffee machine', body: 'static', shape: 'box', mass: 0, place: ['curb'], weight: 2, yaw: 'road' },
+  // A capsule-toy machine — small enough to shove, so this one is knockable.
+  'vending-toygo:0': { name: 'capsule machine', body: 'dynamic', shape: 'box', mass: 85, place: ['curb'], weight: 2, yaw: 'road' },
+  'kiosk-digital:0': { name: 'digital kiosk', body: 'static', shape: 'box', mass: 0, place: ['curb'], weight: 2, yaw: 'road' },
+
+  // Bagged rubbish out for collection. 'decor' so the van passes through it
+  // rather than tripping over a 0.25 m scatter, and low weight so it stays an
+  // accent rather than lining every kerb.
+  'trash:3': { name: 'street rubbish', body: 'decor', place: ['curb'], weight: 2, yaw: 'random' },
 };
 
 /** Fallback density (kg/m^3 of bounding volume) for unauthored props. */
