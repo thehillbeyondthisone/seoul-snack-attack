@@ -1,12 +1,19 @@
-// Closed-district topology and routing gate. Pure geometry: no browser/WebGL.
+// District topology and routing gate. Pure geometry: no browser/WebGL.
+//
+// Builds the SAME graph src/world/city.js builds — buildDistrictGraph over the
+// real TILE_LAYOUT, then createRoadGraph — so a failure here is a failure the
+// player would hit. The previous version drove createLadderRoadGraph off
+// STREET_ROWS_Z/STREET_CROSS_X, a ladder the game stopped constructing when the
+// layout became explicit placements; it passed happily while validating a graph
+// that no longer existed.
 import fs from 'node:fs';
 import * as THREE from 'three';
 import { makeTileGrid } from '../../src/world/tiling.js';
-import { createLadderRoadGraph, createDeliveryAnchors, validateRoadGraph } from '../../src/world/road-network.js';
+import { buildDistrictGraph } from '../../src/world/district-roads.js';
+import { createRoadGraph, createDeliveryAnchors, validateRoadGraph } from '../../src/world/road-network.js';
 import { minimapArrowRotation } from '../../src/ui/hud3.js';
 import {
-  TILE_COLS, TILE_ROWS, TILE_FLIP_ODD_ROWS, TILE_OVERHANG,
-  STREET_ROWS_Z, STREET_CROSS_X, STREET_WIDTH, STREET_GATES,
+  TILE_LAYOUT, TILE_OVERHANG, STREET_WIDTH, DISTRICT_LINKS,
 } from '../../src/world/city-constants.js';
 
 const meta = JSON.parse(fs.readFileSync(new URL('./data/city.collider.json', import.meta.url), 'utf8'));
@@ -16,35 +23,24 @@ const tileBounds = new THREE.Box3(
 );
 const grid = makeTileGrid({
   tileBox: tileBounds,
-  cols: TILE_COLS,
-  rows: TILE_ROWS,
-  flipOddRows: TILE_FLIP_ODD_ROWS,
+  placements: TILE_LAYOUT,
   overhang: TILE_OVERHANG,
 });
-// Mirror src/world/city.js exactly: the block carries several streets, so both
-// lists are the product of the authored centrelines and the tile grid.
+
 const roadY = meta.roadBox.min[1];
-const rows = [];
-for (let row = 0; row < grid.rows; row++) {
-  for (const z of STREET_ROWS_Z) {
-    rows.push(grid.localToWorld(row * grid.cols, new THREE.Vector3(0, roadY, z), new THREE.Vector3()).z);
-  }
-}
-const crosses = [];
-for (let col = 0; col < grid.cols; col++) {
-  for (const x of STREET_CROSS_X) {
-    crosses.push(grid.localToWorld(col, new THREE.Vector3(x, roadY, 0), new THREE.Vector3()).x);
-  }
-}
-const graph = createLadderRoadGraph({
-  coreBounds: grid.worldBounds,
-  rowCenters: rows,
-  crossCenters: crosses,
-  roadY,
+const districtNet = buildDistrictGraph(grid, { roadY, links: DISTRICT_LINKS });
+const districtBounds = new THREE.Box3().makeEmpty();
+for (const cell of grid.cellBounds) districtBounds.union(cell);
+const graph = createRoadGraph({
+  nodes: districtNet.nodes,
+  edges: districtNet.edges,
+  bounds: districtBounds,
   roadWidth: STREET_WIDTH,
-  gates: STREET_GATES,
 });
-const anchors = createDeliveryAnchors(graph);
+// The bench has no BVH, so anchors get a flat-ground stand-in. The real ground
+// probe is exercised in the browser and by tiling-check's street sweep.
+const anchors = createDeliveryAnchors(graph, (x, z) => ({ point: { x, y: roadY, z } }));
+
 let failures = 0;
 function check(name, pass, detail = '') {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
@@ -52,25 +48,33 @@ function check(name, pass, detail = '') {
 }
 
 const topology = validateRoadGraph(graph);
-check('connected graph, no degree-one nodes, no bridges', topology.ok, topology.errors.join('; '));
-// Expected counts are derived, not literal, so the gate keeps meaning when the
-// street layout changes. Rows span cross-to-cross without gates, and gain one
-// segment at each end with them.
-const nRows = rows.length;
-const nCross = crosses.length;
-const segmentsPerRow = STREET_GATES ? nCross + 1 : nCross - 1;
-check(`${nRows} streets, ${nCross} cross streets, gates ${STREET_GATES ? 'on' : 'off'}`,
-  graph.rows.length === nRows && graph.crosses.length === nCross &&
-  graph.edges.filter((e) => e.kind === 'street').length === nRows * segmentsPerRow &&
-  graph.edges.filter((e) => e.kind === 'cross').length === nCross * (nRows - 1) &&
-  graph.edges.filter((e) => e.kind === 'connector').length === (STREET_GATES ? 2 * (nRows - 1) : 0),
-  `${graph.edges.length} edges over ${graph.nodes.length} nodes`);
-check('all delivery anchors carry a road edge and curb heading',
-  anchors.length === nRows * 5 && anchors.every((a) => graph.edgeById.has(a.edgeId) && Number.isFinite(a.heading)),
-  `${anchors.length} anchors`);
-check('delivery anchors sit in the curb lane', anchors.every((a) =>
-  Math.abs(a.point.z - a.roadPoint.z) >= graph.roadWidth * 0.44 &&
-  Math.abs(a.point.z - a.roadPoint.z) < graph.roadWidth * 0.5));
+check('connected graph, no degree-one nodes, no bridges', topology.ok, topology.errors.slice(0, 4).join('; '));
+
+// Structure is derived from the layout, not hard-coded, so this keeps meaning
+// when districts are added. Each district contributes a 3-edge U; each link
+// contributes two connectors; edge-of-fabric districts add a perimeter loop.
+const districts = TILE_LAYOUT.length;
+const streetEdges = graph.edges.filter((e) => e.kind === 'street').length;
+const connectorEdges = graph.edges.filter((e) => e.kind === 'connector').length;
+const throatEdges = graph.edges.filter((e) => e.kind === 'throat').length;
+check(`${districts} districts, ${DISTRICT_LINKS.length} links`,
+  streetEdges === districts * 3
+  && connectorEdges >= DISTRICT_LINKS.length * 2
+  && throatEdges === DISTRICT_LINKS.length * 4,
+  `${graph.edges.length} edges over ${graph.nodes.length} nodes `
+  + `(street ${streetEdges}, throat ${throatEdges}, connector ${connectorEdges})`);
+
+check('every district carries delivery anchors',
+  anchors.length === districts * 3 && anchors.every((a) => graph.edgeById.has(a.edgeId) && Number.isFinite(a.heading)),
+  `${anchors.length} anchors across ${districts} districts`);
+
+// Anchors are offset perpendicular to their edge at 32% of road width — far
+// enough off centre to read as a kerbside stop, close enough to stay on the
+// carriageway of these 5.5 m streets.
+check('delivery anchors sit in the curb lane', anchors.every((a) => {
+  const offset = Math.hypot(a.point.x - a.roadPoint.x, a.point.z - a.roadPoint.z);
+  return offset >= graph.roadWidth * 0.30 && offset < graph.roadWidth * 0.34;
+}));
 
 let unreachable = 0;
 let invalidDistance = 0;
@@ -86,47 +90,42 @@ check('all routes have positive road distance and geometry', invalidDistance ===
 let projectionError = 0;
 for (const edge of graph.edges) {
   const p = edge.points[0].clone().lerp(edge.points[1], 0.37);
-  const projected = graph.project(p.clone().add(new THREE.Vector3(2, 0, 1)));
+  const projected = graph.project(p.clone().add(new THREE.Vector3(0.6, 0, 0.3)));
   if (!projected || projected.edgeId !== edge.id || projected.lateralDistance > 2.3) projectionError++;
 }
 check('nearest-road projection recovers every edge', projectionError === 0, `${projectionError} mismatches`);
 
-// Every street-to-street journey must use a loop connector without reversing.
-let rowFailures = 0;
-const streets = graph.rows;
-for (let a = 0; a < streets.length; a++) for (let b = 0; b < streets.length; b++) {
-  if (a === b) continue;
-  const from = streets[a].points[0].clone().lerp(streets[a].points[streets[a].points.length - 1], 0.5);
-  const to = streets[b].points[0].clone().lerp(streets[b].points[streets[b].points.length - 1], 0.5);
-  const route = graph.findRoute(
-    graph.project(from),
-    graph.project(to),
-  );
-  if (!route || !route.edgeIds.some((id) => id.startsWith('cross') || id.startsWith('west') || id.startsWith('east'))) rowFailures++;
+// Every district must be reachable from every other, which is what makes the
+// delivery generator safe to bind a restaurant to any anchor.
+{
+  const byDistrict = new Map();
+  for (const a of anchors) {
+    const d = Number(a.id.slice(1).split('-')[0]);
+    if (!byDistrict.has(d)) byDistrict.set(d, a);
+  }
+  let crossFailures = 0;
+  for (const [, from] of byDistrict) for (const [, to] of byDistrict) {
+    if (from === to) continue;
+    if (!graph.findRoute(from, to)) crossFailures++;
+  }
+  check('every district reaches every other district', crossFailures === 0,
+    `${byDistrict.size} districts, ${crossFailures} failures`);
 }
-check('every street reaches every other through a connector', rowFailures === 0, `${rowFailures} failures`);
 
-// Regression: the original minimap labels were mirrored. These two routes take
-// the same junction in opposite directions and must report opposite sides.
-//
-// Both leave a street midpoint heading -X to reach the junction. Facing -X with
-// +Y up, +Z is on the driver's LEFT and -Z on their RIGHT, so the route that
-// turns toward greater Z must say 'left' and its reverse 'right'. Asserting only
-// that the two are opposite would still pass under a full mirror, which is the
-// exact bug this guards.
-const rowMidpoint = (row) => row.points[0].clone().lerp(row.points[row.points.length - 1], 0.5);
-const [loZ, hiZ] = [graph.rows[0], graph.rows[graph.rows.length - 1]];
-const towardPositiveZ = graph.findRoute(
-  graph.project(rowMidpoint(loZ)),
-  graph.project(rowMidpoint(hiZ)),
-);
-const towardNegativeZ = graph.findRoute(
-  graph.project(rowMidpoint(hiZ)),
-  graph.project(rowMidpoint(loZ)),
-);
-check('minimap turn handedness is not mirrored',
-  towardPositiveZ?.maneuver?.type === 'left' && towardNegativeZ?.maneuver?.type === 'right',
-  `positive-Z route ${towardPositiveZ?.maneuver?.type}, negative-Z route ${towardNegativeZ?.maneuver?.type}`);
+// Regression: the original minimap labels were mirrored. District 0 is
+// unrotated, and its U runs nw -> sw -> se: south along the west street, then
+// east along the south street. Facing +Z (south) with +Y up, +X lies on the
+// driver's LEFT, so that corner is a left turn and the reverse a right turn.
+// Asserting only that the two are opposite would still pass under a full
+// mirror, which is the exact bug this guards.
+{
+  const at = (id) => graph.project(graph.byId.get(id).position);
+  const outbound = graph.findRoute(at('d0nw'), at('d0se'));
+  const inbound = graph.findRoute(at('d0se'), at('d0nw'));
+  check('minimap turn handedness is not mirrored',
+    outbound?.maneuver?.type === 'left' && inbound?.maneuver?.type === 'right',
+    `nw->se ${outbound?.maneuver?.type}, se->nw ${inbound?.maneuver?.type}`);
+}
 check('minimap vehicle arrow follows steering handedness',
   Math.abs(minimapArrowRotation(Math.PI) - Math.PI) < 1e-9 &&
   Math.abs(minimapArrowRotation(0)) < 1e-9 &&
