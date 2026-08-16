@@ -23,10 +23,22 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: true,
-    // Build inputs and visual-QA captures are not source modules. Watching the
-    // 70–95 MB GLBs on Windows can throw EBUSY and kill the dev server while
-    // an asset rebuild is replacing one of them.
-    watch: { ignored: ['**/_source-assets/**', '**/_staging/**', '**/_work/**'] },
+    // Build inputs, build OUTPUT, and visual-QA captures are not source
+    // modules. Watching the 70–95 MB GLBs on Windows can throw EBUSY and kill
+    // the dev server while an asset rebuild is replacing one of them.
+    //
+    // dist/ is the same hazard from the other end. `npm run build` empties and
+    // rewrites that whole directory — hundreds of files, including every asset
+    // copied out of public/ — in one burst, directly inside the folder this
+    // watcher is monitoring. Running a build while the dev server is up has
+    // wedged it: the watcher jams, takes the event loop with it, and the
+    // process ends up still holding port 5173 and still accepting connections
+    // while answering nothing. That looks like a network or firewall fault
+    // rather than a dead server, and it breaks localhost and LAN identically.
+    // Nothing is lost by ignoring it — dev serves from source, never from dist.
+    watch: {
+      ignored: ['**/_source-assets/**', '**/_staging/**', '**/_work/**', '**/dist/**'],
+    },
   },
   preview: { host: true, port: 4173, strictPort: true },
   build: {

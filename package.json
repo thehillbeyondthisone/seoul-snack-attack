@@ -15,7 +15,7 @@
     "props": "node tools/build-props.mjs",
     "collider": "node tools/build-collider.mjs",
     "bench": "node tools/bench/bench.mjs",
-    "check": "node tools/bench/tiling-check.mjs && node tools/bench/road-graph-check.mjs && node tools/bench/props-check.mjs && node tools/bench/audio-check.mjs && node tools/bench/touch-controls-check.mjs && node tools/bench/graphics-quality-check.mjs && node tools/bench/encoding-check.mjs",
+    "check": "node tools/bench/tiling-check.mjs && node tools/bench/road-graph-check.mjs && node tools/bench/props-check.mjs && node tools/bench/audio-check.mjs && node tools/bench/touch-controls-check.mjs && node tools/bench/graphics-quality-check.mjs && node tools/bench/quickstart-check.mjs && node tools/bench/encoding-check.mjs",
     "tiling": "node tools/bench/tiling-check.mjs",
     "road-check": "node tools/bench/road-graph-check.mjs",
     "props-check": "node tools/bench/props-check.mjs",
