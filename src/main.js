@@ -15,6 +15,7 @@ import { loadVan } from './vehicle/van.js';
 import { loadVehicle } from './vehicle/vehicle.js';
 import { VehiclePhysics } from './vehicle/physics.js';
 import { getVehicle, VEHICLE_IDS, DEFAULT_VEHICLE } from './game/data/vehicles.js';
+import { soundtrackTracks } from './game/data/soundtrack.js';
 import { loadSave } from './game/save.js';
 import { ChaseCamera } from './vehicle/camera.js';
 import { Orders } from './game/orders.js';
@@ -176,24 +177,8 @@ async function boot() {
   const input = new Input();
   const hud = new HUD3();
   hud.setControllerStatus(input.supported ? 'waiting' : 'unsupported');
-  // Add uploaded MP3s here to expand the car stereo.
-  //
-  // The files MUST live in public/audio/music/ — that is the source, and vite
-  // copies it into dist/audio/music/ on every build. A track dropped straight
-  // into dist/ plays until the next `npm run build` empties the folder and it is
-  // gone, which is exactly how Countdown / Rapid Fire / Supersonic Fire went
-  // missing. Kebab-case the filenames to match: they end up in a URL.
-  const soundtrack = new Soundtrack([
-    { url: `${import.meta.env.BASE_URL}audio/music/budae-sizzle-hot.mp3`, title: 'BUDAE (Sizzle Hot)' },
-    { url: `${import.meta.env.BASE_URL}audio/music/drop-it-red.mp3`, title: 'Drop It Red' },
-    { url: `${import.meta.env.BASE_URL}audio/music/drop-it-red-remix.mp3`, title: 'Drop It Red (Remix)' },
-    { url: `${import.meta.env.BASE_URL}audio/music/calorie-bomb.mp3`, title: 'Calorie Bomb' },
-    { url: `${import.meta.env.BASE_URL}audio/music/crown-step.mp3`, title: 'Crown Step' },
-    { url: `${import.meta.env.BASE_URL}audio/music/sizzle.mp3`, title: 'Sizzle' },
-    { url: `${import.meta.env.BASE_URL}audio/music/supersonic-fire.mp3`, title: 'Supersonic Fire' },
-    { url: `${import.meta.env.BASE_URL}audio/music/rapid-fire-cover.mp3`, title: 'Rapid Fire (Cover)' },
-    { url: `${import.meta.env.BASE_URL}audio/music/countdown.mp3`, title: 'Countdown' },
-  ]);
+  // Playlist and play ORDER live in src/game/data/soundtrack.js — edit there.
+  const soundtrack = new Soundtrack(soundtrackTracks(import.meta.env.BASE_URL));
   const audio = new AudioManager({ music: soundtrack });
   hud.bindAudioControls?.({ soundtrack, audio });
   hud.setAudioStatus?.(audio.muted ? 'muted' : 'ready');

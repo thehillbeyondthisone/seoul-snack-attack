@@ -87,11 +87,35 @@ const CSS = `
   font: 750 9px/1.15 inherit; letter-spacing: .06em; touch-action: none;
 }
 #touch-controls .touch-action.pressed { color: #07101a; background: var(--touch-nav); }
+/* Keyboard and gamepad hints have nothing to say on a touch device. */
 body.touch-controls-active #hud3 .legend,
 body.touch-controls-active #hud3 .translate-hint,
 body.touch-controls-active #hud3 .pad-status,
-body.touch-controls-active #hud3 .garage-status,
-body.touch-controls-active #hud3 .audio-status { display: none; }
+body.touch-controls-active #hud3 .garage-status { display: none; }
+/* The audio chip is NOT a keyboard hint — it is the only way to open the mixer,
+   and hiding it here left touch players with no music controls at all: no
+   prev/next, no pause, no volume. It stays, sized as a real tap target rather
+   than as the 10px desktop caption. */
+body.touch-controls-active #hud3 .audio-status {
+  display: inline-flex; align-items: center; align-self: flex-start;
+  min-height: 38px; padding: 9px 14px; border-radius: 20px;
+  font-size: 11px; letter-spacing: .06em;
+  background: rgba(4,6,12,.78); border-color: rgba(238,244,255,.32);
+}
+/* Sliders and transport buttons need finger-sized rows too.
+   NOTE: this stylesheet is a JS template literal — no backticks in comments.
+   The offset has to clear the touch stack (150px) plus the taller audio chip,
+   or the chip overlaps the panel and a tap meant for PREV shuts the menu.
+   border-box keeps the 14/16px padding inside the width on a 375px screen. */
+body.touch-controls-active #hud3 .audio-menu {
+  box-sizing: border-box;
+  width: min(320px, calc(100vw - 36px));
+  bottom: 222px;
+}
+body.touch-controls-active #hud3 .audio-menu input[type="range"] { height: 30px; }
+body.touch-controls-active #hud3 .audio-menu button {
+  min-height: 38px; padding: 9px 12px; font-size: 11px;
+}
 body.touch-controls-active #hud3 .stack { bottom: 150px; }
 body.touch-controls-active #hud3 .minimap {
   top: 94px; right: 14px; bottom: auto; width: 184px; padding: 6px;
