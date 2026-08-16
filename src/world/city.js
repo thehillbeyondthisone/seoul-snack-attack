@@ -23,6 +23,7 @@ import { createEndZones } from './end-zones.js';
 import { StreetlightPool } from './streetlights.js';
 import { createNightRig, blockPalette, NIGHT } from './lighting.js';
 import { analyzeBlock, applyBlockVariant } from './block-variants.js';
+import { createSkyline } from './skyline.js';
 import {
   CITY_SCALE, FOG_MESH_RE, ROAD_MAT_RE, isClipped,
   TILE_LAYOUT, TILE_FLIP_ODD_ROWS, TILE_OVERHANG, TILE_CULL_DISTANCE, TILE_REPEATING,
@@ -338,6 +339,14 @@ export async function loadCity(scene, manager, url = 'assets/world/seoul-block.g
   });
   for (const material of endZones.roadMaterials) roadMaterials.set(material, snap(material));
 
+  // ---- Skyline ------------------------------------------------------------
+  // Distant towers past the boundary, so the world does not end in flat haze.
+  // Purely visual: outside the perimeter walls, in no raycast, one draw call.
+  const skyline = createSkyline(scene, {
+    bounds: endZones.bounds, roadY, manager,
+  });
+  emissiveMaterials.push(...skyline.emissiveMaterials);
+
   /** Composite nearest-hit raycast across the tiled and unique static BVHs. */
   function raycast(origin, dir, far = 100) {
     const authored = authoredRaycast(origin, dir, far);
@@ -569,7 +578,7 @@ export async function loadCity(scene, manager, url = 'assets/world/seoul-block.g
   function findRoute(start, destination) { return roadGraph.findRoute(start, destination); }
 
   return {
-    group: block, tiles, grid, bvh, colliderGeo, connectors, endZones,
+    group: block, tiles, grid, bvh, colliderGeo, connectors, endZones, skyline,
     raycast, localRaycast: localCast, findGround, findGroundLocal, clearSkyLocal,
     spawn, localSpawn, safeResetPoints, getSafeReset, bounds, tileBounds, districtBounds, worldBounds, roadBox, points, localPoints,
     roadGraph, deliveryAnchors, projectToRoad, findRoute,
