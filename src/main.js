@@ -103,7 +103,7 @@ async function boot() {
   const vehicleDef = getVehicle(carId);
 
   const [city, van] = await Promise.all([
-    loadCity(scene, manager, 'assets/world/city.glb', renderer, setLoadingProgress),
+    loadCity(scene, manager, 'assets/world/seoul-block.glb', renderer, setLoadingProgress),
     // Assets built through tools/build-vehicle.mjs carry a baked rig and go
     // through the thin loader; the van is still on its runtime heuristics.
     // See the `van` note in src/game/data/vehicles.js for why it has not moved.
@@ -114,12 +114,13 @@ async function boot() {
   setLoadingProgress(94, '게임 시스템 준비 중 · Preparing game systems');
   console.log(`vehicle: ${vehicleDef.nameEn} (${vehicleDef.id}, ${vehicleDef.loader} rig)`);
 
-  // Storefront dressing is OFF by default: the Buildings IV block already
-  // carries dense authored storefront dressing, and layering procedural shops
-  // on top double-dresses every frontage. `?shops=on` keeps it available for
-  // comparison QA.
+  // Storefront dressing is ON by default. The Seoul block is one authored
+  // corner repeated across the fabric, so the Korean shopfronts and neon signs
+  // are what make each district read as a different street rather than the same
+  // corner again — they are the map, not a garnish. `?shops=off` drops them for
+  // performance QA.
   let district = null;
-  if (qp.get('shops') === 'on') {
+  if (qp.get('shops') !== 'off') {
     try {
       district = await loadDistrictDressing(scene, manager, city);
       city.pickupSites = district.pickupSites;
@@ -133,7 +134,7 @@ async function boot() {
     }
   } else {
     city.pickupSites = [];
-    console.log('district: procedural shops off (default); pass ?shops=on to layer them in');
+    console.log('district: procedural shops off (?shops=off)');
   }
   setLoadingProgress(96, '첫 장면 준비 중 · Preparing the first scene');
 

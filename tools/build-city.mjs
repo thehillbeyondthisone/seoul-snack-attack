@@ -1,32 +1,41 @@
-// Build optimized city GLB from the raw 73MB Blender export.
+// Build the optimized Seoul block GLB from the raw Blender export.
 // Usage: node tools/build-city.mjs
 //
-// The district is "Full Gameready City Buildings III — Hong Kong": one authored
-// block, 101.9 x 96.1 m, authored at TRUE METRIC SCALE (hence CITY_SCALE = 1)
-// and used as a single tile. It replaced Untitled4.glb, which was an 18.2 x
-// 10.1 m street corner with 4.1 m buildings scaled x3 and stamped 35 times —
-// the whole game held ~30 m of unique street.
+// The district is the hand-built Seoul block this repository is named after:
+// one authored street corner, 18.2 x 10.1 m raw with 4.1 m buildings, scaled x3
+// at runtime (CITY_SCALE) to a 54.6 x 30.3 m block with 12.3 m frontages. The
+// street runs along X in the northern strip; a sidewalk and shopfront row sits
+// to the south. src/world/city-constants.js places copies of it.
+//
+// It replaced the Hong Kong "Buildings III/IV" packs, which were the right size
+// but the wrong city — every facade and sign in them is Cantonese. Those sources
+// are still on disk under _source-assets/city/ and _work/city-rebuild/, but
+// nothing in the build or the runtime references them any more.
+//
+// NOTE: there is deliberately no tools/prepare-city.mjs step here. That script
+// runs glTF flatten() and join(), which destructively combined objects whose
+// transforms and materials had to stay separate and mangled the city (see
+// handoff.md). The Seoul block does not need it either way: it arrives as 101
+// nodes / 57 materials, which is already close to what prepare-city.mjs was
+// trying to reach on the 466-node Hong Kong scene.
 import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
-const SRC = '_source-assets/city/hongkong-iii.glb';
+const SRC = '_source-assets/city/Untitled4.glb';
 const OUT_DIR = 'public/assets/world';
-const OUT = path.join(OUT_DIR, 'city.glb');
-const PREPARED = path.join(OUT_DIR, 'city.prepared.glb');
-const TMP = path.join(OUT_DIR, 'city.webp.glb');
+const OUT = path.join(OUT_DIR, 'seoul-block.glb');
+const TMP = path.join(OUT_DIR, 'seoul-block.webp.glb');
 
 mkdirSync(OUT_DIR, { recursive: true });
 
-// Reduce scene/material/draw-call structure first, then re-encode textures and
-// meshopt in separate processes (sharp conflicts with the functions package).
-execSync(`node tools/prepare-city.mjs "${SRC}" "${PREPARED}"`, { stdio: 'inherit' });
-execSync(`node tools/optimize.mjs "${PREPARED}" "${TMP}" 1024`, { stdio: 'inherit' });
+// Textures first, then meshopt, in separate processes (sharp conflicts with the
+// nested sharp in @gltf-transform/functions — two libvips instances).
+execSync(`node tools/optimize.mjs "${SRC}" "${TMP}" 1024`, { stdio: 'inherit' });
 execSync(`node tools/meshopt.mjs "${TMP}" "${OUT}"`, { stdio: 'inherit' });
 
 // Delete the pre-meshopt intermediate. It lands inside public/, so leaving it
-// behind puts a 40 MB file nobody loads into dist/ and onto the server.
-rmSync(PREPARED, { force: true });
+// behind puts a file nobody loads into dist/ and onto the server.
 rmSync(TMP, { force: true });
 
 // Bake the collision triangle soup from the finished GLB for the headless

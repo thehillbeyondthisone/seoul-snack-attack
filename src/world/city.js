@@ -25,12 +25,12 @@ import { createNightRig, blockPalette, NIGHT } from './lighting.js';
 import {
   CITY_SCALE, FOG_MESH_RE, ROAD_MAT_RE, isClipped,
   TILE_LAYOUT, TILE_FLIP_ODD_ROWS, TILE_OVERHANG, TILE_CULL_DISTANCE, TILE_REPEATING,
-  STREET_WIDTH,
+  STREET_WIDTH, STREET_Z_SOUTH,
 } from './city-constants.js';
 
 const ROAD_NAME_RE = /road|asphalt|street|ground|pavement|sidewalk|crossing|lane|tile|floor|curb|manhole/i;
 
-export async function loadCity(scene, manager, url = 'assets/world/city.glb', renderer = null, onPhase = null) {
+export async function loadCity(scene, manager, url = 'assets/world/seoul-block.glb', renderer = null, onPhase = null) {
   const startedAt = performance.now();
   const loader = new GLTFLoader(manager);
   loader.setMeshoptDecoder(MeshoptDecoder);
@@ -353,12 +353,11 @@ export async function loadCity(scene, manager, url = 'assets/world/city.glb', re
   let localSpawn = null;
   {
     const roadY = roadBox.min.y;
-    const rc = roadBox.getCenter(new THREE.Vector3());
-    let bestScore = -1;
-    for (let ix = 0; ix <= 10; ix++) {
-      for (let iz = 0; iz <= 8; iz++) {
-        const x = THREE.MathUtils.lerp(roadBox.min.x + 2, roadBox.max.x - 2, ix / 10);
-        const z = THREE.MathUtils.lerp(roadBox.min.z + 1.5, roadBox.max.z - 1.5, iz / 8);
+    let bestScore = -Infinity;
+    for (let ix = 0; ix <= 16; ix++) {
+      for (let iz = 0; iz <= 12; iz++) {
+        const x = THREE.MathUtils.lerp(roadBox.min.x + 2, roadBox.max.x - 2, ix / 16);
+        const z = THREE.MathUtils.lerp(roadBox.min.z + 1.5, roadBox.max.z - 1.5, iz / 12);
         const hit = findGroundLocal(x, z);
         if (!hit || hit.point.y > roadY + 0.15) continue;
         if (!clearSkyLocal(x, hit.point.y, z)) continue; // under a tree/awning
@@ -367,9 +366,15 @@ export async function loadCity(scene, manager, url = 'assets/world/city.glb', re
           const h2 = findGroundLocal(x + dx, z + dz);
           if (h2 && h2.point.y < roadY + 0.15 && clearSkyLocal(x + dx, h2.point.y, z + dz)) clear++;
         }
-        // Prefer the open lanes away from the central median strip.
-        const score = clear * 10 + Math.abs(z - rc.z);
-        if (clear >= 6 && score > bestScore) {
+        if (clear < 8) continue; // fully open in every direction, or not at all
+        // Put the van on the block's widest street, facing along it, with room
+        // BEHIND for the chase camera. The old scoring maximised distance from
+        // the road centre, which on this block parks the van against the
+        // frontage on an edge street and buries the camera in a wall.
+        const onMainStreet = -Math.abs(z - STREET_Z_SOUTH);
+        const offEdges = -0.35 * Math.abs(x - (roadBox.min.x + roadBox.max.x) / 2);
+        const score = clear * 10 + onMainStreet + offEdges;
+        if (score > bestScore) {
           bestScore = score;
           localSpawn = hit.point.clone();
         }
