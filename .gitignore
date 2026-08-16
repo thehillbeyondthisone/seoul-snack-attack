@@ -3,6 +3,11 @@ dist/
 .vite/
 .DS_Store
 
+# A kept copy of an earlier production build (~74 MB of GLBs, audio and minified
+# bundles), used as a reference for how the world drove before the rebuild.
+# Build output, not source: the same reasoning as dist/ above.
+seouldelivery/
+
 # ---------------------------------------------------------------------------
 # Raw asset sources (~1.26 GB). These are the INPUTS to `npm run assets`.
 # They are deliberately untracked: git is a poor store for hundreds of MB of

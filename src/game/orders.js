@@ -252,6 +252,9 @@ export class Orders {
     this.hud.showTicket({
       to: o.rest.nameKo,
       toEn: o.rest.nameEn,
+      dish: o.dish.nameKo,
+      dishEn: o.dish.nameEn,
+      order: o,
       stage: '픽업 · Pickup',
       stageEn: 'PICKUP',
       distanceKm: o.dist / 1000,

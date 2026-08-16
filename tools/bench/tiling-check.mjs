@@ -8,11 +8,11 @@
 //   3. rotated districts returning normals in tile-local space (van skates).
 // This checks all three and exits non-zero on failure.
 //
-// It builds the grid from TILE_LAYOUT — the same explicit placements the game
-// uses. An earlier version built a rectangular cols x rows grid instead and
-// swept ladder-shaped street rows across it, so it was validating a world the
-// game had stopped constructing: the sweeps walked off the carriageway into
-// building interiors and reported holes that were walls.
+// It builds the grid exactly as src/world/city.js does — same cols/rows, same
+// TILE_LAYOUT, same flipOddRows. Keep it that way. A previous version hardcoded
+// its own cols x rows ladder while the game was building explicit placements,
+// so it validated a world that did not exist: the sweeps walked off the
+// carriageway into building interiors and reported holes that were walls.
 import * as THREE from 'three';
 import { MeshBVH } from 'three-mesh-bvh';
 import { readFileSync } from 'node:fs';
@@ -20,7 +20,8 @@ import { makeTileGrid } from '../../src/world/tiling.js';
 import { buildDistrictGraph } from '../../src/world/district-roads.js';
 import { createRoadGraph } from '../../src/world/road-network.js';
 import {
-  TILE_LAYOUT, TILE_OVERHANG, TILE_REPEATING, STREET_WIDTH, DISTRICT_LINKS,
+  TILE_LAYOUT, TILE_COLS, TILE_ROWS, TILE_FLIP_ODD_ROWS, TILE_OVERHANG,
+  TILE_REPEATING, STREET_WIDTH, DISTRICT_LINKS,
 } from '../../src/world/city-constants.js';
 
 const BIN = 'tools/bench/data/city.collider.bin';
@@ -38,7 +39,8 @@ const tileBox = new THREE.Box3(
   new THREE.Vector3(...meta.tileBox.max)
 );
 const grid = makeTileGrid({
-  tileBox, placements: TILE_LAYOUT, overhang: TILE_OVERHANG,
+  tileBox, cols: TILE_COLS, rows: TILE_ROWS, placements: TILE_LAYOUT,
+  flipOddRows: TILE_FLIP_ODD_ROWS, overhang: TILE_OVERHANG,
 });
 
 const _ray = new THREE.Ray();
@@ -64,7 +66,7 @@ const check = (name, ok, detail = '') => {
 // ---- 0. Geometry sanity -----------------------------------------------------
 const wb = grid.worldBounds;
 console.log(
-  `${TILE_LAYOUT.length} districts  cell ${grid.pitchX.toFixed(3)} x ${grid.pitchZ.toFixed(3)} m  ` +
+  `${grid.count} districts  cell ${grid.pitchX.toFixed(3)} x ${grid.pitchZ.toFixed(3)} m  ` +
   `world ${(wb.max.x - wb.min.x).toFixed(1)} x ${(wb.max.z - wb.min.z).toFixed(1)} m  ` +
   `y ${wb.min.y.toFixed(2)}..${wb.max.y.toFixed(2)}\n`
 );

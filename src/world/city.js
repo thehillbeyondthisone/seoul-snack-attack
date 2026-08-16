@@ -23,11 +23,13 @@ import { createEndZones } from './end-zones.js';
 import { StreetlightPool } from './streetlights.js';
 import { createNightRig, blockPalette, NIGHT } from './lighting.js';
 import { analyzeBlock, applyBlockVariant } from './block-variants.js';
+import { prepareDistrict, enableBackfaceCulling, mergeStaticGroup } from './district-lod.js';
 import { createSkyline } from './skyline.js';
 import {
-  CITY_SCALE, FOG_MESH_RE, ROAD_MAT_RE, isClipped,
-  TILE_LAYOUT, TILE_FLIP_ODD_ROWS, TILE_OVERHANG, TILE_CULL_DISTANCE, TILE_REPEATING,
-  STREET_WIDTH, STREET_Z_SOUTH,
+  CITY_SCALE, FOG_MESH_RE, ROAD_MAT_RE, isClipped, isWestOfRoadSlab,
+  TILE_LAYOUT, TILE_COLS, TILE_ROWS, TILE_FLIP_ODD_ROWS, TILE_OVERHANG,
+  TILE_CULL_DISTANCE, TILE_DETAIL_DISTANCE,
+  TILE_REPEATING, STREET_WIDTH, STREET_Z_SOUTH,
 } from './city-constants.js';
 
 const ROAD_NAME_RE = /road|asphalt|street|ground|pavement|sidewalk|crossing|lane|tile|floor|curb|manhole/i;
@@ -66,13 +68,16 @@ export async function loadCity(scene, manager, url = 'assets/world/seoul-block.g
     throw new Error('city: no mesh matched ROAD_MAT_RE — cannot derive a tile footprint');
   }
 
-  // ---- Pass 2: clip props standing in the connector corridors -------------
-  // See city-constants.js. The same predicate runs in tools/build-collider.mjs,
-  // so the visible city and the physics world clip identically.
+  // ---- Pass 2: clip everything west of the road slab ----------------------
+  // See city-constants.js. The same two predicates run in
+  // tools/build-collider.mjs, so the visible city and the physics world clip
+  // identically. roadBox is already final here — pass 1 unioned every
+  // ROAD_MAT_RE mesh — and both values are world metres, so CLIP_EPSILON means
+  // the same thing on both sides.
   let clippedNodes = 0;
   for (const m of meshes) {
     if (m.fog) continue;
-    if (!isClipped(m.obj.name)) continue;
+    if (!isClipped(m.obj.name) && !isWestOfRoadSlab(m.box.max.x, roadBox.min.x)) continue;
     m.clipped = true;
     m.obj.visible = false;
     clippedNodes++;
@@ -192,6 +197,8 @@ export async function loadCity(scene, manager, url = 'assets/world/seoul-block.g
 
   const grid = makeTileGrid({
     tileBox: tileBounds,
+    cols: TILE_COLS,
+    rows: TILE_ROWS,
     placements: TILE_LAYOUT,
     flipOddRows: TILE_FLIP_ODD_ROWS,
     overhang: TILE_OVERHANG,
@@ -223,16 +230,26 @@ export async function loadCity(scene, manager, url = 'assets/world/seoul-block.g
   // so the two ends of the map do not read alike.
   const heroDistricts = new Set([spawnTile, grid.count - 1]);
 
+  // Take EVERY clone before anything is applied to any of them.
+  //
+  // Object3D.clone() shares geometry and materials by reference, so N districts
+  // cost one geometry set; applyBlockVariant then swaps in per-district material
+  // copies and prepareDistrict reorganises the node tree. Both mutate, and this
+  // used to clone district t from `block` inside the loop — i.e. from district
+  // 0's already-varied, already-reorganised tree. Districts 1..9 inherited
+  // district 0's tint (their own variantOf() no longer recognised the tinted
+  // copies as facade materials) and compounded its height scale.
+  const districtBlocks = Array.from({ length: grid.count }, (_, t) => (
+    t === 0 ? block : block.clone()
+  ));
+
   const tiles = [];
   for (let t = 0; t < grid.count; t++) {
     const root = new THREE.Group();
     root.name = `tile_${t}`;
     root.matrixAutoUpdate = false;
     root.matrix.copy(grid.matrices[t]);
-    // Object3D.clone() shares geometry and materials by reference, so N tiles
-    // cost one geometry set. applyBlockVariant then swaps in per-district
-    // material copies — geometry stays shared, which is the whole point.
-    const districtBlock = t === 0 ? block : block.clone();
+    const districtBlock = districtBlocks[t];
     const variant = applyBlockVariant(districtBlock, t, blockAnalysis, { heroes: heroDistricts });
     // Keep the 조명 debug folder in charge of every sign in the city, not just
     // the ones in district 0.
@@ -242,10 +259,37 @@ export async function loadCity(scene, manager, url = 'assets/world/seoul-block.g
       }
     }
     root.add(districtBlock);
+    // Split the block into structure/detail and merge its sub-600-triangle
+    // meshes. Must run AFTER applyBlockVariant: that hands this district its own
+    // material copies, and the merge groups by material. See district-lod.js.
+    const lod = prepareDistrict(districtBlock);
+    // Range-culled dressing hangs here rather than on lod.detail, because that
+    // one lives inside the block and therefore inside its CITY_SCALE. Dressing
+    // is authored in tile-local metres and would come out three times too big.
+    const dressingDetail = new THREE.Group();
+    dressingDetail.name = 'dressing_detail';
+    root.add(dressingDetail);
     root.updateMatrixWorld(true);
     scene.add(root);
-    tiles.push({ index: t, root, center: grid.centers[t], flipped: grid.flipped[t] });
+    tiles.push({
+      index: t, root, center: grid.centers[t], flipped: grid.flipped[t],
+      detail: lod.detail, dressingDetail,
+      // World AABB, for the per-frame frustum test and the structure-tier
+      // range test. A district is 54 x 30 m, so measuring to the box rather
+      // than the centre is what stops the far half of the block you are
+      // standing on from counting as distant.
+      box: grid.cellBounds[t],
+      lodStats: lod.stats,
+    });
   }
+  const lodTotals = tiles.reduce((a, t) => ({
+    sourceMeshes: a.sourceMeshes + t.lodStats.sourceMeshes,
+    draws: a.draws + t.lodStats.structureDraws + t.lodStats.detailDraws,
+  }), { sourceMeshes: 0, draws: 0 });
+
+  // Backface culling, once, across every district: materials are per-district
+  // copies, so this has to see all of them.
+  const sides = enableBackfaceCulling(tiles.map((t) => t.root));
 
   // Everything every placed district actually occupies, in world space.
   // tileBounds is only the ROAD SLAB, so anything that scans for places to put
@@ -275,16 +319,8 @@ export async function loadCity(scene, manager, url = 'assets/world/seoul-block.g
   // District footprints, for the mini-map's block shading (hud3.js).
   roadGraph.districts = districtNet.districts;
 
-  const connectors = createConnectors(scene, {
-    edges: roadGraph.edges.filter((edge) => edge.kind === 'connector'),
-    roadY,
-    roadWidth: STREET_WIDTH,
-  });
-  districtBounds.union(connectors.drivableBounds);
-  const worldBounds = districtBounds.clone().union(connectors.worldBounds);
-  for (const material of connectors.roadMaterials) roadMaterials.set(material, snap(material));
-
   // ---- Raycasting ---------------------------------------------------------
+  // Declared before the connectors, which need a ground probe of their own.
   const _lray = new THREE.Ray();
   const localRaycast = (ray, far) => bvh.raycastFirst(ray, THREE.DoubleSide, 0, far);
 
@@ -300,6 +336,26 @@ export async function loadCity(scene, manager, url = 'assets/world/seoul-block.g
 
   /** World-space raycast against the tiled city. { point, normal, distance } | null. */
   const tiledRaycast = grid.makeRaycast(localRaycast);
+
+  const connectors = createConnectors(scene, {
+    edges: roadGraph.edges.filter((edge) => edge.kind === 'connector'),
+    roadY,
+    roadWidth: STREET_WIDTH,
+    // The decks exist to carry a street mouth over open water. In this layout
+    // the districts abut, so most connector edges run over authored asphalt
+    // that is already there — and an untextured deck laid 2 cm proud of it
+    // reads as a black slab dropped on the road. Skip those.
+    hasAuthoredRoad: (x, z) => {
+      const hit = tiledRaycast(new THREE.Vector3(x, roadY + 1.2, z), new THREE.Vector3(0, -1, 0), 4);
+      return !!hit && Math.abs(hit.point.y - roadY) < 0.35;
+    },
+    // Reuse the block's own asphalt so the decks that DO get built read as
+    // road rather than as a hole.
+    material: [...roadMaterials.keys()].find((m) => ROAD_MAT_RE.test(m.name || '')) || null,
+  });
+  districtBounds.union(connectors.drivableBounds);
+  const worldBounds = districtBounds.clone().union(connectors.worldBounds);
+  for (const material of connectors.roadMaterials) roadMaterials.set(material, snap(material));
 
   function authoredRaycast(origin, dir, far = 100) {
     const tiled = tiledRaycast(origin, dir, far);
@@ -338,6 +394,13 @@ export async function loadCity(scene, manager, url = 'assets/world/seoul-block.g
     },
   });
   for (const material of endZones.roadMaterials) roadMaterials.set(material, snap(material));
+
+  // Both boundary groups are box soup: ~114 draws of kerb wall and ~52 of
+  // connector deck for barely a thousand triangles between them. Their
+  // colliders are baked inside their own builders above, so folding the visual
+  // meshes together now cannot move anything the van touches.
+  const mergedBoundaries = mergeStaticGroup(endZones.group);
+  const mergedConnectors = mergeStaticGroup(connectors.group);
 
   // ---- Skyline ------------------------------------------------------------
   // Distant towers past the boundary, so the world does not end in flat haze.
@@ -555,15 +618,42 @@ export async function loadCity(scene, manager, url = 'assets/world/seoul-block.g
   }
 
   // ---- Per-frame: tile culling + streetlight pool -------------------------
+  //
+  // Distance alone never culled anything. TILE_CULL_DISTANCE was 145 m against
+  // a 109 x 152 m fabric whose longest centre-to-centre span is ~133 m, so the
+  // `?stats=1` readout said "10 of 10 drawn" from every street in the city.
+  //
+  // Frustum culling at the tile root is what actually pays: it drops the
+  // districts behind you before three.js walks their meshes at all, saving the
+  // per-object matrix and bounding-sphere work as well as the draws. Distance
+  // then only has to catch what is in front of you and too far to read, which
+  // is a much longer range than the old constant implied — and the detail tier
+  // (see district-lod.js) takes the vegetation out well before that.
   const _cam = new THREE.Vector3();
+  const _frustum = new THREE.Frustum();
+  const _viewProjection = new THREE.Matrix4();
   let cullDistance = TILE_CULL_DISTANCE;
+  let detailDistance = TILE_DETAIL_DISTANCE;
   function update(dt, camera) {
     camera.getWorldPosition(_cam);
-    const r2 = cullDistance * cullDistance;
+    _viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    _frustum.setFromProjectionMatrix(_viewProjection);
+    const cull2 = cullDistance * cullDistance;
+    const detail2 = detailDistance * detailDistance;
     for (const t of tiles) {
-      const dx = t.center.x - _cam.x;
-      const dz = t.center.z - _cam.z;
-      t.root.visible = dx * dx + dz * dz <= r2;
+      const near = t.box.distanceToPoint(_cam);
+      t.root.visible = near * near <= cull2 && _frustum.intersectsBox(t.box);
+      // Detail is measured to the district CENTRE, not to its box. Districts
+      // are laid edge to edge, so neighbouring boxes touch and a box-distance
+      // test returns ~0 for every district you can see — it never culls
+      // anything. Centre distance is what separates "the block I am on" from
+      // "the next one over". Kept correct even while the root is hidden, so a
+      // debug tool that forces root.visible sees a consistent tree.
+      const cx = t.center.x - _cam.x;
+      const cz = t.center.z - _cam.z;
+      const nearEnough = cx * cx + cz * cz <= detail2;
+      t.detail.visible = nearEnough;
+      t.dressingDetail.visible = nearEnough;
     }
     streetlights.update(dt, _cam);
   }
@@ -590,11 +680,17 @@ export async function loadCity(scene, manager, url = 'assets/world/seoul-block.g
       connectorTriangles: connectors.stats.collisionTriangles,
       endZoneTriangles: endZones.stats.collisionTriangles,
       roadNodes: roadGraph.nodes.length, roadEdges: roadGraph.edges.length,
+      sourceMeshes: lodTotals.sourceMeshes, lodDraws: lodTotals.draws,
+      backfaceCulled: sides.flipped, doubleSidedKept: sides.kept,
+      boundaryDraws: `${mergedBoundaries.before}->${mergedBoundaries.after}`,
+      connectorDraws: `${mergedConnectors.before}->${mergedConnectors.after}`,
     },
     // Fall-off-respawn threshold. Compared against phys.position, which is the
     // CENTRE OF MASS and sits comHeight (0.78 m) below the model origin.
     killY: bounds.min.y - 3,
     get cullDistance() { return cullDistance; },
     set cullDistance(v) { cullDistance = v; },
+    get detailDistance() { return detailDistance; },
+    set detailDistance(v) { detailDistance = v; },
   };
 }

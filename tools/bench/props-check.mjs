@@ -11,8 +11,8 @@ import { readFileSync } from 'node:fs';
 import { makeTileGrid } from '../../src/world/tiling.js';
 import { PropWorld } from '../../src/physics/prop-world.js';
 import {
-  TILE_COLS, TILE_ROWS, TILE_FLIP_ODD_ROWS, TILE_OVERHANG,
-  STREET_ROWS_Z, STREET_CROSS_X,
+  TILE_LAYOUT, TILE_COLS, TILE_ROWS, TILE_FLIP_ODD_ROWS, TILE_OVERHANG,
+  STREET_X_WEST, STREET_X_EAST, STREET_Z_SOUTH,
 } from '../../src/world/city-constants.js';
 
 const meta = JSON.parse(readFileSync('tools/bench/data/city.collider.json', 'utf8'));
@@ -24,7 +24,7 @@ const bvh = new MeshBVH(geo);
 
 const tileBox = new THREE.Box3(new THREE.Vector3(...meta.tileBox.min), new THREE.Vector3(...meta.tileBox.max));
 const grid = makeTileGrid({
-  tileBox, cols: TILE_COLS, rows: TILE_ROWS,
+  tileBox, cols: TILE_COLS, rows: TILE_ROWS, placements: TILE_LAYOUT,
   flipOddRows: TILE_FLIP_ODD_ROWS, overhang: TILE_OVERHANG,
 });
 const city = {
@@ -53,13 +53,17 @@ function groundAt(x, z) {
   const h = city.raycast(new THREE.Vector3(x, grid.worldBounds.max.y + 5, z), DOWN, 200);
   return h ? h.point.y : null;
 }
+// The block's E/W street sits at local z = STREET_Z_SOUTH and runs between the
+// two N/S streets. Map that segment into every district, so the search covers
+// real carriageway whatever the layout does. (This used to walk STREET_ROWS_Z
+// and STREET_CROSS_X over a cols/rows ladder that the game no longer builds.)
 const streetZ = [];
-for (let row = 0; row < grid.rows; row++) {
-  for (const z of STREET_ROWS_Z) streetZ.push(grid.localToWorld(row * grid.cols, new THREE.Vector3(0, 0, z), new THREE.Vector3()).z);
-}
 const crossX = [];
-for (let col = 0; col < grid.cols; col++) {
-  for (const x of STREET_CROSS_X) crossX.push(grid.localToWorld(col, new THREE.Vector3(x, 0, 0), new THREE.Vector3()).x);
+const p = new THREE.Vector3();
+for (let tile = 0; tile < grid.count; tile++) {
+  streetZ.push(grid.localToWorld(tile, p.set(0, 0, STREET_Z_SOUTH), new THREE.Vector3()).z);
+  crossX.push(grid.localToWorld(tile, p.set(STREET_X_WEST, 0, 0), new THREE.Vector3()).x);
+  crossX.push(grid.localToWorld(tile, p.set(STREET_X_EAST, 0, 0), new THREE.Vector3()).x);
 }
 const fromX = Math.min(...crossX);
 const toX = Math.max(...crossX);

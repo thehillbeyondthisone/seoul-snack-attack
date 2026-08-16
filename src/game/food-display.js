@@ -32,7 +32,7 @@ export function foodModelsForOrder(order) {
   return (order?.dish?.models || []).map((id) => MODEL_BY_ID.get(id)).filter(Boolean);
 }
 
-function loadModel(spec) {
+export function loadFoodModel(spec) {
   if (!cache.has(spec.id)) {
     const pending = loader.loadAsync(spec.url)
       .then((gltf) => gltf.scene)
@@ -90,7 +90,7 @@ export class FoodDisplay {
     if (!specs.length) return;
 
     try {
-      const sources = await Promise.all(specs.map(loadModel));
+      const sources = await Promise.all(specs.map(loadFoodModel));
       if (request !== this._request) return;
       const targetSize = specs.length > 1 ? 0.64 : 0.9;
       const spacing = specs.length > 1 ? 0.72 : 0;

@@ -1,33 +1,33 @@
 {
   "source": "public/assets/world/seoul-block.glb",
-  "generated": "2026-08-16T00:30:22.605Z",
+  "generated": "2026-08-16T15:22:59.139Z",
   "scale": 3,
-  "triangleCount": 226583,
-  "vertexCount": 679749,
+  "triangleCount": 215384,
+  "vertexCount": 646152,
   "meshNodes": 101,
   "skippedFogNodes": 1,
-  "clippedNodes": 0,
+  "clippedNodes": 12,
   "bounds": {
     "min": [
-      -41.2538,
+      -29.7642,
       -0.0643,
       -13.8642
     ],
     "max": [
       13.2686,
-      12.9224,
+      12.5993,
       16.4674
     ]
   },
   "boundsNoFog": {
     "min": [
-      -41.2538,
+      -29.7642,
       -0.0643,
       -13.8642
     ],
     "max": [
       13.2686,
-      12.9224,
+      12.5993,
       16.4674
     ]
   },
@@ -45,22 +45,22 @@
   },
   "tileBox": {
     "min": [
-      -41.2538,
+      -29.7642,
       -0.0643,
       -13.8642
     ],
     "max": [
       13.2686,
-      12.9224,
+      12.5993,
       16.4674
     ]
   },
   "pitch": [
-    54.5224,
+    43.0328,
     30.3315
   ],
   "grid": [
-    2,
+    7,
     5
   ]
 }

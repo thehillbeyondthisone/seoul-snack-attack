@@ -125,8 +125,9 @@ async function boot() {
       district = await loadDistrictDressing(scene, manager, city);
       city.pickupSites = district.pickupSites;
       console.log(
-        `district: ${district.stats.storefrontRows} storefront rows, ` +
-        `${district.stats.arcadeDisplays} arcade displays across ${district.stats.tilesDressed} tiles`
+        `district: ${district.stats.shopsPlaced}/${district.stats.shopsRequested} shops placed ` +
+        `on tile ${district.stats.tile}` +
+        (district.stats.skipped.length ? ` — skipped: ${district.stats.skipped.join('; ')}` : '')
       );
     } catch (err) {
       city.pickupSites = [];
@@ -175,8 +176,13 @@ async function boot() {
   const input = new Input();
   const hud = new HUD3();
   hud.setControllerStatus(input.supported ? 'waiting' : 'unsupported');
-  // Add uploaded MP3s here to expand the car stereo. The files live in
-  // public/audio/music/ and are copied unchanged into dist/audio/music/.
+  // Add uploaded MP3s here to expand the car stereo.
+  //
+  // The files MUST live in public/audio/music/ — that is the source, and vite
+  // copies it into dist/audio/music/ on every build. A track dropped straight
+  // into dist/ plays until the next `npm run build` empties the folder and it is
+  // gone, which is exactly how Countdown / Rapid Fire / Supersonic Fire went
+  // missing. Kebab-case the filenames to match: they end up in a URL.
   const soundtrack = new Soundtrack([
     { url: `${import.meta.env.BASE_URL}audio/music/budae-sizzle-hot.mp3`, title: 'BUDAE (Sizzle Hot)' },
     { url: `${import.meta.env.BASE_URL}audio/music/drop-it-red.mp3`, title: 'Drop It Red' },
@@ -184,6 +190,9 @@ async function boot() {
     { url: `${import.meta.env.BASE_URL}audio/music/calorie-bomb.mp3`, title: 'Calorie Bomb' },
     { url: `${import.meta.env.BASE_URL}audio/music/crown-step.mp3`, title: 'Crown Step' },
     { url: `${import.meta.env.BASE_URL}audio/music/sizzle.mp3`, title: 'Sizzle' },
+    { url: `${import.meta.env.BASE_URL}audio/music/supersonic-fire.mp3`, title: 'Supersonic Fire' },
+    { url: `${import.meta.env.BASE_URL}audio/music/rapid-fire-cover.mp3`, title: 'Rapid Fire (Cover)' },
+    { url: `${import.meta.env.BASE_URL}audio/music/countdown.mp3`, title: 'Countdown' },
   ]);
   const audio = new AudioManager({ music: soundtrack });
   hud.bindAudioControls?.({ soundtrack, audio });
@@ -221,7 +230,15 @@ async function boot() {
     audio.event('impact', severity);
   };
 
-  const debug = import.meta.env.DEV
+  // The debug menu ships in PRODUCTION builds too: these are internal releases,
+  // and the menu is the only way to change weather, time of day, lighting and
+  // vehicle tuning in a bundle nobody can rebuild. It costs a hidden lil-gui
+  // instance and stays invisible until backtick (or the pad View button), so a
+  // player who never presses it cannot tell it is there.
+  //
+  // `?debug=off` opts out, for a build handed to someone outside the team.
+  const debugEnabled = qp.get('debug') !== 'off';
+  const debug = debugEnabled
     ? initDebug({ orders, rain, phys, post, van, cam: chaseCam, city, scene, timeOfDay, vehicleDef, hud })
     : { toggle() {}, update() {}, attachProps() {}, setEnglishMode() {} };
 
@@ -246,6 +263,11 @@ async function boot() {
   // The game is fully playable without them, so they must never delay
   // time-to-playable and a prop failure must never brick boot.
   // ?props=off | gallery
+  // Declared up here, not next to the render loop that drains it: props can
+  // finish loading during any await below and call queueWarm(), and a `const`
+  // further down would still be in its temporal dead zone at that moment.
+  const warmQueue = [];
+
   let props = null;
   const propMode = qp.get('props');
   if (propMode !== 'off') {
@@ -268,15 +290,21 @@ async function boot() {
         };
         // Real streetlamp props are better anchors than sampled road points.
         if (p.lampAnchors.length >= 8) city.lights.streetlights.setAnchors(p.lampAnchors);
+        // Props arrive after the first frame, so their materials would otherwise
+        // all compile in the single frame they first come into view. Queue them
+        // to be warmed a few at a time instead.
+        queueWarm(p.group);
         debug.attachProps(p);
-        if (import.meta.env.DEV) window.__seoul.props = p;
+        if (debugEnabled) window.__seoul.props = p;
         console.log(`props: ${p.stats.placed} placed, ${p.stats.types} types, ${p.stats.bodies} bodies`);
       })
       .catch((err) => console.warn('props failed to load, continuing without:', err));
   }
 
-  // Dev-only handle for console/automated probing (spawn placement, physics state).
-  if (import.meta.env.DEV) {
+  // Console/automated probing handle (spawn placement, physics state). Tied to
+  // the same switch as the menu, so tools/probe.mjs works against an internal
+  // dist build and not just the dev server.
+  if (debugEnabled) {
     window.__seoul = { city, district, van, phys, orders, input, camera, scene, renderer, grid: city.grid, timeOfDay, debug, audio, soundtrack, graphicsQuality, THREE };
   }
 
@@ -303,7 +331,7 @@ async function boot() {
   if (overview) {
     const site = shopView && city.pickupSites.find((p) => p.id === shopView);
     if (site) {
-      const localInward = new THREE.Vector3(0, 0, site.side < 0 ? 1 : -1);
+      const localInward = new THREE.Vector3(site.toStreet.x, 0, site.toStreet.z);
       localInward.transformDirection(city.grid.matrices[site.tile]);
       camera.position.copy(site.point).addScaledVector(localInward, 6).add(new THREE.Vector3(0, 5.5, 0));
       camera.lookAt(site.point.x, site.point.y + 3, site.point.z);
@@ -329,6 +357,33 @@ async function boot() {
   // programs, with the rest created naturally when they are needed.
   setLoadingProgress(99, '첫 화면 준비 중 · Preparing first frame');
 
+  // ---- Backgrounding -------------------------------------------------------
+  // A phone that switches apps keeps <audio> playing: rAF stops, the game
+  // freezes, and the soundtrack carries on over whatever the player opened next.
+  // Nothing was listening for that.
+  //
+  // Only un-pause what WE paused. A player who hit M, or who paused the stereo
+  // themselves, must not have it start up again just because they took a call —
+  // hence the flag rather than a blind resume().
+  let musicPausedByBackground = false;
+  const handleVisibility = () => {
+    if (document.hidden) {
+      if (!soundtrack.paused) { soundtrack.pause(); musicPausedByBackground = true; }
+      // Silences engine, tyres, rain and impacts too — they run on the
+      // AudioContext, not on the <audio> element.
+      audio.ctx?.suspend?.().catch(() => { /* context may already be closed */ });
+    } else {
+      if (musicPausedByBackground) { soundtrack.resume(); musicPausedByBackground = false; }
+      if (audio.started) audio.ctx?.resume?.().catch(() => { /* needs a gesture; wake() retries */ });
+    }
+  };
+  document.addEventListener('visibilitychange', handleVisibility);
+  // iOS Safari can background an app without ever firing visibilitychange.
+  window.addEventListener('pagehide', () => {
+    if (!soundtrack.paused) { soundtrack.pause(); musicPausedByBackground = true; }
+    audio.ctx?.suspend?.().catch(() => {});
+  });
+
   // ---- Resize ------------------------------------------------------------------
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -343,6 +398,12 @@ async function boot() {
   let firstFrame = true;
   let lastInputMode = input.mode;
   let gamepadConnected = false;
+
+  // Seed the warm-up queue with the districts — see warmNextDistrict().
+  for (const tile of city.tiles) {
+    warmQueue.push(tile.root);
+    if (tile.detail) warmQueue.push(tile.detail);
+  }
 
   renderer.setAnimationLoop(() => {
     const dt = Math.min(clock.getDelta(), 0.1);
@@ -438,10 +499,11 @@ async function boot() {
       const p = phys.meshPosition;
       const tile = city.grid.indexAt(p.x, p.z);
       const vis = city.tiles.reduce((n, t) => n + (t.root.visible ? 1 : 0), 0);
+      const det = city.tiles.reduce((n, t) => n + (t.root.visible && t.detail.visible ? 1 : 0), 0);
       const r = renderer.info.render;
       statsEl.textContent =
         `van (${p.x.toFixed(1)}, ${p.y.toFixed(2)}, ${p.z.toFixed(1)}) ` +
-        `tile ${tile} of ${city.grid.count} (${vis} drawn) | ` +
+        `tile ${tile} of ${city.grid.count} (${vis} drawn, ${det} dressed) | ` +
         `grounded ${phys.groundedWheels}/4 | v ${phys.speedKmh.toFixed(1)} km/h | state ${orders.state}\n` +
         `draws ${r.calls} tris ${(r.triangles / 1000).toFixed(0)}k | ` +
         `props ${props ? props.stats.placed : 0} awake ${props ? props.world.awakeCount : 0} | ` +
@@ -453,8 +515,53 @@ async function boot() {
       setLoadingProgress(100, '준비 완료 · Ready');
       loadingEl.setAttribute('aria-busy', 'false');
       loadingEl.classList.add('done');
+    } else {
+      warmNextDistrict();
     }
   });
+
+  // ---- Shader warm-up --------------------------------------------------------
+  // A district's materials compile the first time it is drawn, and they all
+  // compile in that ONE frame. Measured while driving away from spawn: a single
+  // 1,783 ms frame that created 22 programs, with zero geometry and zero texture
+  // uploads — pure shader compilation, which is what the mid-drive stutter is.
+  //
+  // The fix is scheduling, not volume: compile ONE district per frame from the
+  // second frame on, so the same total work is paid a few milliseconds at a time
+  // while the player is still pulling away, and every district is warm long
+  // before it comes into view. 35 districts = 35 frames.
+  //
+  // This is deliberately NOT renderer.compileAsync() over the whole scene at
+  // boot. Despite the name, three walks the entire scene and creates every
+  // program synchronously before yielding, which is what used to hang the
+  // loading screen at 99% on slower GPUs (see the note above setLoadingProgress).
+  // Passing one district root bounds the work per call.
+  // The queue holds objects still to be warmed. Anything added to the scene
+  // after boot must be queued too — PROPS are the ones that actually caused the
+  // measured stutter. They finish loading after the first frame, so the profile
+  // reads: one 122 ms frame uploading 32 geometries and 13 textures, then a
+  // 1,505 ms frame compiling 22 programs and nothing else, the moment they are
+  // first drawn. Districts alone were never the problem.
+  function queueWarm(root) {
+    if (!root) return;
+    // Push children rather than the root when there are many: one compile() call
+    // over a whole prop library is the same 1.5 s frame in a different place.
+    if (root.children?.length > 4) warmQueue.push(...root.children);
+    else warmQueue.push(root);
+  }
+
+  function warmNextDistrict() {
+    const object = warmQueue.shift();
+    if (!object) return;
+    // compile() skips hidden objects, and culling may already have hidden this
+    // one — force it visible for the call, then restore whatever culling chose.
+    const wasVisible = object.visible;
+    object.visible = true;
+    // Third argument is the lighting context: programs must be compiled against
+    // the scene's real lights or they are recompiled on first draw anyway.
+    renderer.compile(object, camera, scene);
+    object.visible = wasVisible;
+  }
 }
 
 boot().catch((err) => {

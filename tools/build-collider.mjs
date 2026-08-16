@@ -18,7 +18,7 @@ import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { MeshoptDecoder } from 'meshoptimizer';
 import { writeFileSync, statSync } from 'node:fs';
 import {
-  CITY_SCALE, FOG_MESH_RE, ROAD_MAT_RE, isClipped,
+  CITY_SCALE, FOG_MESH_RE, ROAD_MAT_RE, isClipped, isWestOfRoadSlab,
   TILE_COLS, TILE_ROWS, TILE_REPEATING,
 } from '../src/world/city-constants.js';
 
@@ -114,7 +114,13 @@ for (const node of nodes) {
   if (isFogNode(node)) { skipped++; continue; }
 
   const box = boxes.get(node);
-  if (isClipped(node.getName())) { clipped++; continue; }
+  // Boxes here are block-local; the runtime's are world metres. Scale both
+  // sides so CLIP_EPSILON is the same distance in both, or the bake and the
+  // renderer disagree about the meshes that straddle the slab's western kerb.
+  if (
+    isClipped(node.getName()) ||
+    isWestOfRoadSlab(box.max[0] * CITY_SCALE, roadBox.min[0] * CITY_SCALE)
+  ) { clipped++; continue; }
   for (let k = 0; k < 3; k++) {
     if (box.min[k] < noFog.min[k]) noFog.min[k] = box.min[k];
     if (box.max[k] > noFog.max[k]) noFog.max[k] = box.max[k];

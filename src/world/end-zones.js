@@ -122,7 +122,14 @@ export function createEndZones(scene, { roadY, barrierBounds, groundAt = null })
   const group = new THREE.Group();
   group.name = 'district_boundaries';
   const collision = [];
-  const barrierMat = new THREE.MeshStandardMaterial({ color: 0x777e84, roughness: 0.78, metalness: 0.08 });
+  // These are untextured boxes, so their only defence against reading as
+  // blockout is being dark and rough enough not to catch the eye. At 0x777e84
+  // a streetlight blew them out to near-white and every kerb wall on the map
+  // announced itself; this is closer to the wet concrete parapet they stand in
+  // for, and it sits under the block's own pavement in value.
+  const barrierMat = new THREE.MeshStandardMaterial({
+    color: 0x333a41, roughness: 0.92, metalness: 0.0, envMapIntensity: 0.5,
+  });
 
   const outer = barrierBounds.clone();
 

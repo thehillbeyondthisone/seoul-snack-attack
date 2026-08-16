@@ -39,7 +39,10 @@ export class StreetlightPool {
     this.lights = [];
     for (let i = 0; i < size; i++) {
       const lamp = new THREE.PointLight(color, 0, range, 2);
-      lamp.visible = false;
+      // Visible from the start at intensity 0. See update(): the visible light
+      // count is part of every material's shader program key, so it must be
+      // settled before the first frame and never move again.
+      lamp.visible = true;
       scene.add(lamp);
       // anchorIndex: which anchor this light currently owns (-1 = free)
       this.lights.push({ lamp, anchorIndex: -1, level: 0 });
@@ -74,7 +77,11 @@ export class StreetlightPool {
     this.anchors = anchors;
     this.ground = ground;
     this._order = anchors.map((_, i) => i);
-    for (const l of this.lights) { l.anchorIndex = -1; l.level = 0; l.lamp.visible = false; }
+    // Release every lamp to be re-targeted, but leave `visible` alone — this
+    // runs when props finish loading, which is AFTER the first frame, and
+    // hiding all eight lamps here dropped the scene's point-light count to zero
+    // and recompiled every lit material in one frame. Level 0 parks them dark.
+    for (const l of this.lights) { l.anchorIndex = -1; l.level = 0; l.lamp.intensity = 0; }
 
     if (this.glow) {
       this.scene.remove(this.glow);
@@ -137,7 +144,14 @@ export class StreetlightPool {
           : Math.max(target, l.level - FADE_RATE * dt);
       }
       l.lamp.intensity = this.intensity * l.level;
-      l.lamp.visible = l.level > 0.001;
+      // NEVER toggle lamp.visible during gameplay. three.js bakes the count of
+      // VISIBLE lights into every material's program cache key, so one lamp
+      // flicking on invalidates every lit material in the scene at once.
+      // Measured while driving: a single 1,478 ms frame that recompiled 22
+      // programs with zero geometry and zero texture uploads — that stutter was
+      // this line. Intensity 0 looks identical and keeps the count fixed.
+      // Visibility is now set once in the constructor and only ever changed by
+      // setActiveCount(), which runs at boot before the first frame.
 
       if (!this.glow) continue;
       const g = l.anchorIndex >= 0 ? this.ground[l.anchorIndex] : null;

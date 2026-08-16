@@ -66,31 +66,25 @@ export const STREET_Z_SOUTH = 12.4;
 /** North end of the two N/S streets — the U's open corners, just inside the slab. */
 export const STREET_Z_NORTH = -11.0;
 
-/** Legacy ladder-graph rows; kept for tools/bench until those checks are rewritten. */
-export const STREET_ROWS_Z = [STREET_Z_SOUTH];
-
-/** Legacy ladder-graph crosses; kept for tools/bench until those checks are rewritten. */
-export const STREET_CROSS_X = [STREET_X_WEST, STREET_X_EAST];
-
 /** Lane width. The three streets measure 5.46-7.87 m between kerbs; 5.5 routes cleanly. */
 export const STREET_WIDTH = 5.5;
 
-/** Legacy ladder-graph toggle; the district graph is explicit now. */
-export const STREET_GATES = false;
-
-/**
- * Street ends that open onto nothing, and want a building face across them.
- * Empty: this layout is a contiguous fabric, and its outer rim is handled by
- * end-zones.js rather than by per-street seals.
- * Consumed by src/world/district-dressing.js (tile-local coordinates).
- */
-export const DISTRICT_SEALS = [];
-
 // ---- Clipped nodes ----------------------------------------------------------
-// No nodes are clipped: the districts abut directly and no connector corridor
-// runs through authored geometry. The predicate stays because both the runtime
-// (src/world/city.js) and the collider bake (tools/build-collider.mjs) call it,
-// and they must keep agreeing.
+// The block's western 11.49 m — the `tiles2` sidewalk and its building frontage,
+// x -41.25..-29.76 — stands OUTSIDE the road slab. It has to go, and the reason
+// is the tiling below, not art direction:
+//
+//   A repeating grid must use the road slab as its cell (see TILE_REPEATING),
+//   or the roadway gaps at every seam. But anything outside the cell is
+//   invisible to every raycast in src/world/tiling.js, so leaving the strip in
+//   means the van drives through those buildings. Clip it and the slabs butt
+//   edge to edge: 43.03 m of pitch, continuous asphalt, and the two columns'
+//   streets merge into cross streets that run the full width of the map.
+//
+// This is a BOX test, not a name test — the strip is dozens of separately named
+// nodes — so it cannot live in TILE_CLIP_RE. Both the runtime (src/world/city.js)
+// and the offline bake (tools/build-collider.mjs) call isWestOfRoadSlab with
+// their own boxes, and they must keep agreeing or physics and visuals diverge.
 
 /** Node names removed from both the render and the collision soup. */
 export const TILE_CLIP_RE = /$a/; // matches nothing
@@ -98,56 +92,92 @@ export const TILE_CLIP_RE = /$a/; // matches nothing
 /** True for nodes that must be removed from render and collision alike. */
 export function isClipped(_nodeName) { return false; }
 
-// ---- Tiling -----------------------------------------------------------------
-// The tiling machinery (src/world/tiling.js) keeps exactly one tile-local
-// MeshBVH; TILE_LAYOUT places copies of the block at explicit positions and
-// rotations. Placement coordinates are where the FOOTPRINT CENTRE goes.
-//
-// Shape: two columns of five, the western column unrotated and the eastern one
-// at PI, per the seam rules above. That is the widest fully-connected fabric
-// this block tiles into without laying road over authored buildings —
-// 109.04 x 151.65 m of contiguous asphalt, every street authored geometry.
-//
-// Growing it: add rows (dz = 30.33) freely. Adding a THIRD column does not
-// work directly — see the E/W seam rule — it needs a gap plus procedural
-// connector bridges, which is a separate piece of work.
-
-const COL_PITCH = 54.52;
-const ROW_PITCH = 30.33;
-const ROWS = 5;
-
-export const TILE_LAYOUT = [
-  // Western column, rotation 0. Index 0 is the northernmost.
-  ...Array.from({ length: ROWS }, (_, r) => ({
-    x: -COL_PITCH / 2, z: (r - (ROWS - 1) / 2) * ROW_PITCH, rotation: 0,
-  })),
-  // Eastern column, rotation PI.
-  ...Array.from({ length: ROWS }, (_, r) => ({
-    x: COL_PITCH / 2, z: (r - (ROWS - 1) / 2) * ROW_PITCH, rotation: Math.PI,
-  })),
-];
-export const TILE_COLS = 2;
-export const TILE_ROWS = ROWS;
+/**
+ * Tolerance for the clip test, in WORLD metres. Meshes that merely touch the
+ * slab's western kerb must survive, so this is a hair over "entirely west of".
+ */
+export const CLIP_EPSILON = 0.1;
 
 /**
- * Which districts get street links between them, as index pairs into
- * TILE_LAYOUT. src/world/district-roads.js picks the two closest pairs of
- * street mouths for each link.
- *
- * Each district has six mouths and every mouth serves at most one link, so a
- * district can carry at most three links. The middle row of each column already
- * uses all three (north, south, east), which is why the east/west rungs sit on
- * rows 0, 2 and 4 rather than on every row. Three rungs is enough for
- * validateRoadGraph() to prove no bridges and no dead ends.
+ * True when a mesh lies entirely west of the road slab. Callers pass both
+ * values in the SAME space — world metres at the runtime, block-local metres
+ * times CITY_SCALE at the bake — so the epsilon means the same thing to both.
  */
-export const DISTRICT_LINKS = [
-  // Western column, north to south.
-  [0, 1], [1, 2], [2, 3], [3, 4],
-  // Eastern column, north to south.
-  [5, 6], [6, 7], [7, 8], [8, 9],
-  // Rungs across the shared middle street.
-  [0, 5], [2, 7], [4, 9],
-];
+export function isWestOfRoadSlab(meshMaxX, roadMinX) {
+  return meshMaxX <= roadMinX + CLIP_EPSILON;
+}
+
+// ---- Tiling -----------------------------------------------------------------
+// The tiling machinery (src/world/tiling.js) keeps exactly one tile-local
+// MeshBVH and repeats the block on a TILE_COLS x TILE_ROWS grid, yawing odd Z
+// rows by 180 degrees so neighbouring rows do not read as the same corner
+// twice.
+//
+// Shape: seven columns of five on the ROAD SLAB pitch — 43.03 x 30.33 m —
+// giving 301.2 x 151.7 m of contiguous asphalt across 35 districts. This works
+// only because the western building strip is clipped (see isWestOfRoadSlab
+// above); with it in, the cell has to grow to the full 54.52 m of geometry and
+// the slabs stop butting.
+//
+// Growing it: rows and columns are both free now — the cell is the slab, so any
+// COLS x ROWS tiles edge to edge. Cost is per-district variant/LOD/dressing work
+// at boot (35 districts already), not tiling: the BVH stays at 1x.
+
+export const TILE_COLS = 7;
+export const TILE_ROWS = 5;
+
+/**
+ * Explicit placements, or null to use the TILE_COLS x TILE_ROWS repeating grid.
+ *
+ * Null. The two-column explicit layout this replaced kept the western building
+ * strip, which forced a geometry-sized cell (54.52 m pitch) and left 11.49 m of
+ * back-to-back frontage between the columns — no east/west continuity at all,
+ * and a 109 x 152 m map. The repeating grid is 301.2 x 151.7 m: 2.76x the
+ * drivable area, 35 districts, and cross streets that actually run.
+ */
+export const TILE_LAYOUT = null;
+
+/**
+ * Which districts get street links between them, as index pairs into the grid
+ * (index = row * TILE_COLS + col, matching src/world/tiling.js).
+ * src/world/district-roads.js picks the two closest pairs of street mouths for
+ * each link.
+ *
+ * The hard constraint: each district has six mouths and every mouth serves at
+ * most one link, so a district can carry AT MOST THREE links. A 7x5 grid's
+ * interior districts have four neighbours, so the full mesh is not available
+ * and the links have to be chosen.
+ *
+ * Shape chosen — a ladder. Every row is linked end to end (west/east), and the
+ * rows are joined only at the outer columns:
+ *
+ *   0 - 1 - 2 - 3 - 4 - 5 - 6      each interior district: 2 links (E, W)
+ *   |                       |      each outer district:    3 links (E|W, N, S)
+ *   7 - 8 - 9 - ...        13
+ *   |                       |
+ *   ...
+ *
+ * Two rungs per seam rather than one is what keeps validateRoadGraph() happy:
+ * a single rung per seam makes every rung a BRIDGE, and the validator rejects
+ * bridges because a cut edge means a delivery route with no alternative. With
+ * both outer columns joined, consecutive rows close a cycle and no edge is a
+ * cut edge. 30 row links + 8 rungs = 38.
+ *
+ * Note this is only the ROUTED graph. The asphalt itself is continuous across
+ * every seam — the slabs butt — so a district pair with no link here is still
+ * drivable between, just not routed through.
+ */
+export const DISTRICT_LINKS = (() => {
+  const links = [];
+  const at = (row, col) => row * TILE_COLS + col;
+  for (let row = 0; row < TILE_ROWS; row++) {
+    for (let col = 0; col < TILE_COLS - 1; col++) links.push([at(row, col), at(row, col + 1)]);
+  }
+  for (let row = 0; row < TILE_ROWS - 1; row++) {
+    for (const col of [0, TILE_COLS - 1]) links.push([at(row, col), at(row + 1, col)]);
+  }
+  return links;
+})();
 
 /**
  * Is the block actually repeated? This decides the tile FOOTPRINT — the cell
@@ -158,21 +188,53 @@ export const DISTRICT_LINKS = [
  * Single:    footprint = all the geometry, so nothing the player can reach is
  *            outside the cell and therefore invisible to every raycast.
  *
- * FALSE here even though the block IS repeated: its western building strip
- * stands 11.49 m outside the road slab, and a slab-sized cell would leave that
- * frontage invisible to every raycast — the van would drive through it.
+ * TRUE: the block repeats on a slab-sized cell. The western building strip that
+ * used to stand 11.49 m outside the slab — and forced this to false, because a
+ * slab cell would have left it invisible to every raycast — is now clipped
+ * before the cell is derived. See isWestOfRoadSlab above.
  */
-export const TILE_REPEATING = false;
+export const TILE_REPEATING = true;
 
-/** Rotate odd Z rows 180 degrees about Y. Rotation is explicit per placement now. */
-export const TILE_FLIP_ODD_ROWS = false;
+/**
+ * Rotate odd Z rows 180 degrees about Y. The slab is symmetric in Z, so a
+ * flipped row still butts flush; the yaw exists purely so consecutive rows do
+ * not read as the same corner repeated.
+ */
+export const TILE_FLIP_ODD_ROWS = true;
 
 /** Metres of geometry allowed to spill past a tile cell. */
 export const TILE_OVERHANG = 0.25;
 
 /**
- * Hide whole tiles beyond this distance from the camera. Across a
- * 109 x 152 m fabric this keeps roughly four to six districts drawn at any
- * time; the rest are fully culled (geometry is shared, so this costs nothing).
+ * Hide whole tiles beyond this distance from the camera — measured to the
+ * district's world BOX, not its centre.
+ *
+ * This was once 145 against a fabric whose longest centre-to-centre span was
+ * ~133 m, which meant it never culled anything: `?stats=1` read "10 of 10
+ * drawn" from every street in the city. Culling is done by the view frustum
+ * first (src/world/city.js `update`), and this is only the backstop for
+ * districts that are ahead of you and too far to read.
+ *
+ * 105 m is the value the 7x5 fabric shipped with. It sits past the night fog's
+ * half-visibility point (~79 m at NIGHT.fogDensity) so districts fade rather
+ * than pop, and against a 301 m map it is now doing real work: the backstop
+ * matters far more at 35 districts than it did at 10.
  */
-export const TILE_CULL_DISTANCE = 145;
+export const TILE_CULL_DISTANCE = 105;
+
+/**
+ * Drop a district's DETAIL tier beyond this distance from the district CENTRE —
+ * vegetation, grass cards and street clutter, as classified in
+ * src/world/district-lod.js.
+ *
+ * Measured on the shipped block, a district splits into 27.6k triangles of
+ * structure and 199k of detail: the trees and grass are seven eighths of its
+ * geometry. Dropping them early is what makes it affordable to keep the
+ * buildings drawn far enough down a 150 m street to still read as a city.
+ *
+ * 46 m against a 54.5 x 30.3 m block keeps the district you are on plus its
+ * north/south neighbours (pitch 30.33) dressed, and drops the column across the
+ * street (pitch 54.52). Night fog is already at half visibility by 79 m, so the
+ * boundary sits well inside the haze.
+ */
+export const TILE_DETAIL_DISTANCE = 46;

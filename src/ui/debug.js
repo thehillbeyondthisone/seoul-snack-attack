@@ -33,8 +33,24 @@ function restoreSection(settings, section, target, keys) {
   }
 }
 
+// The minimap's base orientation was corrected from south-up to true north-up
+// (see minimapArrowRotation in src/ui/hud3.js). Anyone who ticked "flip Y" to
+// work around the old upside-down map has that stored in localStorage, and
+// restoring it would silently put their map back the way it was. Drop the
+// stored flips once, per browser, rather than discarding every other tuned
+// value by bumping SETTINGS_KEY.
+const MAP_CONVENTION = 2;
+
+function migrateMapConvention(settings) {
+  if ((settings.mapConvention || 1) >= MAP_CONVENTION) return settings;
+  if (settings.map) { delete settings.map.flipX; delete settings.map.flipY; }
+  settings.mapConvention = MAP_CONVENTION;
+  saveSettings(settings);
+  return settings;
+}
+
 export function initDebug({ orders, rain, phys, post, van, cam, city, scene, timeOfDay, vehicleDef, hud }) {
-  const settings = loadSettings();
+  const settings = migrateMapConvention(loadSettings());
   const persist = (section, source, keys) => () => copySettings(settings, section, source, keys);
   const gui = new GUI({ title: '서울 배달 디버그 · Debug' });
   gui.hide();

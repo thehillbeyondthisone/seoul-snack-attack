@@ -38,6 +38,8 @@
 //    rather than by making every panel more opaque. That let the glass get
 //    *lighter*, and cut the backdrop-filter count from 8 to 4.
 
+import { FoodPreview } from './food-preview.js';
+
 const CUT = 'polygon(0 0, 100% 0, 100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%, 0 100%)';
 
 const CSS = `
@@ -172,18 +174,36 @@ const CSS = `
 
 /* ---- active ticket (top left) — the delivery and everything about it ----- */
 #hud3 .ticket {
-  position: absolute; top: 20px; left: 18px; width: 246px;
+  position: absolute; top: 20px; left: 18px; width: 206px;
   opacity: 0; transform: translateX(-14px);
   transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.2,0.9,0.3,1);
 }
 #hud3 .ticket.show { opacity: 1; transform: none; }
 #hud3 .ticket .head {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 7px 13px; margin: 1px 1px 0; background: rgba(77,200,255,0.10);
+  padding: 6px 11px; margin: 1px 1px 0; background: rgba(77,200,255,0.10);
 }
 #hud3 .ticket .head .en { color: var(--nav); }
-#hud3 .ticket .body { padding: 11px 13px 12px; }
-#hud3 .ticket .to { font-size: 15px; font-weight: 700; line-height: 1.2; }
+#hud3 .ticket .body { padding: 9px 11px 10px; }
+#hud3 .ticket .to { font-size: 14px; font-weight: 700; line-height: 1.2; }
+
+/* The card was made SMALLER to answer "too big" — 206px wide with a 62px dish
+   view, down from 246px and 96px. It does not also auto-collapse: an earlier
+   version hid the dish and the 3D preview after a few seconds, which read as the
+   model being broken rather than as the card being tidy. The dish you are
+   collecting is the point of the pickup leg, so it stays on screen for it. */
+/* Pickup leg extras: what we're collecting, and a live 3D look at it. Shown
+   only via .has-dish — once picked up, the food floats above the van instead. */
+#hud3 .ticket .dish, #hud3 .ticket .dish-view { display: none; }
+#hud3 .ticket.has-dish .dish {
+  display: block; margin-top: 3px; max-height: 3em;
+  color: var(--muted); font-size: 11px; font-weight: 600; line-height: 1.3;
+}
+/* height matches SIZE in src/ui/food-preview.js — the renderer is fixed-size. */
+#hud3 .ticket.has-dish .dish-view {
+  display: flex; justify-content: center; margin-top: 7px;
+  height: 62px; max-height: 62px;
+}
 /* The pickup leg has no countdown and no food in the van yet, so the clock and
    condition rows are absent rather than frozen — a stopped timer reads as a bug. */
 #hud3 .ticket .clock, #hud3 .ticket .bar, #hud3 .ticket .cond { display: none; }
@@ -240,8 +260,8 @@ const CSS = `
 
 /* objective docked into the ticket: nav belongs to the job it serves */
 #hud3 .ticket .obj {
-  display: none; align-items: center; gap: 10px;
-  padding: 8px 13px 9px; margin: 0 1px 1px; background: linear-gradient(90deg, rgba(77,200,255,0.13), rgba(77,200,255,0.035));
+  display: none; align-items: center; gap: 9px;
+  padding: 6px 11px 7px; margin: 0 1px 1px; background: linear-gradient(90deg, rgba(77,200,255,0.13), rgba(77,200,255,0.035));
   border-top: 1px solid rgba(238,244,255,0.10);
 }
 #hud3 .ticket .obj.show { display: flex; }
@@ -256,22 +276,28 @@ const CSS = `
 #hud3 .ticket .obj .d small { font-size: 10px; color: var(--muted); margin-left: 2px; font-weight: 600; }
 #hud3 .ticket .obj .en { margin-left: auto; }
 
-/* ---- north-up mini-map -------------------------------------------------- */
+/* ---- heading-up radar mini-map ------------------------------------------ */
 #hud3 .minimap {
-  position: absolute; right: 18px; bottom: 104px; width: 268px;
+  position: absolute; right: 18px; bottom: 104px; width: 236px;
   padding: 8px 8px 7px; opacity: 0; transition: opacity .2s ease;
 }
 #hud3 .minimap.show { opacity: 1; }
-#hud3 .minimap canvas { display: block; width: 252px; height: 176px; border: 1px solid rgba(77,200,255,.16); }
+#hud3 .minimap canvas {
+  display: block; width: 220px; height: 220px; border-radius: 50%;
+  border: 1px solid rgba(77,200,255,.28);
+  box-shadow: 0 0 0 3px rgba(7,14,24,.55), 0 0 22px rgba(77,200,255,.10),
+    inset 0 0 30px rgba(0,0,0,.45);
+  background: rgba(5,11,19,.92);
+}
 #hud3 .minimap .map-head {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 1px 3px 7px; color: var(--nav); font-size: 9px;
+  padding: 1px 6px 7px; color: var(--nav); font-size: 9px;
   letter-spacing: .14em; text-transform: uppercase;
 }
 #hud3 .minimap .turn { color: var(--ink); letter-spacing: .08em; font-weight: 800; }
 @media (max-width: 760px) {
-  #hud3 .minimap { width: 210px; bottom: 92px; }
-  #hud3 .minimap canvas { width: 194px; height: 136px; }
+  #hud3 .minimap { width: 192px; bottom: 92px; }
+  #hud3 .minimap canvas { width: 176px; height: 176px; }
 }
 
 /* ---- speed (bottom right) ----------------------------------------------- */
@@ -327,7 +353,45 @@ const CSS = `
   color: var(--ink); font-size: 10px; font-weight: 700; text-shadow: none;
 }
 #hud3 .legend span { display: inline-flex; align-items: center; }
-#hud3 .translate-hint { margin-top: 5px; color: var(--nav); font-size: 9px; letter-spacing: .08em; opacity: .8; }
+/* Translate hint. Almost every string in this HUD is Korean, so a player who
+   cannot read it has to find this one control or the game is unreadable — but it
+   is still a hint, not an alert. It was 9px at 0.8 opacity, buried UNDER the
+   control legend, which is where you put something you do not want found.
+   Now: its own bordered chip, above the legend, with real key caps. It arrives
+   lit and breathing for HINT_INTRO_MS so the eye catches it once, then settles
+   to a calm chip that never animates again. */
+#hud3 .translate-hint {
+  display: inline-flex; align-items: center; gap: 7px; align-self: flex-start;
+  margin-bottom: 7px; padding: 5px 10px 5px 6px;
+  border: 1px solid rgba(77,200,255,0.42); border-radius: 4px;
+  background: rgba(6,18,28,0.72);
+  color: var(--nav); font-size: 10.5px; font-weight: 700; letter-spacing: .10em;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+  transition: opacity .9s ease, border-color .9s ease, box-shadow .9s ease;
+  opacity: .74;
+}
+#hud3 .translate-hint b, #hud3 .translate-hint i {
+  display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px;
+  border: 1px solid rgba(77,200,255,0.45); border-radius: 3px;
+  background: rgba(4,10,18,0.85);
+  color: var(--ink); font-size: 10px; font-weight: 700; font-style: normal;
+  text-shadow: none;
+}
+#hud3 .translate-hint i { opacity: .78; font-size: 9px; }
+/* Intro: brighter, with a slow two-beat breath. Removed after HINT_INTRO_MS. */
+#hud3 .translate-hint.intro {
+  opacity: 1; border-color: rgba(77,200,255,0.85);
+  animation: h3hint 2.6s ease-in-out 2;
+}
+@keyframes h3hint {
+  0%, 100% { box-shadow: 0 0 0 rgba(77,200,255,0); }
+  50% { box-shadow: 0 0 14px rgba(77,200,255,0.45); }
+}
+/* Once English is on, the hint has done its job — state it, stop selling it. */
+#hud3 .translate-hint.active { opacity: .62; border-color: rgba(77,200,255,0.28); }
+@media (prefers-reduced-motion: reduce) {
+  #hud3 .translate-hint.intro { animation: none; }
+}
 #hud3 .english-mode .toast > div:first-child { display: none; }
 #hud3 .english-mode .toast .en { margin-top: 0; color: inherit; font-size: inherit; }
 #hud3 .pad-status {
@@ -397,13 +461,36 @@ const ARROW_SVG =
 
 const SEGMENTS = 14;
 
-/** Vehicle heading (+ when steering left) -> clockwise canvas rotation. */
+/** How long the translate chip stays lit before settling to a quiet hint. */
+const HINT_INTRO_MS = 14000;
+
+/**
+ * Vehicle heading -> clockwise canvas rotation of a north-up world map. The
+ * heading-up mini-map negates this to spin the world around the player.
+ *
+ * Derivation, because getting this wrong is silent — the arrow just points
+ * somewhere plausible and nobody notices until they follow it:
+ *
+ *   heading = atan2(fwd.x, fwd.z)  (src/game/orders.js), so facing game north
+ *   (world -Z) is heading PI, not 0.
+ *
+ *   North-up canvas: +X world is canvas right, +Z world is canvas DOWN. The
+ *   arrow path points at canvas -Y, and ctx.rotate is clockwise on screen
+ *   (y grows downward). Rotating (0,-1) by t gives (sin t, -cos t), so
+ *   matching it to the forward vector (fwd.x, fwd.z) needs
+ *   sin t = fwd.x and cos t = -fwd.z, i.e. t = PI - heading.
+ *
+ * This base used to be a bare `heading`, which is the SOUTH-up answer, and
+ * mapPoint below was drawn south-up to match. Both are flipped now, so an
+ * unflipped map is genuinely north-up and the 북 · N label is honest.
+ */
 export const minimapArrowRotation = (heading, flipX = false, flipY = false) => {
-  // The arrow mesh points toward canvas -Y already, so heading zero needs no
-  // half-turn. The previous extra PI made the player marker face backwards.
-  let angle = heading;
+  let angle = Math.PI - heading;
   if (flipX) angle = -angle;
   if (flipY) angle = Math.PI - angle;
+  // Normalize to (-PI, PI]. ctx.rotate does not care, but callers and the
+  // bench read the sign as "turning left/right", and 3PI/2 reads as neither.
+  angle = Math.atan2(Math.sin(angle), Math.cos(angle));
   return angle;
 };
 
@@ -522,6 +609,8 @@ export class HUD3 {
         <div class="head"><span class="en" id="h3tstage">픽업 · Pickup</span><span class="en" id="h3tdist">0.0 km</span></div>
         <div class="body">
           <div class="to" id="h3to">—</div>
+          <div class="dish" id="h3tdish">—</div>
+          <div class="dish-view" id="h3tdishview"></div>
           <div class="clock"><span class="t" id="h3time">0:00</span><span class="en" id="h3timelabel">남은 시간 · Remaining</span></div>
           <div class="bar"><i id="h3tbar"></i></div>
           <div class="value"><span id="h3valuelabel">예상 금액 · Delivery total</span><span class="amount-wrap"><span class="deduction" id="h3deduction"></span><strong id="h3value">₩0</strong></span></div>
@@ -537,7 +626,7 @@ export class HUD3 {
 
       <div class="panel minimap" id="h3minimap">
         <div class="map-head"><span id="h3mapnorth">북 · N</span><span class="turn" id="h3turn">시내 · CITY</span></div>
-        <canvas id="h3map" width="504" height="352" aria-label="North-up route mini-map"></canvas>
+        <canvas id="h3map" width="440" height="440" aria-label="Heading-up route mini-map"></canvas>
       </div>
 
       <div class="speed">
@@ -547,7 +636,8 @@ export class HUD3 {
 
       <div class="stack">
         <div class="toasts" id="h3toasts"></div>
-        <div class="legend" id="h3legend"></div><div class="translate-hint" id="h3translatehint">HOLD T / LB · ENGLISH</div>
+        <div class="translate-hint intro" id="h3translatehint"><b>T</b><span>HOLD FOR ENGLISH</span><i>LB</i></div>
+        <div class="legend" id="h3legend"></div>
         <div class="garage-status" id="h3garagestatus" role="button" tabindex="0">차고 · GARAGE</div>
         <div class="pad-status" id="h3padstatus">XBOX · PRESS ANY BUTTON IN THIS TAB</div>
         <div class="audio-status" id="h3audio" role="button" tabindex="0" aria-live="polite" title="Open audio mixer">AUDIO · CLICK FOR MIXER</div>
@@ -562,6 +652,7 @@ export class HUD3 {
       order: $('h3order'), shop: $('h3shop'), shopen: $('h3shopen'), dish: $('h3dish'),
       pay: $('h3pay'), dist: $('h3dist'), offerbar: $('h3offerbar'),
       ticket: $('h3ticket'), tstage: $('h3tstage'), tdist: $('h3tdist'), to: $('h3to'),
+      tdish: $('h3tdish'), tdishview: $('h3tdishview'),
       time: $('h3time'), timeLabel: $('h3timelabel'), tbar: $('h3tbar'), value: $('h3value'), valueLabel: $('h3valuelabel'), deduction: $('h3deduction'),
       cond: $('h3cond'), condpct: $('h3condpct'), segs: $('h3segs'),
       obj: $('h3obj'), objd: $('h3objd'), arrow: el.querySelector('.obj .arrow'),
@@ -579,6 +670,7 @@ export class HUD3 {
     this.segEls = [...this.$.segs.querySelectorAll('i')];
     this.setCondition(1);
     this.mapContext = this.$.map.getContext('2d');
+    this.foodPreview = new FoodPreview(this.$.tdishview);
 
     this.maxSpeed = 110;
     this._spillTimer = null;
@@ -619,6 +711,7 @@ export class HUD3 {
       .forEach((node, i) => this._setLocalized(node, node.textContent, introKeysEn[i]));
     this.setInputMode('keyboard');
     this.setEnglishMode(false);
+    this._hintIntroTimer = setTimeout(() => this._settleTranslateHint(), HINT_INTRO_MS);
     this.$.start.addEventListener('click', () => {
       this.dismissReleaseCard();
       this._startHandler?.();
@@ -665,12 +758,27 @@ export class HUD3 {
     this._legendTimer = setTimeout(() => this.$.legend.classList.add('dim'), 10000);
   }
 
+  /** Drop the translate chip out of its intro state, once and for good. */
+  _settleTranslateHint() {
+    clearTimeout(this._hintIntroTimer);
+    this.$.translateHint?.classList.remove('intro');
+  }
+
   setEnglishMode(active) {
     if (this.englishMode === active) return;
     this.englishMode = active;
     this.el?.classList.toggle('english-mode', active);
     this.$.legend?.classList.toggle('translate-active', active);
-    if (this.$.translateHint) this.$.translateHint.textContent = active ? 'ENGLISH MODE' : 'HOLD T / LB · ENGLISH';
+    // Only the label swaps — the chip's key caps are elements, and textContent
+    // on the container would delete them.
+    const hint = this.$.translateHint;
+    if (hint) {
+      const label = hint.querySelector('span');
+      if (label) label.textContent = active ? 'ENGLISH MODE ON' : 'HOLD FOR ENGLISH';
+      hint.classList.toggle('active', active);
+      // Reading it is the whole point of the intro, so the first use ends it.
+      if (active) this._settleTranslateHint();
+    }
     this._localized.forEach((node) => this._renderLocalized(node));
     this.setInputMode(this.inputMode);
     this.refreshGarage();
@@ -849,12 +957,22 @@ export class HUD3 {
    *                             on the objective row, and showing the same number
    *                             twice on one panel is wasted space.
    * @param {boolean} timed      false on the pickup leg: no countdown, no condition
+   * @param {string}  [dish]     ordered dish name — pickup leg only; the deliver leg
+   *                             shows the food above the van, not in the panel
+   * @param {object}  [order]    order object, for the 3D dish preview
    */
-  showTicket({ to, toEn = to, stage, stageEn = stage, seconds = 0, totalSeconds = 0, payout = 0, distanceKm, condition = 1, timed = true }) {
+  showTicket({ to, toEn = to, stage, stageEn = stage, seconds = 0, totalSeconds = 0, payout = 0, distanceKm, condition = 1, timed = true, dish, dishEn = dish, order }) {
     this._setLocalized(this.$.to, to, toEn);
     this._setLocalized(this.$.tstage, stage, stageEn);
     this.$.tdist.textContent = `${distanceKm.toFixed(1)} km`;
     this.$.ticket.classList.toggle('timed', timed);
+    this.$.ticket.classList.toggle('has-dish', !!dish);
+    if (dish) {
+      this._setLocalized(this.$.tdish, dish, dishEn);
+      this.foodPreview.setOrder(order);
+    } else {
+      this.foodPreview.clear();
+    }
     if (timed) {
       this.updateTicket({ seconds, totalSeconds, payout });
       this.setCondition(condition);
@@ -882,7 +1000,10 @@ export class HUD3 {
     void this.$.deduction.offsetWidth;
     this.$.deduction.classList.add('flash');
   }
-  hideTicket() { this.$.ticket.classList.remove('show'); }
+  hideTicket() {
+    this.$.ticket.classList.remove('show');
+    this.foodPreview.stop();
+  }
 
   /** @param {number} q 1 = pristine, 0 = ruined */
   setCondition(q) {
@@ -922,171 +1043,149 @@ export class HUD3 {
     this.miniMapFlipY = !!y;
   }
 
-  /** Draw the authoritative road graph north-up, with optional axis flips. */
+  /**
+   * Heading-up radar mini-map: the world rotates around the player, who sits
+   * fixed below centre so more road ahead is visible. The old map drew the
+   * whole city graph on a 252x176 canvas, which squeezed every road to a
+   * 1 px hairline — the "ladder" nobody could read. A ~110 m window keeps
+   * roads at their true width, and a single canvas transform (translate ->
+   * rotate -> scale) replaces the per-point projection the old code repeated
+   * for every layer.
+   */
   setMiniMap({ graph, bounds, route = null, player = null, destination = null, maneuver = null } = {}) {
     if (!graph || !bounds) { this.$.minimap.classList.remove('show'); return; }
     this.$.minimap.classList.add('show');
     const canvas = this.$.map;
     const ctx = this.mapContext;
-    const w = canvas.width, h = canvas.height, pad = 26;
-    const spanX = Math.max(1, bounds.max.x - bounds.min.x);
-    const spanZ = Math.max(1, bounds.max.z - bounds.min.z);
-    const scale = Math.min((w - pad * 2) / spanX, (h - pad * 2) / spanZ);
-    const ox = (w - spanX * scale) / 2;
-    const oy = (h - spanZ * scale) / 2;
-    const mapPoint = (p) => {
-      let x = ox + (p.x - bounds.min.x) * scale;
-      let y = oy + (bounds.max.z - p.z) * scale;
-      if (this.miniMapFlipX) x = w - x;
-      if (this.miniMapFlipY) y = h - y;
-      return { x, y };
-    };
-    const strokePolyline = (points, color, width, glow = 0, dashed = false) => {
-      if (!points?.length) return;
-      ctx.beginPath();
-      points.forEach((p, i) => { const q = mapPoint(p); if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); });
-      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.setLineDash(dashed ? [8, 8] : []);
-      ctx.shadowColor = color; ctx.shadowBlur = glow; ctx.stroke(); ctx.shadowBlur = 0; ctx.setLineDash([]);
-    };
+    const w = canvas.width, h = canvas.height;
+    const cx = w / 2, cy = h / 2;
+    const rim = Math.min(cx, cy) - 4;          // drawable radius inside the ring
+    const VIEW_M = 110;                        // world metres visible at the rim
+    const s = rim / VIEW_M;                    // world -> canvas scale
+    const heading = player?.heading || 0;
+    const ppos = player?.position
+      || { x: (bounds.min.x + bounds.max.x) / 2, z: (bounds.min.z + bounds.max.z) / 2 };
+    // North-up base rotation (see minimapArrowRotation); negating it spins the
+    // world so the player's forward vector always points at the top of the disc.
+    const t = minimapArrowRotation(heading, this.miniMapFlipX, this.miniMapFlipY);
+    // Player screen anchor: 30% below centre = ~28 m of road behind, 192 ahead.
+    const px = cx, py = cy + rim * 0.3;
 
     ctx.clearRect(0, 0, w, h);
-    const bg = ctx.createLinearGradient(0, 0, 0, h);
-    bg.addColorStop(0, 'rgba(5,11,19,.96)'); bg.addColorStop(1, 'rgba(8,14,23,.9)');
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
-    // Shade the four building bands between the five streets. This turns the
-    // abstract ladder into a readable city map: dark blocks, pale roads.
-    // Empty on an explicit (non-ladder) graph — district cells below instead.
-    const streets = graph.rows;
-    const westX = Math.min(...graph.nodes.map((node) => node.position.x));
-    const eastX = Math.max(...graph.nodes.map((node) => node.position.x));
-    for (let i = 0; i < streets.length - 1; i++) {
-      const z0 = streets[i].z + graph.roadWidth * .62;
-      const z1 = streets[i + 1].z - graph.roadWidth * .62;
-      const a = mapPoint({ x: westX + graph.roadWidth * .62, z: z0 });
-      const b = mapPoint({ x: eastX - graph.roadWidth * .62, z: z1 });
-      ctx.fillStyle = i % 2 ? 'rgba(31,48,63,.72)' : 'rgba(25,39,54,.78)';
-      ctx.fillRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
-      ctx.strokeStyle = 'rgba(125,157,179,.14)'; ctx.lineWidth = 1;
-      ctx.strokeRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
-    }
 
-    // District footprints under the road edges, so an explicit irregular graph
-    // still reads as a city map instead of a bare wireframe. (0/PI-rotated
-    // cells stay axis-aligned, so a rectangle per district is exact.)
-    const districtCells = graph.districts || [];
-    districtCells.forEach((cell, i) => {
+    // Clip everything map-like to the disc.
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, rim, 0, Math.PI * 2); ctx.clip();
+
+    const bg = ctx.createLinearGradient(0, cy - rim, 0, cy + rim);
+    bg.addColorStop(0, 'rgba(6,12,21,.98)'); bg.addColorStop(1, 'rgba(9,16,26,.94)');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+
+    // ---- World layers: one transform, world-unit coordinates ---------------
+    ctx.save();
+    ctx.translate(px, py); ctx.rotate(-t); ctx.scale(s, s); ctx.translate(-ppos.x, -ppos.z);
+
+    // District footprints first, so roads read as pale ribbons over dark blocks.
+    const cells = graph.districts || [];
+    cells.forEach((cell, i) => {
       const b = cell.bounds || cell;
-      const a = mapPoint({ x: b.min.x, z: b.min.z });
-      const c = mapPoint({ x: b.max.x, z: b.max.z });
-      ctx.fillStyle = i % 2 ? 'rgba(31,48,63,.72)' : 'rgba(25,39,54,.78)';
-      ctx.fillRect(Math.min(a.x, c.x), Math.min(a.y, c.y), Math.abs(c.x - a.x), Math.abs(c.y - a.y));
-      ctx.strokeStyle = 'rgba(125,157,179,.14)'; ctx.lineWidth = 1;
-      ctx.strokeRect(Math.min(a.x, c.x), Math.min(a.y, c.y), Math.abs(c.x - a.x), Math.abs(c.y - a.y));
+      ctx.fillStyle = i % 2 ? 'rgba(32,50,66,.85)' : 'rgba(26,40,55,.9)';
+      ctx.fillRect(b.min.x, b.min.z, b.max.x - b.min.x, b.max.z - b.min.z);
     });
 
-    // Road casing, carriageway, then a faint dashed centreline. Drawing all
-    // three makes the narrow end connectors as obvious as the long streets.
-    for (const edge of graph.edges) strokePolyline(edge.points, 'rgba(2,6,11,.96)', Math.max(12, edge.width * scale * 1.28));
-    for (const edge of graph.edges) strokePolyline(edge.points, 'rgba(176,195,207,.82)', Math.max(8, edge.width * scale * .82));
-    for (const edge of graph.edges) strokePolyline(edge.points, 'rgba(9,18,27,.48)', 1.6, 0, true);
-
-    // The two north/south connector streets are the escape from every long
-    // east/west road. Draw them again above the block layer and label them so
-    // they read as actual cross streets rather than as a map border.
-    const connectors = graph.edges.filter((edge) => edge.kind === 'connector' || edge.kind === 'cross');
-    for (const edge of connectors) strokePolyline(edge.points, 'rgba(122,167,187,.98)', Math.max(9, edge.width * scale * .9));
-    for (const edge of connectors) strokePolyline(edge.points, 'rgba(13,27,38,.72)', 1.8, 0, true);
-
-    // Junction dots make it clear that streets connect instead of merely
-    // crossing the border of the mini-map.
-    for (const node of graph.nodes) {
-      const p = mapPoint(node.position);
-      ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(5, graph.roadWidth * scale * .42), 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(199,215,224,.92)'; ctx.fill();
-      ctx.strokeStyle = 'rgba(5,11,18,.9)'; ctx.lineWidth = 2; ctx.stroke();
-    }
+    const roadW = graph.roadWidth * 0.8;
+    // Connectors jog between street mouths a few metres apart; as drawn they
+    // are short diagonals. Render the right-angle corner they physically are.
+    const squared = (points) => {
+      const a = points[0];
+      const b = points[points.length - 1];
+      if (Math.abs(b.x - a.x) < 0.5 || Math.abs(b.z - a.z) < 0.5) return points;
+      return Math.abs(b.x - a.x) >= Math.abs(b.z - a.z)
+        ? [a, { x: b.x, z: a.z }, b]
+        : [a, { x: a.x, z: b.z }, b];
+    };
+    const lines = graph.edges.map((edge) => (edge.kind === 'connector' ? squared(edge.points) : edge.points));
+    const strokePolyline = (points, color, width, glow = 0) => {
+      if (!points?.length) return;
+      ctx.beginPath();
+      points.forEach((p, i) => { if (i) ctx.lineTo(p.x, p.z); else ctx.moveTo(p.x, p.z); });
+      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.shadowColor = color; ctx.shadowBlur = glow; ctx.stroke(); ctx.shadowBlur = 0;
+    };
+    // Casing then carriageway. Widths are world metres, so they stay true at
+    // any zoom — no pixel floors, which were what made the old map a mess.
+    for (const points of lines) strokePolyline(points, 'rgba(2,6,12,.95)', roadW + 2.4 / s);
+    for (const points of lines) strokePolyline(points, 'rgba(168,190,205,.92)', roadW);
 
     if (route) {
-      strokePolyline(route.polyline, 'rgba(1,8,14,.9)', Math.max(10, graph.roadWidth * scale * .56));
-      strokePolyline(route.polyline, '#35d6ff', Math.max(5, graph.roadWidth * scale * .31), 12);
+      strokePolyline(route.polyline, 'rgba(1,8,14,.9)', roadW * 0.72);
+      strokePolyline(route.polyline, '#35d6ff', roadW * 0.5, 12);
     }
-
-    // Simple row and gate labels give the repeated geometry stable names.
-    // Ladder graphs only — an explicit district graph has no rows/crosses.
-    if (streets.length) {
-      ctx.font = '700 16px sans-serif'; ctx.textBaseline = 'middle';
-      streets.forEach((row, i) => {
-        const p = mapPoint(row.points[0]);
-        ctx.fillStyle = 'rgba(238,244,255,.78)'; ctx.textAlign = 'left';
-        ctx.fillText(`${i + 1}`, p.x + 12, p.y - 9);
-      });
-      ctx.font = '800 15px sans-serif'; ctx.fillStyle = '#4dc8ff'; ctx.textBaseline = 'bottom';
-      // Gate graphs have explicit w0/e0 nodes; the current compact district uses
-      // gates:false and its row endpoints are cross-street nodes instead. Label
-      // the actual first-row endpoints so both graph shapes remain valid.
-      const firstStreet = streets[0];
-      if (firstStreet?.points?.length) {
-        const west = mapPoint(firstStreet.points[0]);
-        const east = mapPoint(firstStreet.points[firstStreet.points.length - 1]);
-        ctx.textAlign = 'left'; ctx.fillText('W', west.x - 5, h - 6);
-        ctx.textAlign = 'right'; ctx.fillText('E', east.x + 5, h - 6);
-      }
-      const connectorLabel = (edgeId, text, side) => {
-        const edge = graph.edgeById.get(edgeId);
-        if (!edge) return;
-        const p = mapPoint(edge.points[0].clone().lerp(edge.points[1], 0.5));
-        ctx.save(); ctx.translate(p.x + side * 10, p.y); ctx.rotate(-Math.PI / 2);
-        ctx.font = '800 12px sans-serif'; ctx.fillStyle = 'rgba(219,236,245,.88)';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0); ctx.restore();
-      };
-      connectorLabel('west1', 'WEST CROSS', 1);
-      connectorLabel('east1', 'EAST CROSS', -1);
-      ctx.save(); ctx.font = '800 11px sans-serif'; ctx.fillStyle = 'rgba(219,236,245,.72)';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      for (const cross of graph.crosses) {
-        const p = mapPoint({ x: cross.x, z: streets[streets.length - 1].z });
-        ctx.fillText(`C${cross.index + 1}`, p.x, p.y - 9);
-      }
-      ctx.restore();
-    }
-
-    // 100 m scale bar.
-    const bar = Math.min(100 * scale, w * .26);
-    ctx.strokeStyle = 'rgba(238,244,255,.72)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(18, h - 16); ctx.lineTo(18 + bar, h - 16); ctx.stroke();
-    ctx.font = '600 13px sans-serif'; ctx.fillStyle = 'rgba(238,244,255,.7)'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    ctx.fillText(`${Math.round(bar / scale)} m`, 18, h - 20);
 
     if (destination) {
-      const d = mapPoint(destination);
-      ctx.beginPath(); ctx.arc(d.x, d.y, 10, 0, Math.PI * 2);
+      // Pulsing pin; the pulse runs in canvas px so it survives the transform.
+      const pulse = 1 + 0.18 * Math.sin(performance.now() / 240);
+      ctx.beginPath(); ctx.arc(destination.x, destination.z, (10 * pulse) / s, 0, Math.PI * 2);
       ctx.fillStyle = '#ff2d78'; ctx.shadowColor = '#ff2d78'; ctx.shadowBlur = 18; ctx.fill(); ctx.shadowBlur = 0;
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke();
-      ctx.beginPath(); ctx.arc(d.x, d.y, 3, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+      ctx.lineWidth = 3 / s; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(destination.x, destination.z, 3 / s, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff'; ctx.fill();
     }
-    if (player) {
-      const p = mapPoint(player.position);
-      // Game north is world -Z; vehicle +X is body-left. Canvas rotation must
-      // therefore flip the vertical component while preserving the corrected
-      // left/right component: north (-Z) is up, south (+Z) is down.
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(minimapArrowRotation(player.heading || 0, this.miniMapFlipX, this.miniMapFlipY));
-      ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(9, 10); ctx.lineTo(0, 6); ctx.lineTo(-9, 10); ctx.closePath();
-      ctx.fillStyle = '#ffffff'; ctx.shadowColor = '#4dc8ff'; ctx.shadowBlur = 15; ctx.fill();
-      ctx.strokeStyle = '#087da5'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+    ctx.restore();
+
+    // Rim vignette: roads fade out at the edge instead of hard-clipping.
+    const vig = ctx.createRadialGradient(cx, cy, rim * 0.55, cx, cy, rim);
+    vig.addColorStop(0, 'rgba(3,7,13,0)'); vig.addColorStop(1, 'rgba(3,7,13,.88)');
+    ctx.fillStyle = vig; ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+
+    // Off-screen destination: clamp an arrow to the rim pointing the way.
+    if (destination) {
+      const dx = (destination.x - ppos.x) * s, dz = (destination.z - ppos.z) * s;
+      const cosA = Math.cos(-t), sinA = Math.sin(-t);
+      const sx = dx * cosA - dz * sinA, sy = dx * sinA + dz * cosA;
+      const d = Math.hypot(px + sx - cx, py + sy - cy);
+      if (d > rim - 16 && d > 0) {
+        const ux = (px + sx - cx) / d, uy = (py + sy - cy) / d;
+        const ex = cx + ux * (rim - 14), ey = cy + uy * (rim - 14);
+        ctx.save(); ctx.translate(ex, ey); ctx.rotate(Math.atan2(uy, ux) + Math.PI / 2);
+        ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6, 6); ctx.lineTo(-6, 6); ctx.closePath();
+        ctx.fillStyle = '#ff2d78'; ctx.shadowColor = '#ff2d78'; ctx.shadowBlur = 10; ctx.fill(); ctx.restore();
+      }
     }
-    this._setLocalized(
-      this.$.mapNorth,
-      this.miniMapFlipY ? '남 · S' : '북 · N',
-      this.miniMapFlipY ? 'SOUTH · S' : 'NORTH · N',
-    );
+
+    // Compass tick: world north on screen is the north-up "up" spun by -t.
+    const nx = -Math.sin(t), ny = -Math.cos(t);
+    ctx.save();
+    ctx.translate(cx + nx * (rim - 12), cy + ny * (rim - 12));
+    ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(7,14,24,.85)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(77,200,255,.5)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.font = '800 12px sans-serif'; ctx.fillStyle = '#4dc8ff';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('N', 0, 1);
+    ctx.restore();
+
+    // Fixed zoom, so the scale bar is a constant: half the rim is 55 m.
+    ctx.strokeStyle = 'rgba(238,244,255,.6)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx - rim + 16, cy + rim - 12); ctx.lineTo(cx - rim + 16 + rim / 2, cy + rim - 12); ctx.stroke();
+    ctx.font = '600 12px sans-serif'; ctx.fillStyle = 'rgba(238,244,255,.6)';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText(`${Math.round(VIEW_M / 2)} m`, cx - rim + 16, cy + rim - 16);
+
+    // Player arrow: fixed at its anchor, always pointing up.
+    ctx.save(); ctx.translate(px, py);
+    ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(9, 10); ctx.lineTo(0, 6); ctx.lineTo(-9, 10); ctx.closePath();
+    ctx.fillStyle = '#ffffff'; ctx.shadowColor = '#4dc8ff'; ctx.shadowBlur = 15; ctx.fill();
+    ctx.strokeStyle = '#087da5'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+
+    this._setLocalized(this.$.mapNorth, '주변 · GPS', 'GPS');
     const turnLabels = this.englishMode
       ? { left: 'LEFT', right: 'RIGHT', straight: 'STRAIGHT' }
       : { left: '좌회전 · LEFT', right: '우회전 · RIGHT', straight: '직진 · STRAIGHT' };
     const turnIcons = { left: '↰', right: '↱', straight: '↑' };
     this.$.turn.textContent = maneuver
       ? `${turnIcons[maneuver.type]} ${turnLabels[maneuver.type]}`
-      : (this.englishMode ? 'CITY GRID' : '시내 · CITY');
+      : (this.englishMode ? 'GPS' : '주변 · GPS');
   }
 
   toast(ko, en = '', kind = '') {

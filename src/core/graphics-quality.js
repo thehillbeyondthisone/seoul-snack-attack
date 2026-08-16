@@ -19,11 +19,11 @@ export const MOBILE_GRAPHICS = Object.freeze({
   name: 'mobile',
   antialias: false,
   pixelRatioCap: 1,
-  postScale: 0.65,
-  rainDensity: 0.5,
-  propDensity: 0.45,
-  streetlights: 6,
-  cullDistance: 78,
+  postScale: 0.5,
+  rainDensity: 0.35,
+  propDensity: 0.3,
+  streetlights: 4,
+  cullDistance: 65,
 });
 
 export function shouldAutoUseMobileGraphics({

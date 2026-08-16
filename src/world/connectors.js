@@ -39,13 +39,23 @@ function buildCollisionGeometry(meshes) {
  *                                  (world-space `points` polylines)
  * @param {number}   opts.roadY     deck driving-surface height
  * @param {number}   opts.roadWidth carriageway width
+ * @param {(x: number, z: number) => boolean} [opts.hasAuthoredRoad]
+ *        true where the districts already provide drivable ground at roadY. A
+ *        deck there bridges nothing and only puts an untextured slab on top of
+ *        the authored asphalt, so it is skipped.
+ * @param {THREE.Material} [opts.material] the block's own road material, so a
+ *        deck that IS needed reads as road
  */
-export function createConnectors(scene, { edges, roadY, roadWidth }) {
+export function createConnectors(scene, {
+  edges, roadY, roadWidth, hasAuthoredRoad = null, material = null,
+}) {
   const group = new THREE.Group();
   group.name = 'district_connectors';
   const collision = [];
-  const asphalt = new THREE.MeshStandardMaterial({ color: 0x171c22, roughness: 0.58, metalness: 0.04, envMapIntensity: 1.15 });
+  const asphalt = material
+    || new THREE.MeshStandardMaterial({ color: 0x171c22, roughness: 0.58, metalness: 0.04, envMapIntensity: 1.15 });
   const deckWidth = roadWidth + 1.5;
+  let skipped = 0;
 
   const drivableBounds = new THREE.Box3().makeEmpty();
   const dir = new THREE.Vector3();
@@ -68,6 +78,18 @@ export function createConnectors(scene, { edges, roadY, roadWidth }) {
       // instead of leaving wheel-swallowing seams.
       const length = a.distanceTo(b) + SEG_OVERLAP;
       if (length < 0.5) continue;
+      // Both ends AND the middle already on authored road means this segment
+      // has nothing to bridge.
+      if (hasAuthoredRoad) {
+        const mid = a.clone().lerp(b, 0.5);
+        if (hasAuthoredRoad(a.x, a.z) && hasAuthoredRoad(mid.x, mid.z) && hasAuthoredRoad(b.x, b.z)) {
+          // Still counts as drivable ground for the bounds and the edge scan —
+          // the district's own asphalt is carrying it.
+          drivableBounds.expandByPoint(a).expandByPoint(b);
+          skipped++;
+          continue;
+        }
+      }
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(deckWidth, DECK_THICKNESS, length), asphalt);
       mesh.position.copy(a).lerp(b, 0.5);
       mesh.position.y = roadY - DECK_THICKNESS / 2 + 0.02; // deck top flush with the authored asphalt
@@ -104,6 +126,10 @@ export function createConnectors(scene, { edges, roadY, roadWidth }) {
     group, colliderGeo, raycast,
     drivableBounds, worldBounds,
     roadMaterials: collision.length ? [asphalt] : [],
-    stats: { collisionTriangles: colliderGeo.attributes.position.count / 3, decks: collision.length },
+    stats: {
+      collisionTriangles: colliderGeo.attributes.position.count / 3,
+      decks: collision.length,
+      skippedOnAuthoredRoad: skipped,
+    },
   };
 }

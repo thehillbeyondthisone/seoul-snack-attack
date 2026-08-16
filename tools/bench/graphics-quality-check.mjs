@@ -32,7 +32,7 @@ assert.deepEqual(DESKTOP_GRAPHICS, {
   rainDensity: 1, propDensity: 1, streetlights: 10, cullDistance: 105,
 });
 assert.equal(MOBILE_GRAPHICS.pixelRatioCap, 1);
-assert.equal(MOBILE_GRAPHICS.postScale, 0.65);
+assert.equal(MOBILE_GRAPHICS.postScale, 0.5);
 assert.ok(MOBILE_GRAPHICS.rainDensity < DESKTOP_GRAPHICS.rainDensity);
 assert.ok(MOBILE_GRAPHICS.propDensity < DESKTOP_GRAPHICS.propDensity);
 
