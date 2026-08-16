@@ -22,6 +22,7 @@ import { createConnectors } from './connectors.js';
 import { createEndZones } from './end-zones.js';
 import { StreetlightPool } from './streetlights.js';
 import { createNightRig, blockPalette, NIGHT } from './lighting.js';
+import { analyzeBlock, applyBlockVariant } from './block-variants.js';
 import {
   CITY_SCALE, FOG_MESH_RE, ROAD_MAT_RE, isClipped,
   TILE_LAYOUT, TILE_FLIP_ODD_ROWS, TILE_OVERHANG, TILE_CULL_DISTANCE, TILE_REPEATING,
@@ -195,6 +196,32 @@ export async function loadCity(scene, manager, url = 'assets/world/seoul-block.g
     overhang: TILE_OVERHANG,
   });
 
+  // ---- Per-district variation --------------------------------------------
+  // One authored block placed ten times reads as the same corner ten times
+  // unless each copy is varied. See src/world/block-variants.js for why the
+  // variations are limited to colour and vertical massing: the collision BVH
+  // above is built ONCE, so nothing a district changes may alter what the
+  // player can touch.
+  const blockAnalysis = analyzeBlock(meshes, CITY_SCALE, block);
+
+  // Start in the layout's medoid district — the one with the shortest total
+  // distance to all the others — so there is city in every direction.
+  let spawnTile = 0;
+  {
+    let best = Infinity;
+    for (let t = 0; t < grid.count; t++) {
+      let total = 0;
+      for (const other of grid.centers) total += grid.centers[t].distanceToSquared(other);
+      if (total < best) { best = total; spawnTile = t; }
+    }
+  }
+
+  // Districts that keep the source look, so the map has fixed points to
+  // navigate by. The spawn district is one of them: the street you learn first
+  // should stay the one you can always recognise. The far corner is the other,
+  // so the two ends of the map do not read alike.
+  const heroDistricts = new Set([spawnTile, grid.count - 1]);
+
   const tiles = [];
   for (let t = 0; t < grid.count; t++) {
     const root = new THREE.Group();
@@ -202,8 +229,18 @@ export async function loadCity(scene, manager, url = 'assets/world/seoul-block.g
     root.matrixAutoUpdate = false;
     root.matrix.copy(grid.matrices[t]);
     // Object3D.clone() shares geometry and materials by reference, so N tiles
-    // cost one geometry set.
-    root.add(t === 0 ? block : block.clone());
+    // cost one geometry set. applyBlockVariant then swaps in per-district
+    // material copies — geometry stays shared, which is the whole point.
+    const districtBlock = t === 0 ? block : block.clone();
+    const variant = applyBlockVariant(districtBlock, t, blockAnalysis, { heroes: heroDistricts });
+    // Keep the 조명 debug folder in charge of every sign in the city, not just
+    // the ones in district 0.
+    for (const material of variant.materials) {
+      if (material.emissiveMap || (material.emissive && material.emissive.r + material.emissive.g + material.emissive.b > 0.01)) {
+        emissiveMaterials.push(material);
+      }
+    }
+    root.add(districtBlock);
     root.updateMatrixWorld(true);
     scene.add(root);
     tiles.push({ index: t, root, center: grid.centers[t], flipped: grid.flipped[t] });
@@ -393,17 +430,6 @@ export async function loadCity(scene, manager, url = 'assets/world/seoul-block.g
   if (!localSpawn) localSpawn = new THREE.Vector3(localCenter.x, 0, localCenter.z);
   localSpawn.y += 0.8; // drop-in height
 
-  // Start in the layout's medoid district — the one with the shortest total
-  // distance to all the others — so there is city in every direction.
-  let spawnTile = 0;
-  {
-    let best = Infinity;
-    for (let t = 0; t < grid.count; t++) {
-      let total = 0;
-      for (const other of grid.centers) total += grid.centers[t].distanceToSquared(other);
-      if (total < best) { best = total; spawnTile = t; }
-    }
-  }
   const spawn = {
     position: grid.localToWorld(spawnTile, localSpawn, new THREE.Vector3()),
     // The ring streets run along tile-local X — and a rotated district faces

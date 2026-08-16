@@ -50,7 +50,13 @@ export const NIGHT = {
   bloomThreshold: 1.02,
 
   // --- fog ---
-  fogDensity: 0.019,
+  // FogExp2, so transmittance is exp(-(density * distance)^2). Retuned for the
+  // ten-district Seoul fabric: at 0.019 the half-visibility point sat at 44 m,
+  // which was fine when the whole map was two blocks but now hides the city
+  // from its own streets. 0.0105 puts it at ~79 m — you still lose the far
+  // districts to haze, which is the intent at night, but the street you are on
+  // and the one beyond it read clearly.
+  fogDensity: 0.0105,
   fogColor: 0x121a30,
 
   // --- colours / sky presentation ---
@@ -81,7 +87,9 @@ export const DAY = {
   bloomStrength: 0.24,
   bloomRadius: 0.45,
   bloomThreshold: 1.15,
-  fogDensity: 0.0065,
+  // Half-visibility at ~198 m, a little past the map diagonal, so daylight QA
+  // can actually see the fabric it is checking. See the NIGHT note above.
+  fogDensity: 0.0042,
   fogColor: 0xb8c8d0,
   hemiSkyColor: 0xb9d8f2,
   hemiGroundColor: 0x62675b,
