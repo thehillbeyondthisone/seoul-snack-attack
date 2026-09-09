@@ -2,7 +2,7 @@
 
 A third-person delivery driving game set in a rainy, neon-lit Seoul district. Crazy Taxi–style timed orders with semi-realistic driving physics, built with Three.js.
 
-The city is a compact **105 × 140 m** district built around one detailed Hong Kong source block at 1:1 scale. A unique northern quay adds a third east/west street, three cross streets, two real driving loops, and a canal as a readable natural limit. The 9-node/12-edge route graph has no dead ends or bridge edges, feeds 15 reachable delivery anchors, and powers the north-up live-routing mini-map. Authored restaurant frontage and 78 types of seeded, knockable street props dress the route without repeating the whole city.
+The default city is a **procedural night circuit** (~264 × 192 m) built from the colour bible: six coloured neighbourhoods, a wide station boulevard, a market plaza shortcut, a roundabout, tight Hongdae/pocha streets, and a canal with three bridges. Buildings are generated, then labelled with Hangul neon (vertical blades and lintel strips) plus hanging Korean signage. The authored repeating block remains at `?world=block`.
 
 ## Run it
 
@@ -32,7 +32,7 @@ A local server is required — `file://` cannot fetch GLB models (CORS). To depl
 | R | Reset van to road |
 | Hold T | Show the HUD and open menus fully in English |
 | M | Mute/unmute soundtrack |
-| ` (backtick) | Debug menu |
+| ` (backtick) or F3 | Debug menu |
 
 Paired Xbox controllers use the standard browser gamepad mapping:
 
@@ -146,6 +146,7 @@ Identify props with `?props=gallery`, then name and weight them in `src/world/da
 npm run bench        # 20-metric physics bench vs baseline.json
 npm run check        # tiling correctness + prop physics behaviour
 npm run road-check   # connected road graph, no dead ends/bridges, all routes reachable
+npm run proc-check   # procedural city graph, colour bible, Hangul shop names
 npm run probe -- "http://localhost:5173/?stats=1" 30 --size 400,300 --shot out.png
 ```
 
@@ -169,6 +170,9 @@ Handy for screenshots and automated checks:
 - `?props=gallery` — lay every catalog prop out on a labelled grid (curation mode)
 - `?touch=on|off|auto` — override touch-control detection
 - `?gfx=mobile|desktop|auto` — override the graphics profile
+- `?world=proc|block` — procedural night circuit (default) or the authored repeating block
+
+Colour bible (source of truth for district paint, neon, and HUD accents): open [color-bible.html](color-bible.html) on the dev server.
 
 Example: `http://localhost:5173/?rain=heavy&offer=1&accept=1&auto=1`
 
@@ -195,6 +199,8 @@ src/
   world/skybox.js       procedural 360-degree storm sky + PBR environment
   world/time-of-day.js  cached day/night preset coordinator
   world/city-constants.js  scale, tile grid, clip predicate (shared with tools/)
+  world/data/color-bible.js  night colour bible (districts, neon, shop pack)
+  world/proc/           procedural city: layout, mesh, signs, loadProcCity
   world/tiling.js       tile transforms + tile-local raycast over ONE BVH
   world/road-network.js closed ladder graph, projection, routing, delivery anchors
   world/end-zones.js    connector roads, markings, signage, barriers + second BVH

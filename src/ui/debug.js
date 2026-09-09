@@ -54,6 +54,7 @@ export function initDebug({ orders, rain, phys, post, van, cam, city, scene, tim
   const persist = (section, source, keys) => () => copySettings(settings, section, source, keys);
   const gui = new GUI({ title: '서울 배달 디버그 · Debug' });
   gui.hide();
+  gui.domElement.style.zIndex = '20000';
   const originalLabels = new WeakMap();
   const originalOptions = new WeakMap();
   let menuEnglishMode = false;

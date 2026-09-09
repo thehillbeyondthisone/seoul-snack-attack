@@ -35,6 +35,8 @@ const SCENES = [
         dish: '떡볶이 + 김밥 세트 (Tteokbokki + gimbap set)',
         pay: 12584,
         distanceKm: 1.4,
+        note: '엘리베이터 점검 중이라 계단으로 오셔야 해요. 죄송합니다 ㅠㅠ',
+        noteEn: 'The elevator is out, so it’s the stairs. I’m sorry ㅠㅠ',
       });
       h.hideTicket();
       h.setObjective(null);
@@ -51,6 +53,9 @@ const SCENES = [
       h.showTicket({
         to: '신전 떡볶이', stage: '픽업 · Pickup',
         seconds: 96, totalSeconds: 120, distanceKm: 1.4, condition: 1,
+        note: '덜 맵게 부탁드립니다. 아이가 같이 먹어요.',
+        noteEn: 'Mild, please — a child is eating too.',
+        noteLabel: '가게 요청사항', noteLabelEn: 'Kitchen note',
       });
       h.toast('주문 수락됨', 'Order accepted');
     },
@@ -69,6 +74,8 @@ const SCENES = [
       h.showTicket({
         to: '역삼동 1201호', stage: '배달 · Deliver',
         seconds: 168, totalSeconds: 240, distanceKm: 0.9, condition: 1,
+        note: '국물 새면 다 못 먹어요. 살살 부탁드려요.',
+        noteEn: 'If the broth leaks the whole thing is ruined. Go gentle.',
       });
       this._knocks = [0.25, 0.5, 0.72];
       this._hit = 0;
@@ -97,6 +104,8 @@ const SCENES = [
       h.showTicket({
         to: '역삼동 1201호', stage: '배달 · Deliver',
         seconds: 18, totalSeconds: 240, distanceKm: 0.3, condition: 0.28,
+        note: '배고파 죽겠어요… 조금만 서둘러 주세요!',
+        noteEn: 'I’m starving over here… please hurry!',
       });
       h.setCondition?.(0.28);
     },

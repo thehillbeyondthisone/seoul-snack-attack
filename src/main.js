@@ -6,6 +6,7 @@ import { AudioManager } from './core/audio.js';
 import { Post } from './core/post.js';
 import { createGraphicsQuality } from './core/graphics-quality.js';
 import { loadCity } from './world/city.js';
+import { loadProcCity } from './world/proc/city.js';
 import { loadDistrictDressing } from './world/district-dressing.js';
 import { NIGHT } from './world/lighting.js';
 import { createTimeOfDay } from './world/time-of-day.js';
@@ -19,6 +20,7 @@ import { soundtrackTracks } from './game/data/soundtrack.js';
 import { loadSave } from './game/save.js';
 import { ChaseCamera } from './vehicle/camera.js';
 import { Orders } from './game/orders.js';
+import { preloadFoodCatalog } from './game/food-display.js';
 import { HUD3 } from './ui/hud3.js';
 import { initDebug } from './ui/debug.js';
 
@@ -103,8 +105,13 @@ async function boot() {
   }
   const vehicleDef = getVehicle(carId);
 
+  // Procedural city is the default driveable version. `?world=block` keeps the
+  // authored repeating Seoul block for comparison and regression.
+  const worldId = qp.get('world') === 'block' ? 'block' : 'proc';
   const [city, van] = await Promise.all([
-    loadCity(scene, manager, 'assets/world/seoul-block.glb', renderer, setLoadingProgress),
+    worldId === 'block'
+      ? loadCity(scene, manager, 'assets/world/seoul-block.glb', renderer, setLoadingProgress)
+      : loadProcCity(scene, manager, renderer, setLoadingProgress),
     // Assets built through tools/build-vehicle.mjs carry a baked rig and go
     // through the thin loader; the van is still on its runtime heuristics.
     // See the `van` note in src/game/data/vehicles.js for why it has not moved.
@@ -115,13 +122,16 @@ async function boot() {
   setLoadingProgress(94, '게임 시스템 준비 중 · Preparing game systems');
   console.log(`vehicle: ${vehicleDef.nameEn} (${vehicleDef.id}, ${vehicleDef.loader} rig)`);
 
-  // Storefront dressing is ON by default. The Seoul block is one authored
-  // corner repeated across the fabric, so the Korean shopfronts and neon signs
-  // are what make each district read as a different street rather than the same
-  // corner again — they are the map, not a garnish. `?shops=off` drops them for
-  // performance QA.
+  // Authored-block dressing is only for `?world=block`. The procedural city
+  // labels shops with Hangul neon from the colour bible.
   let district = null;
-  if (qp.get('shops') !== 'off') {
+  if (worldId === 'proc') {
+    console.log(
+      `world: procedural — ${city.stats.buildings} buildings, ` +
+      `${city.pickupSites?.length || 0} labelled shops, ` +
+      `${city.stats.roadNodes} nodes / ${city.stats.roadEdges} edges`
+    );
+  } else if (qp.get('shops') !== 'off') {
     try {
       district = await loadDistrictDressing(scene, manager, city);
       city.pickupSites = district.pickupSites;
@@ -243,6 +253,8 @@ async function boot() {
     const { startUISlice } = await import('./ui/slice.js');
     uiSlice = await startUISlice({ hudEl: hud.el, orders, params: qp });
   }
+
+  preloadFoodCatalog().catch(() => {});
 
   // ---- Props: loaded AFTER the first frame ---------------------------------
   // The game is fully playable without them, so they must never delay

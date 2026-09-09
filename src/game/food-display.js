@@ -45,6 +45,28 @@ export function loadFoodModel(spec) {
   return cache.get(spec.id);
 }
 
+const templates = new Map();
+
+/** Normalized cloneable original, largest dimension = 1. Built once per dish. */
+export async function foodTemplate(spec) {
+  if (!templates.has(spec.id)) {
+    templates.set(spec.id, loadFoodModel(spec).then((source) => {
+      const model = source.clone(true);
+      normalizeModel(model, 1);
+      return model;
+    }).catch((error) => {
+      templates.delete(spec.id);
+      throw error;
+    }));
+  }
+  return templates.get(spec.id);
+}
+
+/** Warm every catalog GLB after boot so accepting an order does not hitch. */
+export function preloadFoodCatalog() {
+  return Promise.all(MODEL_SPECS.map((spec) => foodTemplate(spec).catch(() => null)));
+}
+
 function normalizeModel(model, targetSize) {
   const box = new THREE.Box3().setFromObject(model);
   const size = box.getSize(new THREE.Vector3());
@@ -90,14 +112,14 @@ export class FoodDisplay {
     if (!specs.length) return;
 
     try {
-      const sources = await Promise.all(specs.map(loadFoodModel));
+      const sources = await Promise.all(specs.map(foodTemplate));
       if (request !== this._request) return;
       const targetSize = specs.length > 1 ? 0.64 : 0.9;
       const spacing = specs.length > 1 ? 0.72 : 0;
       this.models = sources.map((source, index) => {
         const model = source.clone(true);
         model.name = `food_${specs[index].id}`;
-        normalizeModel(model, targetSize);
+        model.scale.multiplyScalar(targetSize);
         model.position.x += (index - (specs.length - 1) * 0.5) * spacing;
         this.root.add(model);
         return model;

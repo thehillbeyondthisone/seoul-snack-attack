@@ -137,13 +137,20 @@ const CSS = `
 #hud3 .order.show { opacity: 1; transform: translate(-50%, 0); }
 #hud3 .order.show { pointer-events: auto; cursor: pointer; }
 #hud3 .order.show:hover { filter: brightness(1.08); }
+/* The header was a solid pink slab with white type on it — the loudest object on
+   screen, sitting dead centre, for a card that is only ever asking a question.
+   It now matches the ticket's head: a 10% tint of the accent with the label in
+   the accent colour, so pink still says NEW ORDER without shouting it. The
+   urgency that actually matters — the offer running out — is carried by the
+   countdown hairline along the bottom edge, which is unchanged. */
 #hud3 .order .strip {
   display: flex; align-items: center; justify-content: space-between;
   padding: 7px 15px; margin: 1px 1px 0;
-  background: linear-gradient(90deg, var(--alarm), rgba(255,45,120,0));
+  background: rgba(255,45,120,0.10);
+  border-bottom: 1px solid rgba(255,45,120,0.20);
 }
-#hud3 .order .strip .en { color: #fff; opacity: 0.95; }
-#hud3 .order .strip .dist { font-size: 11px; font-weight: 700; color: #fff; }
+#hud3 .order .strip .en { color: var(--alarm); opacity: 1; }
+#hud3 .order .strip .dist { font-size: 11px; font-weight: 700; color: var(--ink); }
 #hud3 .order .body { padding: 13px 17px 15px; }
 #hud3 .order .shop { font-size: 20px; font-weight: 800; line-height: 1.15; }
 #hud3 .order .shop-en { margin-top: 3px; }
@@ -151,6 +158,28 @@ const CSS = `
   margin-top: 9px; padding-top: 9px; border-top: 1px dashed rgba(238,244,255,0.18);
   font-size: 13px; color: rgba(238,244,255,0.82);
 }
+/* ---- customer request note ---------------------------------------------- */
+/* The one thing on the HUD written by a person rather than by the game, so it is
+   set as quoted speech: a rule down the left, the label above it, no accent
+   colour. Gold is money, cyan is navigation, pink is urgency — a request from
+   the customer is none of those, and giving it a fourth colour would be the
+   fourth colour rule 4 exists to prevent. Hidden entirely when an order has no
+   note, because an empty quote block reads as a failed lookup. */
+#hud3 .req { display: none; margin-top: 10px; padding-left: 9px;
+  border-left: 2px solid rgba(238,244,255,0.20); }
+#hud3 .order.has-req .req, #hud3 .ticket.has-req .req { display: block; }
+#hud3 .req .t {
+  display: block; margin-top: 3px; color: rgba(238,244,255,0.84);
+  font-size: 13px; line-height: 1.35; font-weight: 500;
+}
+/* 206px of ticket cannot take a four-line note next to a countdown, and the
+   whole line is on the offer card anyway — this is the reminder, not the read. */
+#hud3 .ticket .req { margin-top: 9px; }
+#hud3 .ticket .req .t {
+  font-size: 11.5px; line-height: 1.34; color: rgba(238,244,255,0.78);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}
+
 #hud3 .order .foot {
   margin-top: 12px; display: flex; align-items: flex-end; justify-content: space-between;
 }
@@ -208,6 +237,22 @@ const CSS = `
    condition rows are absent rather than frozen — a stopped timer reads as a bug. */
 #hud3 .ticket .clock, #hud3 .ticket .bar, #hud3 .ticket .cond { display: none; }
 #hud3 .ticket.timed .clock { display: flex; }
+
+/* Stay-in-zone dwell. Cyan is navigation; alarm if you need to slow down. */
+#hud3 .ticket .dwell { display: none; margin-top: 10px; }
+#hud3 .ticket.dwelling .dwell { display: block; }
+#hud3 .dwell .k {
+  font-size: 10px; letter-spacing: .10em; text-transform: uppercase;
+  color: var(--nav); margin-bottom: 5px; font-weight: 700;
+}
+#hud3 .dwellbar { height: 7px; background: rgba(238,244,255,0.10); }
+#hud3 .dwellbar i {
+  display: block; height: 100%; width: 0%;
+  background: var(--nav); box-shadow: 0 0 10px var(--nav);
+  transition: width 0.08s linear;
+}
+#hud3 .ticket.dwell-paused .dwell .k { color: var(--alarm); }
+#hud3 .ticket.dwell-paused .dwellbar i { background: var(--alarm); box-shadow: 0 0 10px var(--alarm); }
 #hud3 .ticket.timed .bar { display: block; }
 #hud3 .ticket.timed .cond { display: block; }
 #hud3 .ticket .clock { margin-top: 10px; align-items: baseline; gap: 8px; }
@@ -500,7 +545,7 @@ export const minimapArrowRotation = (heading, flipX = false, flipY = false) => {
 const LEGENDS = {
   keyboard: [
     ['W A S D', '주행'], ['Space', '사이드브레이크'], ['E', '수락'],
-    ['R', '리셋'], ['`', '디버그'], ['M', '음소거'],
+    ['R', '리셋'], ['` / F3', '디버그'], ['M', '음소거'],
   ],
   gamepad: [
     ['L-Stick', '조향'], ['RT', '가속'], ['LT', '브레이크'],
@@ -516,7 +561,7 @@ const won = (n) => `<small>₩</small>${Math.round(n).toLocaleString('ko-KR')}`;
 const ENGLISH_LEGENDS = {
   keyboard: [
     ['W A S D', 'Drive'], ['Space', 'Handbrake'], ['E', 'Accept'],
-    ['R', 'Reset'], ['`', 'Debug'], ['M', 'Mute'], ['T', 'English'],
+    ['R', 'Reset'], ['` / F3', 'Debug'], ['M', 'Mute'], ['T', 'English'],
   ],
   gamepad: [
     ['L-Stick', 'Steer'], ['RT', 'Accelerate'], ['LT', 'Brake'],
@@ -597,6 +642,7 @@ export class HUD3 {
           <div class="shop" id="h3shop">—</div>
           <div class="shop-en en" id="h3shopen">—</div>
           <div class="dish" id="h3dish">—</div>
+          <div class="req"><span class="k en" id="h3reqlabel">배달 요청사항</span><span class="t" id="h3req">—</span></div>
           <div class="foot">
             <div class="pay" id="h3pay"><small>₩</small>0</div>
             <div class="accept"><span class="key" id="h3acceptkey">E</span><span>수락 ACCEPT</span></div>
@@ -611,6 +657,11 @@ export class HUD3 {
           <div class="to" id="h3to">—</div>
           <div class="dish" id="h3tdish">—</div>
           <div class="dish-view" id="h3tdishview"></div>
+          <div class="dwell" id="h3dwell">
+            <div class="k en" id="h3dwellk">존에 머무르세요 · Stay in zone</div>
+            <div class="dwellbar"><i id="h3dwellbar"></i></div>
+          </div>
+          <div class="req"><span class="k en" id="h3treqlabel">배달 요청사항</span><span class="t" id="h3treq">—</span></div>
           <div class="clock"><span class="t" id="h3time">0:00</span><span class="en" id="h3timelabel">남은 시간 · Remaining</span></div>
           <div class="bar"><i id="h3tbar"></i></div>
           <div class="value"><span id="h3valuelabel">예상 금액 · Delivery total</span><span class="amount-wrap"><span class="deduction" id="h3deduction"></span><strong id="h3value">₩0</strong></span></div>
@@ -651,8 +702,11 @@ export class HUD3 {
       cash: $('h3cash'), rating: $('h3rating'), deliv: $('h3deliv'),
       order: $('h3order'), shop: $('h3shop'), shopen: $('h3shopen'), dish: $('h3dish'),
       pay: $('h3pay'), dist: $('h3dist'), offerbar: $('h3offerbar'),
+      req: $('h3req'), reqLabel: $('h3reqlabel'),
       ticket: $('h3ticket'), tstage: $('h3tstage'), tdist: $('h3tdist'), to: $('h3to'),
       tdish: $('h3tdish'), tdishview: $('h3tdishview'),
+      dwell: $('h3dwell'), dwellk: $('h3dwellk'), dwellbar: $('h3dwellbar'),
+      treq: $('h3treq'), treqLabel: $('h3treqlabel'),
       time: $('h3time'), timeLabel: $('h3timelabel'), tbar: $('h3tbar'), value: $('h3value'), valueLabel: $('h3valuelabel'), deduction: $('h3deduction'),
       cond: $('h3cond'), condpct: $('h3condpct'), segs: $('h3segs'),
       obj: $('h3obj'), objd: $('h3objd'), arrow: el.querySelector('.obj .arrow'),
@@ -693,7 +747,12 @@ export class HUD3 {
       [el.querySelector('.chips .panel:not(.rating) .k'), 'Runs'],
       [el.querySelector('.order .strip .en'), 'New order'],
       [el.querySelector('.order .accept span:last-child'), 'ACCEPT'],
+      // The ticket's label is rewritten per leg by _setNote; this is its default
+      // so hold-for-English works even before the first ticket appears.
+      [this.$.reqLabel, 'Delivery note'],
+      [this.$.treqLabel, 'Delivery note'],
       [this.$.timeLabel, 'Remaining'],
+      [this.$.dwellk, 'Stay in zone'],
       [this.$.valueLabel, 'Delivery total'],
       [el.querySelector('.cond .k .en'), 'Food condition'],
       [el.querySelector('.obj > span.en'), 'Target'],
@@ -938,13 +997,27 @@ export class HUD3 {
     this.$.gauge.style.width = `${clamp01(v / this.maxSpeed) * 100}%`;
   }
 
-  showOffer({ shop, shopEn, dish, dishEn = dish, pay, distanceKm }) {
+  showOffer({ shop, shopEn, dish, dishEn = dish, pay, distanceKm, note, noteEn = note }) {
     this._setLocalized(this.$.shop, shop, shopEn);
     this._setLocalized(this.$.shopen, shopEn, '');
     this._setLocalized(this.$.dish, dish, dishEn);
     this.$.pay.innerHTML = won(pay);
     this.$.dist.textContent = `${distanceKm.toFixed(1)} km`;
+    this._setNote(this.$.order, this.$.req, note, noteEn);
     this.$.order.classList.add('show');
+  }
+
+  /**
+   * Fill or clear a panel's request note. The label is optional because the
+   * offer only ever carries the rider's instruction, while the ticket swaps
+   * between the kitchen's and the rider's as the job changes hands.
+   */
+  _setNote(panel, textNode, ko, en = ko, labelNode = null, labelKo = '', labelEn = labelKo) {
+    if (!panel || !textNode) return;
+    panel.classList.toggle('has-req', !!ko);
+    if (!ko) return;
+    this._setLocalized(textNode, ko, en);
+    if (labelNode && labelKo) this._setLocalized(labelNode, labelKo, labelEn);
   }
   /** @param {number} t 1 → 0 as the offer window closes */
   setOfferProgress(t) { this.$.offerbar.style.width = `${clamp01(t) * 100}%`; }
@@ -960,11 +1033,16 @@ export class HUD3 {
    * @param {string}  [dish]     ordered dish name — pickup leg only; the deliver leg
    *                             shows the food above the van, not in the panel
    * @param {object}  [order]    order object, for the 3D dish preview
+   * @param {string}  [note]     customer request; the row is hidden without one
+   * @param {string}  [noteLabel] whose request it is — kitchen on the pickup leg,
+   *                              rider on the delivery leg
    */
-  showTicket({ to, toEn = to, stage, stageEn = stage, seconds = 0, totalSeconds = 0, payout = 0, distanceKm, condition = 1, timed = true, dish, dishEn = dish, order }) {
+  showTicket({ to, toEn = to, stage, stageEn = stage, seconds = 0, totalSeconds = 0, payout = 0, distanceKm, condition = 1, timed = true, dish, dishEn = dish, order, note, noteEn = note, noteLabel = '배달 요청사항', noteLabelEn = 'Delivery note' }) {
+    this.setDwell(null);
     this._setLocalized(this.$.to, to, toEn);
     this._setLocalized(this.$.tstage, stage, stageEn);
     this.$.tdist.textContent = `${distanceKm.toFixed(1)} km`;
+    this._setNote(this.$.ticket, this.$.treq, note, noteEn, this.$.treqLabel, noteLabel, noteLabelEn);
     this.$.ticket.classList.toggle('timed', timed);
     this.$.ticket.classList.toggle('has-dish', !!dish);
     if (dish) {
@@ -984,6 +1062,29 @@ export class HUD3 {
 
   /** Head label only — used for the pickup wait countdown. */
   setStage(stage, stageEn = stage) { this._setLocalized(this.$.tstage, stage, stageEn); }
+
+  /**
+   * Stay-in-zone progress. `progress` null hides the bar; 0..1 fills it.
+   * `paused` means the van is in the ring but still too fast.
+   */
+  setDwell(progress, { kind = 'pickup', paused = false } = {}) {
+    if (progress == null || !this.$.ticket) {
+      this.$.ticket?.classList.remove('dwelling', 'dwell-paused');
+      return;
+    }
+    this.$.ticket.classList.add('dwelling');
+    this.$.ticket.classList.toggle('dwell-paused', !!paused);
+    this.$.dwellbar.style.width = `${clamp01(progress) * 100}%`;
+    const labels = kind === 'drop'
+      ? ['배달 존에 머무르세요', 'STAY TO DELIVER']
+      : ['픽업 존에 머무르세요', 'STAY TO PICK UP'];
+    const pausedLabels = ['12 km/h 이하로 감속', 'SLOW BELOW 12 KM/H'];
+    this._setLocalized(
+      this.$.dwellk,
+      paused ? pausedLabels[0] : labels[0],
+      paused ? pausedLabels[1] : labels[1],
+    );
+  }
   updateTicket({ seconds, totalSeconds, payout }) {
     const late = seconds < 0;
     this.$.time.textContent = late ? `+${mmss(-seconds)}` : mmss(seconds);
@@ -1002,6 +1103,7 @@ export class HUD3 {
   }
   hideTicket() {
     this.$.ticket.classList.remove('show');
+    this.setDwell(null);
     this.foodPreview.stop();
   }
 
@@ -1089,7 +1191,7 @@ export class HUD3 {
     const cells = graph.districts || [];
     cells.forEach((cell, i) => {
       const b = cell.bounds || cell;
-      ctx.fillStyle = i % 2 ? 'rgba(32,50,66,.85)' : 'rgba(26,40,55,.9)';
+      ctx.fillStyle = cell.color || (i % 2 ? 'rgba(32,50,66,.85)' : 'rgba(26,40,55,.9)');
       ctx.fillRect(b.min.x, b.min.z, b.max.x - b.min.x, b.max.z - b.min.z);
     });
 

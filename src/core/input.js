@@ -13,7 +13,7 @@ const KEY_ACTIONS = {
   handbrake: ['Space'],
   accept: ['KeyE'],
   reset: ['KeyR'],
-  debug: ['Backquote'],
+  debug: ['Backquote', 'KeyF3'],
   mute: ['KeyM'],
   translate: ['KeyT'],
 };
@@ -79,7 +79,7 @@ export class Input {
       this.edge.add(e.code);
       this.mode = 'keyboard';
       this.hadActivity = true;
-      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backquote', 'KeyF3'].includes(e.code)) {
         e.preventDefault();
       }
     });

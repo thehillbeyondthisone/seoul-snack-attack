@@ -2,6 +2,7 @@
 // idle → offered → toPickup → waiting(3s) → delivering (timed, quality) → delivered → idle.
 import * as THREE from 'three';
 import { RESTAURANTS, FOOD_TYPES } from './data/restaurants.js';
+import { pickOrderNotes } from './data/order-notes.js';
 import { FoodDisplay } from './food-display.js';
 import { DEFAULT_SAVE, loadSave, persistSave } from './save.js';
 
@@ -156,6 +157,54 @@ export class Orders {
     this.hud.setObjective?.(distance, this._bearingTo(point));
   }
 
+  /**
+   * Stay-in-zone dwell. Returns true when the wait has elapsed.
+   * Leaving the ring aborts back to `abortState`. Speeding pauses the bar.
+   */
+  _tickDwell(dt, point, color, maxKmh, kind, abortState) {
+    const d = this.phys.position.distanceTo(point);
+    const settled = this.phys.speedKmh <= maxKmh;
+    this._setMarker(point, color, this.phys.position);
+    this._setObjective(point, d);
+    if (d >= ZONE_RADIUS) {
+      this.state = abortState;
+      this.waitTimer = WAIT_TIME;
+      this.hud.setDwell(null);
+      return false;
+    }
+    if (settled) this.waitTimer -= dt;
+    const progress = 1 - Math.max(0, this.waitTimer) / WAIT_TIME;
+    this.hud.setDwell(progress, { kind, paused: !settled });
+    return this.waitTimer <= 0;
+  }
+
+  _beginDelivery() {
+    const o = this.order;
+    this.state = 'delivering';
+    this.hud.setDwell(null);
+    this.foodDisplay.followVehicle(this.phys.meshPosition);
+    this.quality = 100;
+    this.spillMeter = 0;
+    o.livePayout = o.payout;
+    o.penaltyTimer = PAYOUT_PENALTY_INTERVAL;
+    o.penaltyQuality = this.quality;
+    this.hud.toast(`${o.dish.nameKo} 픽업 완료`, 'Picked up — deliver now');
+    this.audio?.event('pickup');
+    this.hud.showTicket({
+      to: '배달지 · Drop-off',
+      toEn: 'DROP-OFF',
+      stage: '배달 · Deliver',
+      stageEn: 'DELIVER',
+      seconds: o.timer,
+      totalSeconds: o.timerMax,
+      payout: o.payout,
+      distanceKm: o.dist / 1000,
+      condition: this.quality / 100,
+      timed: true,
+      ...this._noteFields('deliver'),
+    });
+  }
+
   _updateNavigation(dt, target) {
     const playerPosition = this.phys.meshPosition.clone();
     const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(this.phys.quaternion);
@@ -219,7 +268,34 @@ export class Orders {
     const timer = Math.max(MIN_DELIVERY_TIME, DELIVERY_BUFFER + (dist / AVG_SPEED) * type.timerFactor);
     const tip = THREE.MathUtils.randFloat(dish.tip[0], dish.tip[1]);
     const payout = Math.round(dish.price + tip + dist * 20);
-    return { rest, dish, type, dropoff: dropoff.clone(), dropoffAnchor: selected.anchor, route, dist, timer, timerMax: timer, payout };
+    // Flavour only: the customer's two request boxes. Nothing downstream reads
+    // them, so a note can never quietly change a timer or a payout.
+    const { note, kitchenNote } = pickOrderNotes(dish.type);
+    return {
+      rest, dish, type, dropoff: dropoff.clone(), dropoffAnchor: selected.anchor,
+      route, dist, timer, timerMax: timer, payout, note, kitchenNote,
+    };
+  }
+
+  /**
+   * The request note the panel should be carrying right now. The pickup leg
+   * belongs to the kitchen, so it shows 가게 요청사항 when the order has one —
+   * you are standing at the counter, and "leave it at the door" is not yet
+   * useful. Every other moment shows the rider's own instruction.
+   * @param {'pickup'|'deliver'} leg
+   */
+  _noteFields(leg) {
+    const o = this.order;
+    if (!o) return {};
+    const kitchen = leg === 'pickup' && o.kitchenNote;
+    const note = kitchen ? o.kitchenNote : o.note;
+    if (!note) return {};
+    return {
+      note: note.ko,
+      noteEn: note.en,
+      noteLabel: kitchen ? '가게 요청사항' : '배달 요청사항',
+      noteLabelEn: kitchen ? 'Kitchen note' : 'Delivery note',
+    };
   }
 
   setPaused(paused) { this.paused = !!paused; }
@@ -237,6 +313,10 @@ export class Orders {
       dishEn: `${o.dish.nameEn} · ${o.type.en}`,
       pay: o.payout,
       distanceKm: o.dist / 1000,
+      // The offer shows the rider's note, never the kitchen's: before you accept,
+      // a fourth-floor walk-up is information you are entitled to.
+      note: o.note?.ko,
+      noteEn: o.note?.en,
     });
     this.hud.setOfferProgress(1);
     this.audio?.event('offer');
@@ -259,6 +339,7 @@ export class Orders {
       stageEn: 'PICKUP',
       distanceKm: o.dist / 1000,
       timed: false,
+      ...this._noteFields('pickup'),
     });
     this.audio?.event('accept');
   }
@@ -300,64 +381,20 @@ export class Orders {
           if (this.phys.speedKmh <= PICKUP_MAX_SPEED_KMH) {
             this.state = 'waiting';
             this.waitTimer = WAIT_TIME;
-            this.hud.toast('픽업 대기 중…', 'Waiting for pickup');
+            this.hud.setDwell(0, { kind: 'pickup' });
           } else {
-            this.hud.setStage(
-              `${PICKUP_MAX_SPEED_KMH} km/h 이하로 감속 · Slow down`,
-              `SLOW BELOW ${PICKUP_MAX_SPEED_KMH} KM/H`,
-            );
+            this.hud.setDwell(0, { kind: 'pickup', paused: true });
           }
         } else {
+          this.hud.setDwell(null);
           this.hud.setStage('픽업 · Pickup', 'PICKUP');
         }
         break;
       }
 
       case 'waiting': {
-        const d = vanPos.distanceTo(o.rest.point);
-        const settled = this.phys.speedKmh <= PICKUP_MAX_SPEED_KMH;
-        this._setMarker(o.rest.point, 0xff2d78, vanPos);
-        this._setObjective(o.rest.point, d);
-        if (d >= ZONE_RADIUS) {
-          this.state = 'toPickup';
-          this.waitTimer = WAIT_TIME;
-          this.hud.setStage('픽업 · Pickup', 'PICKUP');
-          break;
-        }
-        if (settled) {
-          this.waitTimer -= dt;
-          this.hud.setStage(`픽업 대기 ${Math.ceil(this.waitTimer)}초 · Waiting`, `WAITING ${Math.ceil(this.waitTimer)}s`);
-        } else {
-          this.hud.setStage(
-            `${PICKUP_MAX_SPEED_KMH} km/h 이하로 감속 · Slow down`,
-            `SLOW BELOW ${PICKUP_MAX_SPEED_KMH} KM/H`,
-          );
-        }
-        if (this.waitTimer <= 0) {
-          this.state = 'delivering';
-          this.foodDisplay.followVehicle(this.phys.meshPosition);
-          this.quality = 100;
-          this.spillMeter = 0;
-          o.livePayout = o.payout;
-          o.penaltyTimer = PAYOUT_PENALTY_INTERVAL;
-          o.penaltyQuality = this.quality;
-          this.hud.toast(`${o.dish.nameKo} 픽업 완료`, 'Picked up — deliver now');
-          this.audio?.event('pickup');
-          this.hud.showTicket({
-            // Drop-offs are bare city points with no address data. The slice
-            // mocked up '역삼동 1201호'; generating names like that is a content
-            // decision, so this stays generic until there is a table for it.
-            to: '배달지 · Drop-off',
-            toEn: 'DROP-OFF',
-            stage: '배달 · Deliver',
-            stageEn: 'DELIVER',
-            seconds: o.timer,
-            totalSeconds: o.timerMax,
-            payout: o.payout,
-            distanceKm: o.dist / 1000,
-            condition: this.quality / 100,
-            timed: true,
-          });
+        if (this._tickDwell(dt, o.rest.point, 0xff2d78, PICKUP_MAX_SPEED_KMH, 'pickup', 'toPickup')) {
+          this._beginDelivery();
         }
         break;
       }
@@ -386,15 +423,31 @@ export class Orders {
         this.hud.setCondition(this.quality / 100);
         if (d < ZONE_RADIUS) {
           if (this.phys.speedKmh <= DELIVERY_MAX_SPEED_KMH) {
-            this._deliver();
+            this.state = 'dropWaiting';
+            this.waitTimer = WAIT_TIME;
+            this.hud.setDwell(0, { kind: 'drop' });
           } else {
-            this.hud.setStage(
-              `${DELIVERY_MAX_SPEED_KMH} km/h 이하로 감속 · Slow down`,
-              `SLOW BELOW ${DELIVERY_MAX_SPEED_KMH} KM/H`,
-            );
+            this.hud.setDwell(0, { kind: 'drop', paused: true });
           }
         } else {
+          this.hud.setDwell(null);
           this.hud.setStage('배달 · Deliver', 'DELIVER');
+        }
+        break;
+      }
+
+      case 'dropWaiting': {
+        if (!this.freezeTimers) o.timer -= dt;
+        this._updateQuality(dt);
+        this.hud.updateTicket({
+          seconds: o.timer,
+          totalSeconds: o.timerMax,
+          payout: this._currentPayout(),
+        });
+        this.hud.setCondition(this.quality / 100);
+        if (this._tickDwell(dt, o.dropoff, 0x29e6ff, DELIVERY_MAX_SPEED_KMH, 'drop', 'delivering')) {
+          this.hud.setDwell(null);
+          this._deliver();
         }
         break;
       }
@@ -402,7 +455,7 @@ export class Orders {
 
     let navTarget = null;
     if (this.order && (this.state === 'toPickup' || this.state === 'waiting')) navTarget = this.order.rest.point;
-    else if (this.order && this.state === 'delivering') navTarget = this.order.dropoff;
+    else if (this.order && (this.state === 'delivering' || this.state === 'dropWaiting')) navTarget = this.order.dropoff;
     this._updateNavigation(dt, navTarget);
     this._animateMarker(dt);
   }
@@ -501,6 +554,7 @@ export class Orders {
       onTime ? 'win' : 'bad'
     );
     this.audio?.event('delivery');
+    this.hud.setDwell(null);
     this.hud.hideTicket();
     this.hud.setObjective(null);
     this.foodDisplay.clear();
@@ -562,26 +616,9 @@ export class Orders {
   // -------------------------------------------------------------- debug hooks
   completeNow() {
     if (this.state === 'toPickup' || this.state === 'waiting') {
-      this.state = 'delivering';
-      this.foodDisplay.followVehicle(this.phys.meshPosition);
-      this.quality = 100;
-      this.spillMeter = 0;
-      this.order.livePayout = this.order.payout;
-      this.order.penaltyTimer = PAYOUT_PENALTY_INTERVAL;
-      this.order.penaltyQuality = this.quality;
-      this.hud.showTicket({
-        to: '배달지 · Drop-off',
-        toEn: 'DROP-OFF',
-        stage: '배달 · Deliver',
-        stageEn: 'DELIVER',
-        seconds: this.order.timer,
-        totalSeconds: this.order.timerMax,
-        payout: this._currentPayout(),
-        distanceKm: this.order.dist / 1000,
-        condition: 1,
-        timed: true,
-      });
-    } else if (this.state === 'delivering') {
+      this._beginDelivery();
+    } else if (this.state === 'delivering' || this.state === 'dropWaiting') {
+      this.hud.setDwell(null);
       this.order.timer = Math.max(this.order.timer, 5);
       this._deliver(true);
     }

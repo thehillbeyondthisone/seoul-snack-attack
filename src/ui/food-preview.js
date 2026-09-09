@@ -2,7 +2,7 @@
 // pickup ticket. Owns its own renderer and rAF loop so the HUD stays DOM-only;
 // the loop runs only while the preview is visible.
 import * as THREE from 'three';
-import { foodModelsForOrder, loadFoodModel } from '../game/food-display.js';
+import { foodModelsForOrder, foodTemplate } from '../game/food-display.js';
 
 // Keep in sync with `#hud3 .ticket.has-dish .dish-view` height in hud3.js — the
 // renderer size is fixed, so a CSS box of a different height letterboxes or
@@ -51,21 +51,13 @@ export class FoodPreview {
     if (!specs.length) { this.stop(); return; }
 
     try {
-      const sources = await Promise.all(specs.map(loadFoodModel));
+      const sources = await Promise.all(specs.map(foodTemplate));
       if (request !== this._request) return;
       const targetSize = specs.length > 1 ? 0.5 : 0.7;
       const spacing = specs.length > 1 ? 0.55 : 0;
       specs.forEach((spec, index) => {
         const model = sources[index].clone(true);
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        const largest = Math.max(size.x, size.y, size.z, 1e-4);
-        model.scale.multiplyScalar(targetSize / largest);
-        box.setFromObject(model);
-        const centre = box.getCenter(new THREE.Vector3());
-        model.position.x -= centre.x;
-        model.position.y -= box.min.y;
-        model.position.z -= centre.z;
+        model.scale.multiplyScalar(targetSize);
         model.position.x += (index - (specs.length - 1) * 0.5) * spacing;
         this.root.add(model);
       });

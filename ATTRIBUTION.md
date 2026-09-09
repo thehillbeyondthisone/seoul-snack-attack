@@ -76,6 +76,16 @@ redistribution of derivative (re-cut, re-textured) geometry is permitted, and
 check the vehicle packs for trademark exposure. Until then treat
 `public/assets/props/` as internal-only.
 
+## Procedural city shop-pack — **SHIPPED, UNLICENSED (release blocker)**
+
+`_staging/asian-shop-pack-free-gameready/` was copied into
+`public/assets/district/shop-pack/` for an earlier facade pass. The procedural
+city no longer stamps those atlas pages; streets are labelled with original
+Hangul neon instead. The files remain in the tree but are unused at runtime.
+
+The colour bible is original to this project: `src/world/data/color-bible.js`
+and `color-bible.html`.
+
 ## District dressing — **SHIPPED, UNLICENSED (release blocker)**
 
 - `_source-assets/district/storefronts/` — Asian/Korean
