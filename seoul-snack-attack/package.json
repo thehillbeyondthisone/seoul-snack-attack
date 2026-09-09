@@ -1,0 +1,45 @@
+{
+  "name": "seoul-snack-attack",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "quickstart": "node tools/quickstart.mjs",
+    "build": "vite build",
+    "preview": "vite preview",
+    "assets": "node tools/build-van.mjs && node tools/build-vehicle.mjs pocha && node tools/build-city.mjs && node tools/build-props.mjs && node tools/build-district.mjs && node tools/build-food.mjs",
+    "vehicle": "node tools/build-vehicle.mjs",
+    "district": "node tools/build-district.mjs",
+    "food": "node tools/build-food.mjs",
+    "blender": "node tools/blender/run.mjs",
+    "blender-check": "node tools/bench/blender-check.mjs",
+    "props": "node tools/build-props.mjs",
+    "collider": "node tools/build-collider.mjs",
+    "bench": "node tools/bench/bench.mjs",
+    "check": "node tools/bench/tiling-check.mjs && node tools/bench/road-graph-check.mjs && node tools/bench/props-check.mjs && node tools/bench/audio-check.mjs && node tools/bench/touch-controls-check.mjs && node tools/bench/graphics-quality-check.mjs && node tools/bench/character-check.mjs && node tools/bench/vehicle-tuning-check.mjs && node tools/bench/order-notes-check.mjs && node tools/bench/quickstart-check.mjs && node tools/bench/encoding-check.mjs && node tools/bench/proc-city-check.mjs && node tools/bench/blender-check.mjs",
+    "character-check": "node tools/bench/character-check.mjs",
+    "vehicle-tuning-check": "node tools/bench/vehicle-tuning-check.mjs",
+    "proc-check": "node tools/bench/proc-city-check.mjs",
+    "blueprint-check": "node tools/bench/expanse-blueprint-check.mjs",
+    "map-check": "node tools/bench/city-map-check.mjs",
+    "expanse-check": "node tools/bench/expanse-blueprint-check.mjs && node tools/bench/expanse-layout-check.mjs && node tools/bench/expanse-props-check.mjs && node tools/bench/expanse-streets-check.mjs && node tools/bench/expanse-blocks-check.mjs",
+    "streets-check": "node tools/bench/expanse-streets-check.mjs",
+    "blocks-check": "node tools/bench/expanse-blocks-check.mjs",
+    "plan": "node tools/expanse-plan.mjs",
+    "tiling": "node tools/bench/tiling-check.mjs",
+    "road-check": "node tools/bench/road-graph-check.mjs",
+    "props-check": "node tools/bench/props-check.mjs",
+    "probe": "node tools/probe.mjs"
+  },
+  "dependencies": {
+    "lil-gui": "^0.20.0",
+    "three": "^0.180.0",
+    "three-mesh-bvh": "^0.9.0"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.2.0",
+    "obj2gltf": "^3.2.0",
+    "vite": "^7.1.0"
+  }
+}
