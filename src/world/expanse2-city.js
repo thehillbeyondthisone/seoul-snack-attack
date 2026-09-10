@@ -409,7 +409,12 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
   }
 
   onPhase?.(52, '외장과 간판 생성 중 · Painting facades and signage');
-  const surfaces = createExpanseFacadeTextures(PALETTES, { scale: textureScale, anisotropy });
+  // `relief` rides detailIntensity for the same reason the ground pool does:
+  // it is two extra textures per sheet, and the `?gfx=` floor has to be able to
+  // buy that VRAM back. At 0 the facades fall back to M4's flat sheets.
+  const surfaces = createExpanseFacadeTextures(PALETTES, {
+    scale: textureScale, anisotropy, relief: detailIntensity,
+  });
   const signAtlas = createExpanseSignAtlas({ scale: textureScale, anisotropy });
   const facadeMeshes = buildExpanseFacadeMeshes({
     chunkById, massing, facades, textures: surfaces, signAtlas, districts: PALETTES,
@@ -616,6 +621,10 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
       ...shops.emissiveMaterials,
       ...landmarks.emissiveMaterials,
     ],
+    // Every material carrying an M6b normal map, so the debug menu can sweep
+    // `normalScale` live. The relief strengths were tuned on SwiftShader and
+    // want a real-GPU pass before anyone calls them final.
+    reliefMaterials: facadeMeshes.materials.filter((material) => material.normalMap),
     setWetness, update,
     fog: nightRig.fog, nightRig,
     lights: { hemi: nightRig.hemi, amb: nightRig.amb, moon: nightRig.moon, streetlights },

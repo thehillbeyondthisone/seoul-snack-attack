@@ -283,14 +283,25 @@ export function buildExpanseFacadeMeshes({
   const shopSheet = textures.metres.shop;
   const roofMetres = textures.metres.roof;
 
+  // M6b relief. `rough` is the relief canvas itself — three.js reads roughness
+  // from its green channel, so the sheet that fed the normal map is also the
+  // roughness map and the pass costs two textures per sheet, not three. When
+  // the pool is built without relief every map here is null, which is a plain
+  // assignment three.js treats as "no map" and the material falls back to M4's
+  // flat look rather than to a broken one.
+  //
+  // `roughness`/`metalness` stay at their M4 values: with a roughnessMap bound
+  // they become multipliers on it, and the sheet is authored against 1.0.
   const wallMats = districts.map((district, index) => new THREE.MeshStandardMaterial({
     name: `expanse2_wall_${district.id}`,
     map: textures.walls[index].map,
     emissiveMap: textures.walls[index].emissive,
+    normalMap: textures.walls[index].normal,
+    roughnessMap: textures.walls[index].rough,
     emissive: 0xffffff,
     emissiveIntensity: 1,
     vertexColors: true,
-    roughness: 0.93,
+    roughness: textures.walls[index].rough ? 1 : 0.93,
     metalness: 0.03,
     envMapIntensity: 0.45,
   }));
@@ -298,16 +309,24 @@ export function buildExpanseFacadeMeshes({
     name: `expanse2_shop_${district.id}`,
     map: textures.shops[index].map,
     emissiveMap: textures.shops[index].emissive,
+    normalMap: textures.shops[index].normal,
+    roughnessMap: textures.shops[index].rough,
     emissive: 0xffffff,
     emissiveIntensity: 1,
     vertexColors: true,
-    roughness: 0.78,
+    roughness: textures.shops[index].rough ? 1 : 0.78,
     metalness: 0.06,
     envMapIntensity: 0.7,
   }));
+  // The Expanse's roof finally has maps. NOT the same material as the compact
+  // city's `proc_roof`, whose `aUvScale` is still the no-op graphics pass 2
+  // recorded — that one waits on a roof pool in `src/world/proc/textures.js`.
   const roofMat = new THREE.MeshStandardMaterial({
     name: 'expanse2_rooftop', map: textures.roof, vertexColors: true,
-    roughness: 0.95, metalness: 0.03,
+    normalMap: textures.roofNormal,
+    roughnessMap: textures.roofRough,
+    roughness: textures.roofRough ? 1 : 0.95,
+    metalness: 0.03,
   });
   const signMat = new THREE.MeshStandardMaterial({
     name: 'expanse2_signage',

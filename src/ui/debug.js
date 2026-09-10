@@ -478,6 +478,29 @@ export function initDebug({ orders, rain, phys, post, van, cam, city, scene, tim
     gTex.close();
   }
 
+  // ---- Facade relief (M6b) -------------------------------------------------
+  // `normalScale` is a live multiplier on a bound normal map, so this sweeps
+  // the whole city's facade relief without rebuilding a single texture — which
+  // is the point: every strength in expanse-facade-art.js was judged on
+  // SwiftShader screenshots and none of them has been seen on real hardware.
+  if (city?.reliefMaterials?.length) {
+    const relief = { strength: 1 };
+    restoreSection(settings, 'relief', relief, ['strength']);
+    const applyRelief = () => {
+      for (const material of city.reliefMaterials) {
+        material.normalScale.set(relief.strength, relief.strength);
+      }
+    };
+    applyRelief();
+    const gRelief = gui.addFolder('입체감 · Facade relief');
+    gRelief.add(relief, 'strength', 0, 3, 0.05).name('법선 강도 · Normal strength')
+      .onChange(() => { applyRelief(); copySettings(settings, 'relief', relief, ['strength']); });
+    gRelief.add({ flat: () => { relief.strength = 0; applyRelief(); gRelief.controllers[0].updateDisplay(); } }, 'flat')
+      .name('M4 비교 (0) · Compare flat');
+    gRelief.add({ count: city.reliefMaterials.length }, 'count').name('재질 수 · Materials').disable();
+    gRelief.close();
+  }
+
   let fpsClock = 0;
   return {
     gui,

@@ -1,5 +1,53 @@
 # 서울 스낵 어택 — Seoul Snack Attack — development handoff
 
+## 2026-09-10 — M6b: the facades stop being a flat print
+
+Every window in `?world=expanse2` was a rectangle painted on an albedo. No
+light ever caught a reveal, so a terrace under a raking sodium lamp read as
+wallpaper. The facade sheets now carry relief.
+
+- **`src/world/expanse-facade-art.js`** paints a third canvas per sheet in the
+  same pass as albedo and emissive, sharing the one `rng` so the lit window,
+  the dark reveal and the recessed glass are the same window. Red is height,
+  green is roughness — and because three.js reads roughness from green, that
+  canvas **is** the roughness map, so the pass costs two textures per sheet
+  rather than three.
+- Relief is painted through a **scaled context**, so every draw call is written
+  once in albedo coordinates and lands on both sheets. Halving some coordinates
+  by hand and not others would slide the normal map a few pixels off the paint
+  everywhere, which reads as a soft blur rather than as a bug.
+- `RELIEF_SCALE` is 0.5, and that is a **budget** decision, not an art one: the
+  facade pool has a 48 MB ceiling and full-scale relief needs ~21 MB of it
+  against the 6.5 MB this costs. The gate now asserts the arithmetic in both
+  directions, so a later "just make it sharper" fails where the decision was
+  made rather than somewhere else entirely.
+- **The Expanse's roof finally has maps** (gravel, felt seams, dished puddles).
+  This is *not* the `aUvScale` no-op from graphics pass 2 below: that one is on
+  the compact city's `proc_roof` in `src/world/proc/mesh.js` and still waits on
+  a roof pool in `src/world/proc/textures.js`. Different material, different
+  city — the scope for this pass was expanse2 only.
+- `relief` rides `detailIntensity`, so the `?gfx=` floor drops the pair and the
+  materials fall back to M4's flat sheets rather than to a broken look.
+- **New debug folder 입체감 · Facade relief** sweeps `normalScale` across all 13
+  materials live, with a "compare flat" button. No texture rebuild — it is a
+  multiplier on a bound map.
+- `expanse-facade-check` is 26 assertions (was 24); pool is 42.0 MB desktop /
+  10.5 MB mobile, against 35.7 / 8.9 before. `npm run check` 98 PASS,
+  `npm run expanse-check` and `npm run build` all exit 0.
+
+### Known gaps
+
+- **The strengths are SwiftShader numbers again.** `RELIEF_STRENGTH` (wall 2.4,
+  shop 2.8, roof 1.6) and every height in the `SURFACE` table were judged on
+  software-rendered screenshots. The plaster mottle in particular looked a
+  touch cloudy on a pink hongdae wall and may want backing off on real
+  hardware — that is what the new slider is for.
+- **Relief is per-sheet, not per-building.** Two neighbours sampling the same
+  district sheet at different bay offsets get the same bumps in a different
+  place, which is the same trade M4 made for the albedo.
+- **Nothing is parallax or displaced.** These are detail bumps on flat mesh; a
+  reveal seen from hard alongside is still a flat wall.
+
 ## 2026-09-10 — Rebuild M5: shops, landmarks and a delivery loop that routes
 
 - `?world=expanse2` no longer ships `pickupSites: []`. The eight menu

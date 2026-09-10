@@ -377,10 +377,39 @@ check('material roles stay well inside the contract', MATERIALS <= 96, `${MATERI
 // Texture memory. Six wall pairs at 512², six shop pairs at 512x272, one roof
 // sheet and one 2048x1024 signage atlas, four bytes a texel plus a third for
 // mipmaps. The mobile profile halves every edge, so it pays a quarter of this.
-const bytes = (6 * 2 * 512 * 512 + 6 * 2 * 512 * 272 + 256 * 256 + 2048 * 1024) * 4 * 1.34;
+const M4_TEXELS = 6 * 2 * 512 * 512 + 6 * 2 * 512 * 272 + 256 * 256 + 2048 * 1024;
+
+// M6b relief. Two more textures per sheet — a normal map, and the relief canvas
+// itself serving as the roughness map — at RELIEF_SCALE of the albedo's edge.
+// Half is a budget decision, not an art one: at full scale the same pair costs
+// about 21 MB and does not fit under the ceiling below.
+const RELIEF_SCALE = 0.5;
+const s = RELIEF_SCALE;
+const RELIEF_TEXELS = 6 * 2 * (512 * s) * (512 * s)
+  + 6 * 2 * (512 * s) * (272 * s)
+  + 2 * (256 * s) * (256 * s);
+const bytes = (M4_TEXELS + RELIEF_TEXELS) * 4 * 1.34;
+const reliefBytes = RELIEF_TEXELS * 4 * 1.34;
+
 check('the texture pool fits a phone', bytes <= 48 * 1024 * 1024,
   `${(bytes / 1024 / 1024).toFixed(1)} MB desktop, `
   + `${(bytes / 4 / 1024 / 1024).toFixed(1)} MB at the mobile half-scale`);
+
+// The relief pass is optional at the `?gfx=` floor, so its share has to be
+// worth naming separately: this is the number that comes back when
+// detailIntensity drops it.
+check('the relief pass is a minority of the pool',
+  reliefBytes < (bytes - reliefBytes) * 0.35,
+  `${(reliefBytes / 1024 / 1024).toFixed(1)} MB of relief against `
+  + `${((bytes - reliefBytes) / 1024 / 1024).toFixed(1)} MB of paint`);
+
+// Half-scale relief is the whole reason the pass fits. Assert the arithmetic
+// rather than the intent: at full scale this same pool busts the ceiling, and
+// a later "just make it sharper" would otherwise fail somewhere else entirely.
+const fullScaleBytes = (M4_TEXELS + RELIEF_TEXELS / (s * s)) * 4 * 1.34;
+check('relief is half-scale because full scale would not fit',
+  fullScaleBytes > 48 * 1024 * 1024,
+  `${(fullScaleBytes / 1024 / 1024).toFixed(1)} MB if relief matched the albedo`);
 
 // ---------------------------------------------------------------------------
 // Determinism

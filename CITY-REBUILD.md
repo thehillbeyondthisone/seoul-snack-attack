@@ -2,8 +2,8 @@
 
 **Updated:** 2026-09-10
 **Status:** M1 through M5 complete and gated. M6 in progress — the ground
-surface pass has landed and is gated; perf/LOD/mobile and the promotion
-itself are still open.
+surface pass (M6a) and the facade relief pass (M6b) have landed and are gated;
+perf/LOD/mobile and the promotion itself are still open.
 **Live game is unchanged.** `?world=expanse` still runs the 25-node greybox and
 `?world=proc` still runs the compact procedural circuit. The rebuild is now
 drivable at `?world=expanse2`, alongside them, and replaces neither until M6.
@@ -42,7 +42,8 @@ blocks, blocks into lots, and lots into buildings. M1 and M2 are that step.
 | **M4** | Façades, signage atlas, colour bible, lighting | `expanse-facade-check` + visual QA | done |
 | **M5** | Landmarks, shops, delivery loop | `expanse-route-check` | done |
 | **M6a** | Road and pavement surface: generated PBR, road markings | `expanse-surface-check` | done |
-| **M6b** | Perf/LOD/mobile, full `npm run check`, promote | full suite | next |
+| **M6b** | Facade and roof relief: normal + roughness maps | `expanse-facade-check` | done |
+| **M6c** | Perf/LOD/mobile, full `npm run check`, promote | full suite | next |
 
 Each milestone is reviewed before the next begins, and nothing replaces
 `?world=expanse` until M6.
