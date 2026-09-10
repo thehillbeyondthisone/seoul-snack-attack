@@ -44,6 +44,11 @@ Portable facts. Not a diary. Copy into the next job.
 - `M` opens the north-up full-city map and `Escape` closes it. The map draws the
   live route graph and pauses physics/orders; master mute lives in the cassette
   deck.
+- The mini-map blade names the street from `expanse-street-names.js`, keyed by
+  edge id. Generated roads have routing handles, not signage, so a new edge
+  ships unnamed until that table covers it; `npm run expanse-check` gates it.
+  Off the carriageway the blade names the district instead, and a world with
+  no entry hides the blade rather than printing `ring_north_w` at the player.
 - Expanse collision remains one global BVH and street-life visuals use a 4 × 3
   base/detail/micro grid. Do not introduce chunk-boundary physics seams without
   profiling evidence that the BVH is a bottleneck.

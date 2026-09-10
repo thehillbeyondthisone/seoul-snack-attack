@@ -349,9 +349,39 @@ const CSS = `
   letter-spacing: .14em; text-transform: uppercase;
 }
 #hud3 .minimap .turn { color: var(--ink); letter-spacing: .08em; font-weight: 800; }
+/* Street blade: a road sign, not a HUD row. Korean name leads, romanisation
+   sits under it, and the whole plate dims when the player leaves the road. */
+#hud3 .minimap .blade {
+  margin: 7px auto 0; padding: 5px 10px 4px; max-width: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  border: 1px solid rgba(77,200,255,.32); border-radius: 5px;
+  background: linear-gradient(180deg, rgba(10,20,32,.94), rgba(6,13,22,.94));
+  box-shadow: 0 0 14px rgba(77,200,255,.10), inset 0 1px 0 rgba(148,200,230,.12);
+  opacity: 0; transition: opacity .18s ease;
+}
+#hud3 .minimap .blade.show { opacity: 1; }
+/* Off the carriageway the blade names the district instead, and says so by
+   going quiet rather than by swapping in another label. */
+#hud3 .minimap .blade.off { border-color: rgba(120,140,160,.26); box-shadow: none; }
+#hud3 .minimap .blade.off .ko { color: var(--muted); }
+#hud3 .minimap .blade .ko {
+  color: var(--ink); font-size: 13px; font-weight: 800; letter-spacing: .02em;
+  line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
+#hud3 .minimap .blade .en {
+  color: var(--nav); font-size: 8px; font-weight: 700; letter-spacing: .16em;
+  text-transform: uppercase; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 100%;
+}
+/* English mode already prints the roman name large, so the tier below is noise. */
+#hud3.english-mode .minimap .blade .ko { font-size: 12px; letter-spacing: .08em; }
+#hud3.english-mode .minimap .blade .en { display: none; }
 @media (max-width: 760px) {
   #hud3 .minimap { width: 192px; bottom: 92px; }
   #hud3 .minimap canvas { width: 176px; height: 176px; }
+  #hud3 .minimap .blade .ko { font-size: 12px; }
+  #hud3 .minimap .blade .en { font-size: 7px; letter-spacing: .12em; }
 }
 
 /* ---- speed (bottom right) ----------------------------------------------- */
@@ -693,6 +723,9 @@ export class HUD3 {
       <div class="panel minimap" id="h3minimap">
         <div class="map-head"><span id="h3mapnorth">북 · N</span><span class="turn" id="h3turn">시내 · CITY</span></div>
         <canvas id="h3map" width="440" height="440" aria-label="Heading-up route mini-map"></canvas>
+        <div class="blade" id="h3blade" aria-live="polite">
+          <span class="ko" id="h3streetko"></span><span class="en" id="h3streeten"></span>
+        </div>
       </div>
 
       <div class="speed">
@@ -726,6 +759,7 @@ export class HUD3 {
       cond: $('h3cond'), condpct: $('h3condpct'), segs: $('h3segs'),
       obj: $('h3obj'), objd: $('h3objd'), arrow: el.querySelector('.obj .arrow'),
       minimap: $('h3minimap'), map: $('h3map'), turn: $('h3turn'), mapNorth: $('h3mapnorth'),
+      blade: $('h3blade'), streetKo: $('h3streetko'), streetEn: $('h3streeten'),
       speed: $('h3speed'), gauge: $('h3gauge'),
       toasts: $('h3toasts'), legend: $('h3legend'), acceptKey: $('h3acceptkey'),
       padStatus: $('h3padstatus'), audio: $('h3audio'), release: $('h3release'), start: $('h3start'), translateHint: $('h3translatehint'),
@@ -1156,7 +1190,7 @@ export class HUD3 {
    * rotate -> scale) replaces the per-point projection the old code repeated
    * for every layer.
    */
-  setMiniMap({ graph, bounds, route = null, player = null, destination = null, maneuver = null } = {}) {
+  setMiniMap({ graph, bounds, route = null, player = null, destination = null, maneuver = null, street = null } = {}) {
     if (!graph || !bounds) { this.$.minimap.classList.remove('show'); return; }
     this.$.minimap.classList.add('show');
     const canvas = this.$.map;
@@ -1290,6 +1324,24 @@ export class HUD3 {
     this.$.turn.textContent = maneuver
       ? `${turnIcons[maneuver.type]} ${turnLabels[maneuver.type]}`
       : (this.englishMode ? 'GPS' : '주변 · GPS');
+    this._setStreet(street);
+  }
+
+  /**
+   * Street blade under the disc. `street` is null for worlds with no name table
+   * (the legacy procedural city), which hides the plate rather than printing a
+   * routing id like 'ring_north_w' at the player.
+   */
+  _setStreet(street) {
+    const blade = this.$.blade;
+    if (!blade) return;
+    if (!street) { blade.classList.remove('show'); return; }
+    blade.classList.add('show');
+    blade.classList.toggle('off', street.onStreet === false);
+    // English mode promotes the roman name into the large tier; the CSS hides
+    // the small one, so both nodes are always written and never fight.
+    this.$.streetKo.textContent = this.englishMode ? street.en : street.ko;
+    this.$.streetEn.textContent = street.en;
   }
 
   toast(ko, en = '', kind = '') {

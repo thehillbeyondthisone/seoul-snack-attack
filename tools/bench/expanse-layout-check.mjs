@@ -9,6 +9,9 @@ import {
   generateExpanseChunkGrid, buildExpanseVisualChunks, updateExpanseVisualChunks, chunkAt,
 } from '../../src/world/expanse-chunks.js';
 import { generateExpanseRoadArt, EXPANSE_BRIDGE_STYLES } from '../../src/world/expanse-road-art.js';
+import {
+  EXPANSE_STREET_NAMES, EXPANSE_DISTRICT_NAMES, describeStreet,
+} from '../../src/world/expanse-street-names.js';
 
 let failures = 0;
 function check(name, pass, detail = '') {
@@ -189,6 +192,32 @@ check('every shop can route to every delivery stop', missingRoutes.length === 0,
   `${routeMatrix.length - missingRoutes.length}/${routeMatrix.length} routes`);
 check('shop delivery routes exercise the full-scale network', Math.max(...routeDistances) >= 700,
   `${Math.round(Math.min(...routeDistances))}-${Math.round(Math.max(...routeDistances))} m`);
+
+// ---- Mini-map street blade -------------------------------------------------
+// A generated road with no name prints a routing id at the player, so name
+// coverage is a gate, not a nicety.
+const unnamedEdges = layout.edges.filter((edge) => !EXPANSE_STREET_NAMES[edge.id]);
+check('every layout edge carries a street name', unnamedEdges.length === 0,
+  unnamedEdges.map((edge) => edge.id).join(', ') || `${layout.edges.length} named`);
+const strayNames = Object.keys(EXPANSE_STREET_NAMES).filter((id) => !graph.edgeById.has(id));
+check('no street name points at a removed edge', strayNames.length === 0, strayNames.join(', '));
+check('every district can name itself for off-road driving', layout.districts.every(
+  (district) => EXPANSE_DISTRICT_NAMES[district.id]
+));
+check('street names carry both a Korean and a roman form', Object.values(EXPANSE_STREET_NAMES)
+  .every((name) => name.ko?.trim() && name.en?.trim()));
+// On a road the blade names the road; well off it, the district. Both paths
+// must resolve, or the HUD silently blanks.
+const stationNode = layout.nodes.find((node) => node.id === 'station').position;
+const bladeOn = describeStreet(graph, graph.project(stationNode));
+check('driving the spine names the street',
+  bladeOn?.onStreet === true && bladeOn.en === 'SEOUL STATION-DAERO',
+  bladeOn ? `${bladeOn.ko} / ${bladeOn.en}` : 'no blade');
+const bladeOff = describeStreet(graph, graph.project(stationNode.clone().setX(60)));
+check('leaving the carriageway names the district', bladeOff?.onStreet === false,
+  bladeOff ? `${bladeOff.ko} / ${bladeOff.en}` : 'no blade');
+check('an unknown world hides the blade instead of printing an id',
+  describeStreet(graph, { edgeId: 'proc_city_edge_0', lateralDistance: 0 }) === null);
 
 console.log(`\nexpanse layout: ${graph.nodes.length} nodes, ${graph.edges.length} edges, ${anchors.length} stops, ${shops.length} shops, ${streetLife.buildings.length} secondary buildings`);
 if (failures) process.exit(1);

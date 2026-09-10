@@ -5,6 +5,7 @@ import { RESTAURANTS, FOOD_TYPES } from './data/restaurants.js';
 import { pickOrderNotes } from './data/order-notes.js';
 import { FoodDisplay } from './food-display.js';
 import { DEFAULT_SAVE, loadSave, persistSave } from './save.js';
+import { describeStreet } from '../world/expanse-street-names.js';
 
 // Generous arcade staging areas: large enough to hit cleanly at city speed,
 // while pickup completion still asks the driver to settle the vehicle.
@@ -247,6 +248,9 @@ export class Orders {
       player,
       destination: target,
       maneuver: this.route?.maneuver || null,
+      // The projection above is already the nearest carriageway; naming it is
+      // a table lookup, so the blade costs nothing extra per frame.
+      street: describeStreet(this.city.roadGraph, projection),
     });
   }
 
