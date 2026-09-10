@@ -35,6 +35,13 @@ Seoul Delivery — asset sources and licenses.
   `tools/blender/recipes/soondae_platter.py` → `public/assets/food/soondae-platter.glb` —
   original procedural models authored headlessly in Blender 5.2 for this
   fork. No third-party meshes or textures. Process: `tools/blender/README.md`.
+- `tools/blender/recipes/pocha_interior.py` →
+  `public/assets/vehicles/pocha-interior.glb` — original procedural first-person
+  cab interior authored headlessly in Blender 5.2 for this fork. No third-party
+  meshes or textures; it is **not** derived from the Quaternius sushi truck
+  above and shares no geometry with it, only its measured proportions
+  (wheelbase, track, overall width) taken from `public/assets/vehicles/pocha.json`.
+  Previews: `tools/blender/previews/pocha-interior*.png`.
 - `public/assets/textures/asphalt/asphalt_normal.webp`,
   `public/assets/textures/asphalt/asphalt_roughness.webp` — downloaded
   ambientCG "Asphalt 033" 2K PBR pack (OpenGL normal + roughness), resampled

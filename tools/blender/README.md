@@ -36,6 +36,13 @@ before opening Blender or the game:
 | `hotteok` | ![hotteok](previews/hotteok.png) |
 | `banana-milk` | ![banana-milk](previews/banana-milk.png) |
 | `soondae-platter` | ![soondae-platter](previews/soondae-platter.png) |
+| `pocha-interior` | ![pocha-interior](previews/pocha-interior.png) |
+
+The interior ships four stills, because one frame cannot answer "is the whole
+cab right?": [`-cabin`](previews/pocha-interior-cabin.png) (wide),
+[`-galley`](previews/pocha-interior-galley.png) (the serving side) and
+[`-cluster`](previews/pocha-interior-cluster.png) (dials). The catalog gates
+only the first — the driver's eye, which is literally the player's view.
 
 ## Commands
 
@@ -114,9 +121,64 @@ tools/blender/
   previews/*.png       EEVEE stills, committed on purpose
 ```
 
+## Not food: vehicle interiors
+
+`pocha-interior` is the first recipe that is not a snack, and it bends three
+food conventions on purpose:
+
+- **It does not join to one object.** `steering_wheel`, `needle_speed` and
+  `needle_fuel` ship as their own glTF nodes so the runtime can drive them.
+  `ground_center_group(objects, keep_transform=[...])` grounds the set while
+  those three keep their own origin and rotation; everything else is baked and
+  joined into `pocha_interior`.
+- **It is emissive.** `principled(..., emission_hex=, emission_strength=)`
+  carries screens, the dome lamp and the galley neon out as `emissiveFactor`.
+- **It brings its own studio.** `render_preview(..., lens=, lights=,
+  world_strength=, res=, clip_start=)` — the snack three-point does not reach a
+  3.4 m subject, and a camera inside its subject needs a near clip.
+
+Origin contract: y=0 is the floor-pan underside, the standing floor is 0.05 m
+up, and the driver's eye point is glTF `(x +0.55, y 1.24, z -0.42)` — +X left,
++Z forward, matching `pocha.json`'s `leftAxis`.
+
 ## Lessons
 
 Record the failure, not the mood. Newest first.
+
+### 2026-09-10 — pocha truck interior
+
+- **Every "missing" part was a solid box eating it.** Three times in one
+  recipe: the binnacle swallowed all three dials, then the 0.46 m dash slab
+  swallowed the whole cluster, then the solid bezel cap hid its own dial face
+  with the needle sealed inside. This is the lidded-cup lesson at cabin scale.
+  Anything mounted *on* a surface has to sit **proud of** it — model the hood,
+  not the block, and check the stacking order front to back.
+- **A cockpit is judged from the eye point, not from orbit.** The hero still is
+  the driver's seat at 18 mm. It is also the only view that catches the faults
+  above: the dials were "there" in the file and invisible to the player for two
+  passes, once behind a hood roof and once behind the wheel's spoke half. Real
+  dashes put the cluster *above* the wheel's rim; ours had to drop the wheel to
+  0.93 m and lift the pod to 1.00 m before it read.
+- **Interiors are lit from inside.** Pass 1 aimed a 900 W key at the cab from
+  outside and rendered a cream box with no orange left in it. Put the lights
+  where the fixtures are — dome lamp, galley neon — and let street spill through
+  the windscreen do the modelling. 11-17 W in a 2 m room, not hundreds.
+- **`Standard` has no highlight rolloff, so emission over ~1.5 clips to white.**
+  The dome at 4.5 and the neon at 3.2 both rendered as featureless white slabs.
+  Colour survives at 1.0-1.5; that is the whole usable range for this transform.
+- **A window with a black world reads as a wall.** A render-only backdrop, built
+  *after* `export_glb`, is what proves the openings are openings. Build it after
+  the export and it can never leak into the GLB.
+- **`use_renderable=True` means `hide_render` excludes geometry from the
+  export.** So a hidden-wall cutaway cannot be done between build and export —
+  and after the join those panels are not separate objects anyway. Interior
+  camera angles answer the same question without the trap.
+- **Booleans are not needed to punch a window.** Slicing the panel on its holes'
+  own edges (`rect_cells`) gives the same silhouette out of plain boxes, with no
+  manifold requirements and no renumbering.
+- **`join()` still only renames the object.** The `keep_transform` path skipped
+  `obj.data.name = obj.name` and the wheel exported as `Torus`. Same trap as the
+  first two snacks, one branch further in.
 
 ### 2026-08-27 — first two snacks (Ryan)
 

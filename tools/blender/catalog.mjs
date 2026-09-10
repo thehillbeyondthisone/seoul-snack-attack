@@ -32,6 +32,18 @@ export const RECIPES = {
     minM: 0.10,
     maxM: 0.22,
   },
+  // Not food: the first-person cab. Larger budget and a metre-scale size gate,
+  // and it installs beside the vehicles rather than the snacks.
+  'pocha-interior': {
+    script: 'recipes/pocha_interior.py',
+    out: '_source-assets/vehicles/pocha-interior.glb',
+    public: 'public/assets/vehicles/pocha-interior.glb',
+    preview: 'tools/blender/previews/pocha-interior.png',
+    kind: 'vehicle-interior',
+    budgetTris: 30000,
+    minM: 2.5,
+    maxM: 4.2,
+  },
   'banana-milk': {
     script: 'recipes/banana_milk.py',
     out: '_source-assets/food/banana-milk.glb',

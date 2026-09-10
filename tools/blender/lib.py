@@ -87,7 +87,23 @@ def _set_input(bsdf, names, value):
     return False
 
 
-def principled(name, hex_int, roughness=0.5, metallic=0.0, specular=0.5, alpha=1.0):
+def principled(
+    name,
+    hex_int,
+    roughness=0.5,
+    metallic=0.0,
+    specular=0.5,
+    alpha=1.0,
+    emission_hex=None,
+    emission_strength=1.0,
+):
+    """Principled BSDF only — the Khronos exporter drops mystery nodes.
+
+    `emission_hex` rides out as glTF `emissiveFactor` (plus
+    KHR_materials_emissive_strength above 1.0). A night interior is lit by its
+    own screens and lamps, so this is the difference between a readable cab and
+    a black box; food recipes never pass it.
+    """
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     nt = mat.node_tree
@@ -96,6 +112,10 @@ def principled(name, hex_int, roughness=0.5, metallic=0.0, specular=0.5, alpha=1
     _set_input(bsdf, ("Roughness",), roughness)
     _set_input(bsdf, ("Metallic",), metallic)
     _set_input(bsdf, ("Specular IOR Level", "Specular"), specular)
+    if emission_hex is not None:
+        # 5.2 splits colour and strength; older builds carried one "Emission".
+        _set_input(bsdf, ("Emission Color", "Emission"), hex_rgba(emission_hex, 1.0))
+        _set_input(bsdf, ("Emission Strength",), emission_strength)
     if alpha < 1.0:
         _set_input(bsdf, ("Alpha",), alpha)
         mat.blend_method = "BLEND"
@@ -249,6 +269,63 @@ def origin_to_ground_center(obj):
     obj.data.name = obj.name
 
 
+def bake_transform(obj):
+    """Push an object's location/rotation/scale into its vertices, leaving the
+    origin at (0, 0, 0)."""
+    _active(obj)
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    obj.data.name = obj.name
+
+
+def ground_center_group(objects, keep_transform=()):
+    """Ground-centre a SET of objects without joining them.
+
+    `origin_to_ground_center` is for a snack: one object, one origin. An
+    interior ships several nodes because some of them move — a steering wheel
+    that cannot turn is a prop, not a cockpit.
+
+    Objects named in `keep_transform` keep their own origin and rotation as a
+    glTF node transform, so the runtime can drive them about the right axis
+    (`wheel.rotateZ(...)` rather than some baked diagonal). Every other object
+    is baked to world space with its origin at (0, 0, 0). The whole set is then
+    shifted so its combined bbox is centred in XY with its floor on Z=0.
+    """
+    objects = [o for o in objects if o is not None]
+    if not objects:
+        raise RuntimeError("ground_center_group: no objects")
+    keep = set(keep_transform)
+    missing = keep - {o.name for o in objects}
+    if missing:
+        raise RuntimeError(f"ground_center_group: keep_transform names not in set: {sorted(missing)}")
+
+    for obj in objects:
+        if obj.name not in keep:
+            bake_transform(obj)
+    bpy.context.view_layer.update()
+
+    corners = []
+    for obj in objects:
+        corners.extend(obj.matrix_world @ Vector(c) for c in obj.bound_box)
+    min_c = Vector((min(c.x for c in corners), min(c.y for c in corners), min(c.z for c in corners)))
+    max_c = Vector((max(c.x for c in corners), max(c.y for c in corners), max(c.z for c in corners)))
+    delta = Vector((-(min_c.x + max_c.x) * 0.5, -(min_c.y + max_c.y) * 0.5, -min_c.z))
+
+    for obj in objects:
+        if obj.name in keep:
+            # Node translation only — origin and rotation survive for the runtime.
+            obj.location = obj.location + delta
+            # The exporter names primitives from the mesh datablock, and join()
+            # renames only the object: without this the wheel ships as "Torus".
+            obj.data.name = obj.name
+        else:
+            _active(obj)
+            obj.location = delta
+            bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
+            obj.data.name = obj.name
+    bpy.context.view_layer.update()
+    return delta
+
+
 def export_glb(path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.export_scene.gltf(
@@ -287,14 +364,31 @@ def _pick_engine():
     return scene.render.engine
 
 
-def render_preview(path: Path, look_at=(0.0, 0.0, 0.06), camera_loc=(0.22, -0.28, 0.18)):
+def render_preview(
+    path: Path,
+    look_at=(0.0, 0.0, 0.06),
+    camera_loc=(0.22, -0.28, 0.18),
+    lens=50,
+    lights=None,
+    world_strength=0.35,
+    res=640,
+    clip_start=0.01,
+):
+    """EEVEE still. Defaults are the 12 cm snack studio.
+
+    `lights` replaces the three-point rig with `(name, loc, energy, size, hex)`
+    tuples. A subject an order of magnitude larger than a snack needs its own
+    rig — 4 W at 25 cm is a lit dumpling and an unlit cab — and a camera sitting
+    *inside* its subject needs `clip_start` under the nearest surface.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     scene = bpy.context.scene
     engine = _pick_engine()
     print(f"preview engine {engine}")
 
     cam_data = bpy.data.cameras.new("preview_cam")
-    cam_data.lens = 50
+    cam_data.lens = lens
+    cam_data.clip_start = clip_start
     cam = bpy.data.objects.new("preview_cam", cam_data)
     scene.collection.objects.link(cam)
     scene.camera = cam
@@ -316,20 +410,23 @@ def render_preview(path: Path, look_at=(0.0, 0.0, 0.06), camera_loc=(0.22, -0.28
 
     # Energy is for a ~12 cm snack. A character-scale 40 W area light
     # blows bible hexes to white — that was pass 1's first lesson.
-    add_light("key", (0.25, -0.20, 0.35), 4.0, 0.18, BIBLE["key"])
-    add_light("fill", (-0.22, -0.10, 0.18), 1.4, 0.28, BIBLE["warm_white"])
-    add_light("rim", (0.05, 0.30, 0.22), 2.2, 0.16, BIBLE["nav"])
+    for spec in lights or (
+        ("key", (0.25, -0.20, 0.35), 4.0, 0.18, BIBLE["key"]),
+        ("fill", (-0.22, -0.10, 0.18), 1.4, 0.28, BIBLE["warm_white"]),
+        ("rim", (0.05, 0.30, 0.22), 2.2, 0.16, BIBLE["nav"]),
+    ):
+        add_light(*spec)
 
     world = bpy.data.worlds.new("preview_world")
     world.use_nodes = True
     bg = world.node_tree.nodes.get("Background")
     if bg:
         bg.inputs[0].default_value = hex_rgba(BIBLE["background"])
-        bg.inputs[1].default_value = 0.35
+        bg.inputs[1].default_value = world_strength
     scene.world = world
 
-    scene.render.resolution_x = 640
-    scene.render.resolution_y = 640
+    scene.render.resolution_x = res
+    scene.render.resolution_y = res
     scene.render.resolution_percentage = 100
     scene.render.film_transparent = False
     # Standard, not AgX/Filmic: we want the bible hex back, not a graded still.
