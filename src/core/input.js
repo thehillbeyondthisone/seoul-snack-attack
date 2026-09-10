@@ -1,7 +1,6 @@
-// Seoul Delivery — unified keyboard + standard gamepad input.
-// Keyboard: WASD/arrows drive, Space handbrake, E accept, R reset, ` debug.
-// Xbox: left stick steer, RT throttle, LT brake, A handbrake, X accept,
-// Y reset, View debug, LB translate Korean HUD while held.
+// Seoul Snack Attack — unified keyboard + standard gamepad input.
+// Keyboard: WASD/arrows move, Space contextual jump/handbrake, F vehicle,
+// E accept, R reset, ` debug. Xbox mirrors that with both sticks, A and B.
 
 import { TouchControls } from './touch-controls.js';
 
@@ -11,15 +10,21 @@ const KEY_ACTIONS = {
   left: ['KeyA', 'ArrowLeft'],
   right: ['KeyD', 'ArrowRight'],
   handbrake: ['Space'],
+  jump: ['Space'],
+  sprint: ['ShiftLeft', 'ShiftRight'],
+  interact: ['KeyF'],
   accept: ['KeyE'],
   reset: ['KeyR'],
   debug: ['Backquote', 'KeyF3'],
-  mute: ['KeyM'],
+  map: ['KeyM'],
   translate: ['KeyT'],
 };
 
 const PAD_BUTTONS = {
   handbrake: 0, // A
+  jump: 0,      // A (on foot)
+  interact: 1,  // B
+  sprint: 5,    // RB
   accept: 2,    // X
   reset: 3,     // Y
   debug: 8,     // View / Back
@@ -69,6 +74,7 @@ export class Input {
     this.gamepadIndex = null;
     this.mode = 'keyboard';
     this.hadActivity = false;
+    this.mouseLook = { x: 0, y: 0 };
     this.touch = new TouchControls();
     this.supported = typeof navigator !== 'undefined' &&
       typeof (navigator.getGamepads || navigator.webkitGetGamepads) === 'function';
@@ -85,6 +91,16 @@ export class Input {
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.keys.clear());
+    window.addEventListener('mousemove', (e) => {
+      if (document.pointerLockElement) {
+        this.mouseLook.x += e.movementX || 0;
+        this.mouseLook.y += e.movementY || 0;
+        if (e.movementX || e.movementY) {
+          this.mode = 'keyboard';
+          this.hadActivity = true;
+        }
+      }
+    });
 
     window.addEventListener('gamepadconnected', (e) => {
       if (e.gamepad.mapping === 'standard' || this.gamepadIndex == null) {
@@ -129,7 +145,9 @@ export class Input {
 
       const active = pad.buttons.some((button) => button.pressed || button.value > TRIGGER_THRESHOLD) ||
         Math.abs(pad.axes[0] || 0) > STICK_DEADZONE ||
-        Math.abs(pad.axes[1] || 0) > STICK_DEADZONE;
+        Math.abs(pad.axes[1] || 0) > STICK_DEADZONE ||
+        Math.abs(pad.axes[2] || 0) > STICK_DEADZONE ||
+        Math.abs(pad.axes[3] || 0) > STICK_DEADZONE;
       if (active) {
         this.mode = 'gamepad';
         this.hadActivity = true;
@@ -181,6 +199,35 @@ export class Input {
       (buttonValue(this.gamepad, 14) > BUTTON_THRESHOLD ? 1 : 0);
   }
 
+  /** Camera-relative movement: x right, y forward, each in -1..1. */
+  moveAxes() {
+    let x = (this.isDown('right') ? 1 : 0) - (this.isDown('left') ? 1 : 0);
+    let y = (this.isDown('throttle') ? 1 : 0) - (this.isDown('brake') ? 1 : 0);
+    if (this.touch.enabled && !this.touch.suspended) {
+      x = this.touch.steerAxis() || x;
+    }
+    if (this.gamepad) {
+      const sx = applyDeadzone(this.gamepad.axes[0] || 0);
+      const sy = -applyDeadzone(this.gamepad.axes[1] || 0);
+      if (sx || sy) { x = sx; y = sy; }
+    }
+    const length = Math.hypot(x, y);
+    if (length > 1) { x /= length; y /= length; }
+    return { x, y };
+  }
+
+  /** Orbit input in normalized units. Mouse deltas are consumed once. */
+  consumeLookAxes() {
+    const mouseX = this.mouseLook.x;
+    const mouseY = this.mouseLook.y;
+    this.mouseLook.x = 0;
+    this.mouseLook.y = 0;
+    return {
+      x: mouseX + applyDeadzone(this.gamepad?.axes[2] || 0) * 18,
+      y: mouseY + applyDeadzone(this.gamepad?.axes[3] || 0) * 18,
+    };
+  }
+
   get connected() { return !!this.gamepad; }
 
   get gamepadName() { return this.gamepad?.id || ''; }
@@ -191,5 +238,9 @@ export class Input {
     this.edge.clear();
     this.gamepadEdge.clear();
     this.touch.endFrame();
+    // consumeLookAxes() normally clears this earlier. Clearing here prevents a
+    // pointer-lock movement from being replayed after a paused/overlay frame.
+    this.mouseLook.x = 0;
+    this.mouseLook.y = 0;
   }
 }

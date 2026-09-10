@@ -1,4 +1,4 @@
-// Seoul Delivery — headless vehicle physics bench.
+// Seoul Snack Attack — headless vehicle physics bench.
 // Usage: npm run bench [-- --json]
 //
 // Turns "feel" into numbers. Targets are the GTA-IV-like envelope agreed in the
@@ -396,7 +396,7 @@ if (asJson) {
   const fmt = (v) => (v == null ? '—' : typeof v === 'number' ? (Math.abs(v) < 100 ? v.toFixed(3) : v.toFixed(1)) : String(v));
   const pad = (s, n) => String(s).padEnd(n);
   const padS = (s, n) => String(s).padStart(n);
-  console.log(`\n  Seoul Delivery — physics bench   backend: custom   city: ${city.triangleCount.toLocaleString()} tris\n`);
+  console.log(`\n  Seoul Snack Attack — physics bench   backend: custom   city: ${city.triangleCount.toLocaleString()} tris\n`);
   console.log(`  ${pad('metric', 22)}${padS('value', 10)}  ${pad('unit', 8)}${pad('target', 16)}result`);
   console.log(`  ${'-'.repeat(72)}`);
   for (const r of results) {

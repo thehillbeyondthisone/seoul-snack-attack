@@ -1,4 +1,4 @@
-// Seoul Delivery — city world: GLB load, night lighting, emissive boost,
+// Seoul Snack Attack — city world: GLB load, night lighting, emissive boost,
 // merged static collision BVH, TILING, spawn + delivery point sampling,
 // wet-look hooks.
 //

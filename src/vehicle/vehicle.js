@@ -1,4 +1,4 @@
-// Seoul Delivery — loader for normalized vehicle GLBs.
+// Seoul Snack Attack — loader for normalized vehicle GLBs.
 //
 // The counterpart to src/vehicle/van.js, and the reason it exists: van.js
 // spends ~200 lines rebuilding a rig at load time from material names and

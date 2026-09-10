@@ -1,4 +1,4 @@
-// Seoul Delivery — small procedural release soundscape.
+// Seoul Snack Attack — small procedural release soundscape.
 //
 // The browser build deliberately uses Web Audio primitives instead of shipping
 // a library of sound files. This keeps the payload small and avoids introducing
@@ -16,26 +16,26 @@ export class AudioManager {
     this.rainGain = null;
     this.rainFilter = null;
     this.rainSource = null;
-    this.muted = localStorage.getItem('seoul-delivery-muted') === '1';
+    this.muted = localStorage.getItem('snack-attack-muted') === '1';
     const saved = (key, fallback) => {
       const raw = localStorage.getItem(key);
       if (raw === null || raw === '') return fallback;
       const value = Number(raw);
       return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fallback;
     };
-    this.masterLevel = saved('seoul-delivery-master', 0.8);
-    this.sfxLevel = saved('seoul-delivery-sfx', 0.62);
-    this.ambienceLevel = saved('seoul-delivery-ambience', 0.22);
+    this.masterLevel = saved('snack-attack-master', 0.8);
+    this.sfxLevel = saved('snack-attack-sfx', 0.62);
+    this.ambienceLevel = saved('snack-attack-ambience', 0.22);
     // Versions before audio-settings-v2 interpreted a missing localStorage
     // value as zero. Recover the resulting all-silent mix once while still
     // preserving deliberate individual slider choices after migration.
-    if (localStorage.getItem('seoul-delivery-audio-settings-v2') !== '1') {
+    if (localStorage.getItem('snack-attack-audio-settings-v2') !== '1') {
       if (this.masterLevel === 0 && this.sfxLevel === 0 && this.ambienceLevel === 0) {
         this.masterLevel = 0.8;
         this.sfxLevel = 0.62;
         this.ambienceLevel = 0.42;
       }
-      localStorage.setItem('seoul-delivery-audio-settings-v2', '1');
+      localStorage.setItem('snack-attack-audio-settings-v2', '1');
     }
     this.started = false;
     this.resumePromise = null;
@@ -189,7 +189,7 @@ export class AudioManager {
 
   toggleMute() {
     this.muted = !this.muted;
-    localStorage.setItem('seoul-delivery-muted', this.muted ? '1' : '0');
+    localStorage.setItem('snack-attack-muted', this.muted ? '1' : '0');
     if (this.master && this.ctx) this.master.gain.setTargetAtTime(this.muted ? 0 : this.masterLevel, this.ctx.currentTime, 0.03);
     if (!this.muted) this.start();
     this.event('mute');
@@ -198,19 +198,19 @@ export class AudioManager {
 
   setMasterVolume(value) {
     this.masterLevel = Math.max(0, Math.min(1, Number(value) || 0));
-    localStorage.setItem('seoul-delivery-master', String(this.masterLevel));
+    localStorage.setItem('snack-attack-master', String(this.masterLevel));
     if (this.master && this.ctx && !this.muted) this.master.gain.setTargetAtTime(this.masterLevel, this.ctx.currentTime, 0.03);
   }
 
   setSfxVolume(value) {
     this.sfxLevel = Math.max(0, Math.min(1, Number(value) || 0));
-    localStorage.setItem('seoul-delivery-sfx', String(this.sfxLevel));
+    localStorage.setItem('snack-attack-sfx', String(this.sfxLevel));
     if (this.sfx) this.sfx.gain.value = this.sfxLevel;
   }
 
   setAmbienceVolume(value) {
     this.ambienceLevel = Math.max(0, Math.min(1, Number(value) || 0));
-    localStorage.setItem('seoul-delivery-ambience', String(this.ambienceLevel));
+    localStorage.setItem('snack-attack-ambience', String(this.ambienceLevel));
     if (this.ambience) this.ambience.gain.value = this.ambienceLevel;
   }
 
@@ -227,7 +227,7 @@ export class AudioManager {
     this.masterLevel = 0.8;
     this.sfxLevel = 0.62;
     this.ambienceLevel = 0.42;
-    localStorage.setItem('seoul-delivery-muted', '0');
+    localStorage.setItem('snack-attack-muted', '0');
     this.setMasterVolume(this.masterLevel);
     this.setSfxVolume(this.sfxLevel);
     this.setAmbienceVolume(this.ambienceLevel);

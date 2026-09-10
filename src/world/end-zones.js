@@ -6,8 +6,10 @@
 //
 // Containment model: districts and connector bridge decks are solid ground,
 // everything else is water. buildGroundEdgeWalls walls each solid -> hole
-// transition (district rims AND the sides of every bridge deck), so there is
-// no invisible wall anywhere — what stops the van is what the player sees.
+// transition (district rims AND the sides of every bridge deck), and puts a
+// concrete shoulder apron between the ground edge and each wall, so the player
+// gets a few metres of drift room past the kerb before anything stops them —
+// and no invisible wall anywhere: what stops the van is what the player sees.
 // The rectangular perimeter at the world bounds is only a temporary backstop
 // until visual QA confirms the edge walls alone contain the van.
 import * as THREE from 'three';
@@ -22,8 +24,15 @@ function addBox(group, collision, size, position, material, name, collide = true
   return mesh;
 }
 
+/** Drift shoulder: metres of concrete apron between the ground edge and the wall. */
+const SHOULDER = 5;
+/** Apron top sits this far below roadY so it laps the slab without z-fighting it. */
+const APRON_LIP = 0.04;
+/** Apron skirt below roadY — the waterline is 1.1 down, so this reaches under it. */
+const APRON_DEPTH = 1.5;
+
 /**
- * Wall the edge of the drivable ground.
+ * Wall the edge of the drivable ground, with a drift shoulder.
  *
  * A single rectangular perimeter is useless on a district whose ground is not a
  * rectangle: a barrier out at the geometry bounds floats over nothing and the
@@ -33,6 +42,11 @@ function addBox(group, collision, size, position, material, name, collide = true
  * drivable-height ground, and wall each edge where a solid cell meets a hole.
  * Runs are merged along each axis so this costs a few dozen boxes, not hundreds,
  * and it re-derives itself if the layout ever changes.
+ *
+ * Each wall stands SHOULDER metres out from the ground edge, on a concrete
+ * apron that bridges the gap — without the apron the van would drop off the
+ * rim into the water before ever reaching the wall. The apron reads as the
+ * quay footing the wall stands on, and is drivable like the ground it laps.
  */
 function buildGroundEdgeWalls(group, collision, { groundAt, bounds, roadY, material, step = 2, height = 1.6 }) {
   const cols = Math.max(1, Math.ceil((bounds.max.x - bounds.min.x) / step));
@@ -52,9 +66,25 @@ function buildGroundEdgeWalls(group, collision, { groundAt, bounds, roadY, mater
   const at = (i, j) => (i < 0 || j < 0 || i >= cols || j >= rows ? 0 : solid[j * cols + i]);
 
   let count = 0;
-  const wall = (cx, cz, sx, sz) => {
-    addBox(group, collision, new THREE.Vector3(sx, height, sz),
-      new THREE.Vector3(cx, roadY + height / 2, cz), material, 'district_edge');
+  const apronH = APRON_LIP + APRON_DEPTH;
+  const apronY = roadY - APRON_LIP - apronH / 2; // top face at roadY - APRON_LIP
+  const wallY = roadY + height / 2 - 0.3; // sunk so no gap shows under it over the apron lip
+
+  // One merged edge run: a shoulder apron from just inside the last drivable
+  // cell out to the wall, plus the wall on the apron's outer edge.
+  const edge = (cellCentre, dir, crossCentre, crossLen, alongX) => {
+    const groundEdge = cellCentre + dir * step / 2;
+    const apronLen = SHOULDER + 0.4; // laps 0.4 in over the slab to hide the seam
+    const apronCentre = groundEdge + dir * ((SHOULDER - 0.4) / 2);
+    const wallCentre = groundEdge + dir * SHOULDER;
+    addBox(group, collision,
+      alongX ? new THREE.Vector3(apronLen, apronH, crossLen) : new THREE.Vector3(crossLen, apronH, apronLen),
+      new THREE.Vector3(alongX ? apronCentre : crossCentre, apronY, alongX ? crossCentre : apronCentre),
+      material, 'district_shoulder');
+    addBox(group, collision,
+      alongX ? new THREE.Vector3(0.5, height, crossLen) : new THREE.Vector3(crossLen, height, 0.5),
+      new THREE.Vector3(alongX ? wallCentre : crossCentre, wallY, alongX ? crossCentre : wallCentre),
+      material, 'district_edge');
     count++;
   };
 
@@ -68,7 +98,7 @@ function buildGroundEdgeWalls(group, collision, { groundAt, bounds, roadY, mater
         if (!open && runStart >= 0) {
           const z0 = cellZ(runStart) - step / 2;
           const z1 = cellZ(j - 1) + step / 2;
-          wall(cellX(i) + dir * step / 2, (z0 + z1) / 2, 0.5, z1 - z0);
+          edge(cellX(i), dir, (z0 + z1) / 2, z1 - z0, true);
           runStart = -1;
         }
       }
@@ -84,7 +114,7 @@ function buildGroundEdgeWalls(group, collision, { groundAt, bounds, roadY, mater
         if (!open && runStart >= 0) {
           const x0 = cellX(runStart) - step / 2;
           const x1 = cellX(i - 1) + step / 2;
-          wall((x0 + x1) / 2, cellZ(j) + dir * step / 2, x1 - x0, 0.5);
+          edge(cellZ(j), dir, (x0 + x1) / 2, x1 - x0, false);
           runStart = -1;
         }
       }
@@ -131,7 +161,9 @@ export function createEndZones(scene, { roadY, barrierBounds, groundAt = null })
     color: 0x333a41, roughness: 0.92, metalness: 0.0, envMapIntensity: 0.5,
   });
 
-  const outer = barrierBounds.clone();
+  // Expand by SHOULDER so the scan also covers the drift aprons and the
+  // temporary perimeter below stands beyond them, not through them.
+  const outer = barrierBounds.clone().expandByScalar(SHOULDER);
 
   // The water the districts stand in. VISUAL ONLY — it is never added to the
   // collision set, so the ground scan reads it as a hole (and walls the shore)

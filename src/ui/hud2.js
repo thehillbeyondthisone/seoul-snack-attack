@@ -1,4 +1,4 @@
-// Seoul Delivery — HUD, second pass. STYLE SLICE.
+// Seoul Snack Attack — HUD, second pass. STYLE SLICE.
 //
 // Deliberately scoped: this is the vertical slice used to agree the visual
 // language before it gets rolled across the rest of the UI. It implements the

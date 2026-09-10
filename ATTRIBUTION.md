@@ -1,18 +1,69 @@
 # Asset Attribution
 
+> **Fork note (Seoul Snack Attack):** this fork inherits **all** licensing terms,
+> restrictions and provenance warnings of the parent Seoul Delivery project
+> unchanged. Everything below applies as-is to this fork.
+
 Seoul Delivery — asset sources and licenses.
+
+## Seoul Snack Attack additions
+
+- `src/character/` and `src/world/capsule-collision.js` — original implementation
+  authored for this project. The control feel and state-oriented design were
+  informed by swift502's MIT-licensed Sketchbook project
+  (https://github.com/swift502/Sketchbook), but no Sketchbook engine, Cannon.js
+  dependency, character asset, or copied source file is bundled. The courier is
+  original runtime primitive geometry; preview:
+  `tools/blender/previews/player-character.png`.
+- `src/vehicle/physics.js` remains this project's original BVH raycast solver;
+  its effective roll-centre control uses the `rollInfluence` concept exposed by
+  Sketchbook's MIT-licensed Cannon RaycastVehicle setup. No Cannon.js or
+  Sketchbook runtime dependency is bundled.
+
+- `_source-assets/vehicles/sushi-truck/` — built into `public/assets/vehicles/pocha.glb`
+  (`?car=pocha`). "Sushi Truck" by Quaternius, https://poly.pizza/m/OgrROxABGT,
+  **CC0 1.0**. Backup: `_source-assets/vehicles/quaternius-truck/` (same author/license).
+  Details and rejected candidates: `_source-assets/vehicles/LICENSES.md`.
+- `_staging/cassette-tapes/source/cassette_tape.glb` — cassette tape model,
+  pruned/re-encoded into `public/assets/ui/cassette.glb` for the cassette-deck
+  music player overlay (Sketchfab-style export; embedded textures). Source:
+  owner-provided asset pack. License: **open** — confirmed by the owner on
+  2026-08-25; cleared for use in this project.
+- `tools/blender/recipes/tteokbokki_cup.py` → `public/assets/food/tteokbokki-cup.glb`,
+  `tools/blender/recipes/hotteok.py` → `public/assets/food/hotteok.glb`,
+  `tools/blender/recipes/banana_milk.py` → `public/assets/food/banana-milk.glb`,
+  `tools/blender/recipes/soondae_platter.py` → `public/assets/food/soondae-platter.glb` —
+  original procedural models authored headlessly in Blender 5.2 for this
+  fork. No third-party meshes or textures. Process: `tools/blender/README.md`.
+- `public/assets/textures/asphalt/asphalt_normal.webp`,
+  `public/assets/textures/asphalt/asphalt_roughness.webp` — downloaded
+  ambientCG "Asphalt 033" 2K PBR pack (OpenGL normal + roughness), resampled
+  to 1024² webp for runtime. Provenance is recorded in
+  `src/world/proc/texture-pack.js`. License: **CC0 1.0**,
+  https://ambientcg.com/a/Asphalt033. ambientCG is explicit that attribution
+  is not required; included here as the project's audit trail. Used as an
+  *optional* comparison against the procedural asphalt pool — the default
+  road look is still fully procedural, and the debug menu's
+  "텍스처 · Textures" folder is the only entry point.
 
 ## Vehicles
 
 - `_source-assets/vehicles/grace-van/` — Korean van (Hyundai Grace style), OBJ + PBR texture set. Source: owner-provided asset pack. License: TBD by owner.
 
-### Bubble microcar — **SHIPPED, RIPPED GAME CONTENT (hard release blocker)**
+### Bubble microcar — **RETIRED 2026-08-25, was ripped game content (blocker resolved by removal)**
 
-`_source-assets/vehicles/compact/` is built by
-`tools/build-vehicle.mjs` into `public/assets/vehicles/compact.glb` and is selectable
+`_source-assets/vehicles/compact/` WAS built by
+`tools/build-vehicle.mjs` into `public/assets/vehicles/compact.glb` and was selectable
 in-game via `?car=compact`.
 
-Despite the pack name it is not a Seoul compact car: it is a stylised two-seat
+**Retired on 2026-08-25.** The vehicle was removed from the playable roster
+(`src/game/data/vehicles.js`), its recipe deleted from `tools/vehicle-recipes.mjs`,
+and its build outputs (`public/assets/vehicles/compact.glb` / `.json`) deleted.
+It is no longer shipped in any form. The source pack itself stays quarantined,
+unbuilt, under `_source-assets/vehicles/compact/` for the record; stale saves
+that still name `compact` fall back to `pocha` via `loadSave()`.
+
+Despite the pack name it was not a Seoul compact car: it is a stylised two-seat
 bubble microcar, and its `Thumbnail.jpg` carries a visible **AGENTS OF MAYHEM**
 watermark — i.e. it is extracted content from the Volition / Deep Silver
 commercial game. The sibling pack `02- Seoul.Small.Van/` is from the same rip
@@ -23,14 +74,14 @@ packs are at least unattributed third-party uploads, whereas this is
 first-party content from a shipped commercial title, used here as the *hero*
 vehicle rather than as background dressing.
 
-**Retained deliberately** — the owner selected it on 2026-08-14 for an
+**Was retained deliberately** until retirement — the owner had selected it on
+2026-08-14 for an
 internal demo on the grounds that it has the best rig data of any vehicle in
 the original media library now quarantined under `_staging/unused/media-library/`
 (per-corner wheel groups, semantic tire/light materials).
-It must be replaced before any public, external or commercial use of this
-build. The replacement cost is low by design: the rig lives in a recipe
-(`tools/vehicle-recipes.mjs`), not in code, so swapping the asset is a recipe
-edit plus a rebuild.
+It must not be reintroduced for any public, external or commercial use of this
+build. The recipe-based pipeline that made the swap cheap is unchanged: adding a
+legitimate replacement vehicle is a new recipe in `tools/vehicle-recipes.mjs` plus a rebuild.
 
 Candidates evaluated and rejected for this slot, for the record:
 

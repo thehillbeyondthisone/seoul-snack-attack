@@ -16,12 +16,18 @@
  * @typedef {object} VehicleRecipe
  * @property {string}   id            output basename under public/assets/vehicles/
  * @property {string}   srcDir        directory holding the OBJ + MTL + maps
- * @property {string}   obj           OBJ filename within srcDir
+ * @property {string}   [obj]         OBJ filename within srcDir
+ * @property {string}   [glb]         GLB filename within srcDir (skips obj2gltf)
  * @property {number}   targetLength  metres; the model is uniformly scaled to this
  * @property {'+x'|'-x'|'+z'|'-z'} sourceForward  which source axis the front faces
  * @property {RegExp[]} strip         nodes deleted outright (shadow decals, dupes)
  * @property {RegExp[]} wheelSeeds    nodes mined for wheel islands
  * @property {number}   minWheelTris  islands below this are debris, not wheels
+ * @property {number}   [maxWheelTris] islands above this are body, not wheels.
+ *                                    Needed when wheels share a node with body
+ *                                    islands LARGER than the tires (one-mesh
+ *                                    exports); the grace-van never hits this,
+ *                                    but the pocha needs it (see its recipe).
  * @property {number}   wheelCapture  capture-cylinder radius, as a multiple of the
  *                                    measured wheel radius. Islands whose bbox
  *                                    fits inside the cylinder ride with the wheel.
@@ -55,40 +61,42 @@ export const RECIPES = {
   },
 
   // ---------------------------------------------------------------------
-  // Seoul compact car — the second playable vehicle.
+  // Pocha truck — the snack-van hero vehicle (slice C1).
   //
-  // Far better authored than the van: WheelFL/WheelFR are real per-corner
-  // groups, and body_tire_0 holds exactly the two rear tires (plus one
-  // 8-triangle sliver that minWheelTris discards). Front is +Z — the two
-  // 72-tri headlight islands in body_Lights_0 sit at z=+44.9 and the rear
-  // lamp bar at z=-32.4 — so no front probe is needed.
+  // Quaternius "Sushi Truck" from Poly Pizza, CC0 (see
+  // _source-assets/vehicles/LICENSES.md). A single 14.6k-tri mesh in ONE node
+  // ("Truck", one primitive per material: Atlas/Lights/Glass), so there are
+  // no wheel nodes to seed — the four tires are islands
+  // inside the body mesh, exactly the case the island miner was built for.
   //
-  // The rear RIMS are not in body_tire_0; they are islands inside
-  // body_paint_0 and body_Trims_0 centred on the rear hub, alongside a ring
-  // of wheel-bolt islands at x=+/-30.4. The capture box collects all of them.
-  // It must stay tight: the wheel ARCH (769 tris, centred 4.2 units above and
-  // 1.5 behind the hub) is body, not wheel, and only its bbox spilling
-  // outside the capture tells the two apart. At 1.05 the arch misses on both
-  // Y and Z with ~1.7 units to spare — do not widen it without re-checking
-  // the island report from `--report`.
+  // Measured off the source (metres, +Z is front — the Lights-material lamp
+  // islands sit at z=+3.77):
+  //   tires   612 tris each, r=0.65, w=0.58, hubs (+/-1.66, 0.65, 2.02 / -2.69)
+  //   rims    388-tri islands at x=+/-1.39 and +/-1.94 (both faces of the
+  //           tire), plus 68-tri hubcaps — all ride along via wheelCapture
+  //   body    the two biggest islands (1108 / 786 tris) are LARGER than a
+  //           tire, so minWheelTris alone cannot separate seeds — hence
+  //           maxWheelTris: 700 leaves exactly the four 612-tri tires.
+  //   roof    a 576-tri sushi sign tops the model at y=7.32 (that is why the
+  //           bbox is 7.3 m "tall"); it stays with the body, below minWheelTris.
   //
-  // targetLength is a compromise the model forces. Its height/length ratio is
-  // 0.53 — far boxier than a real car — so scaling until the wheels measure
-  // right (3.5 m, r=0.33) leaves a 1.85 m roof that towers beside the 4.5 m
-  // van, while scaling until the roof looks right shrinks the wheels to
-  // scooter size. 3.2 m splits it: a 1.69 m roof, r=0.30 wheels, 1.42 m track
-  // and a 2.19 m wheelbase. The oversized wheels are the asset's own styling
-  // (see its thumbnail) and read as intentional at this scale.
+  // The source is a GLB, not OBJ+MTL, so the recipe names `glb` and
+  // build-vehicle.mjs skips obj2gltf for it. The model ships textured (Atlas
+  // map), so no paint tint is needed.
+  //
+  // targetLength 5.0 m: the box body reads ~0.5 m longer than the grace van,
+  // which is what a pocha is. At that scale the wheels land at r=0.41 m.
   // ---------------------------------------------------------------------
-  compact: {
-    id: 'compact',
-    srcDir: '_source-assets/vehicles/compact',
-    obj: '0c7c915ab21a478a8856f998fb70decd.obj',
-    targetLength: 3.2,
+  pocha: {
+    id: 'pocha',
+    srcDir: '_source-assets/vehicles/sushi-truck',
+    glb: '737a333f-5c55-45e5-9742-011d97fd47f1.glb',
+    targetLength: 5.0,
     sourceForward: '+z',
-    strip: [/^Ground_ground/],  // flat baked shadow decal, 120 x 0 x 171
-    wheelSeeds: [/^WheelF[LR]_tire/, /^body_tire/],
-    minWheelTris: 100,
+    strip: [],
+    wheelSeeds: [/^Truck$/],
+    minWheelTris: 600,
+    maxWheelTris: 700,
     wheelCapture: 1.05,
   },
 };

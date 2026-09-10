@@ -1,4 +1,4 @@
-// Seoul Delivery — rigid bodies for knockable street props.
+// Seoul Snack Attack — rigid bodies for knockable street props.
 //
 // Deliberately small and deliberately behind a facade: handoff.md section 7
 // phase 2 plans to move the whole simulation to Jolt, and every method here

@@ -1,4 +1,4 @@
-// Seoul Delivery — van: load + normalize (recenter, scale to ~4.5m, face +Z),
+// Seoul Snack Attack — van: load + normalize (recenter, scale to ~4.5m, face +Z),
 // wire 4 road wheels to spin/steer pivots, lights, brake glow.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';

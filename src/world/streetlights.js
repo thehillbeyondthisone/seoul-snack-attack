@@ -1,4 +1,4 @@
-// Seoul Delivery — streetlight pool.
+// Seoul Snack Attack — streetlight pool.
 //
 // One PointLight per lamp does not survive tiling: 12 lamps x 15 tiles = 180
 // lights, and three's forward renderer puts EVERY light in EVERY shader, so

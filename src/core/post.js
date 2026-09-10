@@ -1,4 +1,4 @@
-// Seoul Delivery — post-processing: bloom for neon + output pass.
+// Seoul Snack Attack — post-processing: bloom for neon + output pass.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';

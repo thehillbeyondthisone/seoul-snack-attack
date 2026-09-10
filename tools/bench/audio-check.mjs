@@ -59,9 +59,9 @@ assert.equal(audio.sfxLevel, 0.62, 'missing effects setting uses an audible defa
 assert.equal(audio.ambienceLevel, 0.22, 'missing ambience setting uses an audible default');
 
 values.clear();
-values.set('seoul-delivery-master', '0');
-values.set('seoul-delivery-sfx', '0');
-values.set('seoul-delivery-ambience', '0');
+values.set('snack-attack-master', '0');
+values.set('snack-attack-sfx', '0');
+values.set('snack-attack-ambience', '0');
 const recovered = new AudioManager();
 assert.equal(recovered.masterLevel, 0.8, 'legacy all-zero master setting recovers');
 assert.equal(recovered.sfxLevel, 0.62, 'legacy all-zero effects setting recovers');

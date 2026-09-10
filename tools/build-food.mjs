@@ -19,6 +19,10 @@ const copies = [
   ['roka_korean_sauce_in_army.glb', 'roka-sauce.glb'],
   ['ssamjang_korea.glb', 'ssamjang.glb'],
   ['packaged-rice.glb', 'packaged-rice.glb'],
+  ['tteokbokki-cup.glb', 'tteokbokki-cup.glb'],
+  ['hotteok.glb', 'hotteok.glb'],
+  ['banana-milk.glb', 'banana-milk.glb'],
+  ['soondae-platter.glb', 'soondae-platter.glb'],
 ];
 
 const conversions = [

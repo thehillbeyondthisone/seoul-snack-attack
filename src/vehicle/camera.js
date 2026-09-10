@@ -1,25 +1,33 @@
-// Seoul Delivery — chase camera: damped follow, velocity look-ahead,
-// speed FOV kick, lateral-G roll, crash shake.
+// Seoul Snack Attack — orbitable chase camera: mouse/right-stick orbit,
+// damped follow, wall pull-in, velocity look-ahead, speed FOV and crash shake.
 import * as THREE from 'three';
 
 const FOLLOW_DIST = 5.0;
 const FOLLOW_HEIGHT = 2.0;
 const FOV_BASE = 60;
 const FOV_KICK = 15; // 60 -> 75 at speed
+const PITCH_MIN = -0.22;
+const PITCH_MAX = 0.72;
+const UP = new THREE.Vector3(0, 1, 0);
 
 export class ChaseCamera {
-  constructor(camera) {
+  constructor(camera, city = null) {
     this.camera = camera;
+    this.city = city;
     this.pos = new THREE.Vector3();
     this.look = new THREE.Vector3();
     this.fov = FOV_BASE;
     this.roll = 0;
     this.shake = 0;
+    this.orbitYaw = 0;
+    this.orbitPitch = 0;
     this._initialized = false;
 
     this._fwd = new THREE.Vector3();
     this._desired = new THREE.Vector3();
     this._lookTarget = new THREE.Vector3();
+    this._anchor = new THREE.Vector3();
+    this._rayDir = new THREE.Vector3();
   }
 
   onCrash(severity) {
@@ -27,12 +35,20 @@ export class ChaseCamera {
   }
 
   snapTo(phys) {
+    this.orbitYaw = 0;
+    this.orbitPitch = 0;
     this._initialized = false;
     this.update(0.016, phys);
   }
 
-  update(dt, phys) {
+  update(dt, phys, lookInput = { x: 0, y: 0 }) {
     const speed = phys.velocity.length();
+    this.orbitYaw -= lookInput.x * 0.00235;
+    this.orbitPitch = THREE.MathUtils.clamp(
+      this.orbitPitch + lookInput.y * 0.0019,
+      PITCH_MIN,
+      PITCH_MAX,
+    );
 
     // Forward projected on the horizontal plane (van may pitch/roll).
     this._fwd.set(0, 0, 1).applyQuaternion(phys.quaternion);
@@ -40,15 +56,47 @@ export class ChaseCamera {
     if (this._fwd.lengthSq() < 1e-4) this._fwd.set(0, 0, 1);
     this._fwd.normalize();
 
-    // Desired position behind + above the van.
-    this._desired.copy(phys.position)
-      .addScaledVector(this._fwd, -FOLLOW_DIST)
-      .add(new THREE.Vector3(0, FOLLOW_HEIGHT, 0));
+    // Desired position on an orbit behind + above the van. Offsets are
+    // param-overridable
+    // (physics.js params.cameraDist / cameraHeight / cameraLookUp) because the
+    // fixed values presume a ~2 m tall body around the CoM — the pocha's tall
+    // box needs to be framed from further back and higher up.
+    const distance = phys.params.cameraDist ?? FOLLOW_DIST;
+    const lookUp = phys.params.cameraLookUp ?? 1.0;
+    const height = phys.params.cameraHeight ?? FOLLOW_HEIGHT;
+    const basePitch = Math.asin(THREE.MathUtils.clamp((height - lookUp) / distance, -0.95, 0.95));
+    const pitch = THREE.MathUtils.clamp(basePitch + this.orbitPitch, PITCH_MIN, PITCH_MAX);
+    const heading = Math.atan2(this._fwd.x, this._fwd.z);
+    const orbitHeading = heading + Math.PI + this.orbitYaw;
+    const horizontal = Math.cos(pitch) * distance;
 
-    // Look-ahead by velocity, biased up to the van roofline.
+    this._anchor.copy(phys.position).addScaledVector(UP, lookUp);
+    this._desired.set(
+      this._anchor.x + Math.sin(orbitHeading) * horizontal,
+      this._anchor.y + Math.sin(pitch) * distance,
+      this._anchor.z + Math.cos(orbitHeading) * horizontal,
+    );
+
+    // Pull the camera in before a building can sit between it and the truck.
+    this._rayDir.subVectors(this._desired, this._anchor);
+    const wantedDistance = this._rayDir.length();
+    if (this.city && wantedDistance > 0.01) {
+      this._rayDir.divideScalar(wantedDistance);
+      const hit = this.city.raycast(this._anchor, this._rayDir, wantedDistance);
+      if (hit) {
+        this._desired.copy(this._anchor).addScaledVector(
+          this._rayDir,
+          Math.max(0.8, hit.distance - 0.22),
+        );
+      }
+    }
+
+    // Look ahead while following from behind, but fade that bias out as the
+    // player orbits sideways/frontward so the vehicle remains the focal point.
+    const rearView = Math.max(0, Math.cos(this.orbitYaw));
     this._lookTarget.copy(phys.position)
-      .addScaledVector(phys.velocity, 0.32)
-      .add(new THREE.Vector3(0, 1.0, 0));
+      .addScaledVector(phys.velocity, 0.32 * rearView)
+      .addScaledVector(UP, lookUp);
 
     if (!this._initialized) {
       this.pos.copy(this._desired);

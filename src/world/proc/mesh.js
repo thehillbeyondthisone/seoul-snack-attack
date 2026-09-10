@@ -4,6 +4,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { mulberry32 } from '../../core/rng.js';
 import { SURFACES, pick } from '../data/color-bible.js';
 import { SIDEWALK, KERB_H, ROAD_Y, CANAL_Y, WATER_Z0, WATER_Z1, PROC_SEED } from './layout.js';
+import { createCityDetailTextures, mixAsphaltMaps, clearTextureSampleCache } from './textures.js';
+import { createGroundDecals } from './decals.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const _along = new THREE.Vector3();
@@ -29,12 +31,53 @@ function quatAlongInto(along, into) {
   return new THREE.Quaternion().setFromRotationMatrix(_m);
 }
 
-function appendBox(list, { w, h, d, x, y, z, yaw = 0, quat = null }) {
+function appendBox(list, { w, h, d, x, y, z, yaw = 0, quat = null, uvTile = 0 }) {
   const g = new THREE.BoxGeometry(w, h, d);
   g.translate(0, h * 0.5, 0);
+  if (uvTile > 0) scaleBoxUV(g, { w, h, d }, uvTile);
   const q = quat || new THREE.Quaternion().setFromAxisAngle(UP, yaw);
   g.applyMatrix4(_m.compose(_p.set(x, y, z), q, _s.set(1, 1, 1)));
   list.push(g);
+}
+
+/**
+ * BoxGeometry UVs are 0..1 per face, which would stretch one texture tile
+ * across a whole road slab. Rescale them so `uvTile` metres of world space
+ * equals one tile, keeping detail-grain scale consistent per material family.
+ * Face order is +x -x +y -y +z -z with four verts each.
+ */
+function scaleBoxUV(geo, { w, h, d }, uvTile) {
+  const uv = geo.attributes.uv;
+  const spans = [
+    [d, h], [d, h], // ±x
+    [w, d], [w, d], // ±y
+    [w, h], [w, h], // ±z
+  ];
+  for (let f = 0; f < 6; f++) {
+    const [su, sv] = spans[f];
+    for (let i = f * 4; i < f * 4 + 4; i++) {
+      uv.setXY(i, uv.getX(i) * su / uvTile, uv.getY(i) * sv / uvTile);
+    }
+  }
+}
+
+/**
+ * Bake contact occlusion into a vertex-colour attribute: vertices at or below
+ * `groundY` darken by up to `strength`, easing back to unlit over `fade`
+ * metres/units of height with a quadratic falloff. Runs once at generation,
+ * costs nothing per frame — the shader already multiplies vertex colour.
+ */
+function applyContactAO(geo, { groundY = ROAD_Y, fade = 0.5, strength = 0.55 } = {}) {
+  const pos = geo.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const t = Math.min(1, Math.max(0, (pos.getY(i) - groundY) / fade));
+    const shade = 1 - strength * (1 - t) * (1 - t);
+    colors[i * 3] = shade;
+    colors[i * 3 + 1] = shade;
+    colors[i * 3 + 2] = shade;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 }
 
 function inward(a, b, center) {
@@ -76,14 +119,17 @@ function mat(hex, extra = {}) {
     emissive: extra.emissive ?? 0x000000,
     emissiveIntensity: extra.emissiveIntensity ?? 0,
     map: extra.map || null,
+    normalMap: extra.normalMap || null,
+    roughnessMap: extra.roughnessMap || null,
     emissiveMap: extra.emissiveMap || null,
     envMapIntensity: extra.envMapIntensity ?? 1,
+    vertexColors: extra.vertexColors ?? false,
     fog: true,
     name: extra.name || 'proc',
   });
 }
 
-function makeInstanced(name, geometry, material, records, tinted = false) {
+function makeInstanced(name, geometry, material, records, tinted = false, scaleAttr = null, variantAttr = null) {
   if (!records.length) return null;
   const mesh = new THREE.InstancedMesh(geometry, material, records.length);
   mesh.name = name;
@@ -92,6 +138,20 @@ function makeInstanced(name, geometry, material, records, tinted = false) {
   mesh.receiveShadow = true;
   if (tinted) {
     mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(records.length * 3), 3);
+  }
+  if (scaleAttr) {
+    // Re-attach each call so a re-issued buildCityMesh() always lands the
+    // new per-instance scale; the shared geometry might still hold a stale
+    // attribute from the previous build.
+    mesh.geometry.deleteAttribute?.('aUvScale');
+    mesh.geometry.setAttribute('aUvScale', new THREE.InstancedBufferAttribute(scaleAttr, 1));
+  }
+  if (variantAttr) {
+    // Same story as aUvScale — always re-attach so a re-issued build lands
+    // the new per-instance variant routing. The fragment stage reads this
+    // as a float in [0, 3] and casts to int to index a sampler2D array.
+    mesh.geometry.deleteAttribute?.('aVariant');
+    mesh.geometry.setAttribute('aVariant', new THREE.InstancedBufferAttribute(variantAttr, 1));
   }
   records.forEach((r, i) => {
     mesh.setMatrixAt(i, _m.compose(
@@ -106,7 +166,94 @@ function makeInstanced(name, geometry, material, records, tinted = false) {
   return mesh;
 }
 
-export function buildCityMesh(layout, textures, seed = PROC_SEED) {
+/**
+ * Per-instance UV scale + variant routing. `aUvScale` and `aVariant` are
+ * `InstancedBufferAttribute(float, 1)` on the geometry; Three's instance
+ * system already routes them as `attribute float` in the vertex shader, we
+ * just have to declare them ourselves because the stock instancing chunk
+ * only knows about the matrix + color.
+ *
+ * `aUvScale` scales every map UV at the vertex stage so the multiply
+ * interpolates the same as any other UV. `aVariant` is passed through as
+ * `vVariant` and consumed at the fragment stage to index
+ * `uFacadeNormal[4]` / `uFacadeRough[4]`. A `sampler2D` array is the WebGL
+ * idiom for variant routing; the alternative (four if/else branches) costs
+ * the same on modern drivers and is more code.
+ *
+ * Each map UV multiply is guarded by its own `#ifdef` so we never touch
+ * varyings the program did not declare. The roof path uses only `aUvScale`
+ * (single family), the facade path uses both.
+ *
+ * v2 of this hook supports the four-variant facade pool; bump the cache
+ * key if the fragment-stage shape ever changes again.
+ */
+function installUvScaleChunk(material, { withVariant = false } = {}) {
+  material.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        [
+          '#include <common>',
+          '#ifdef USE_INSTANCING',
+          'attribute float aUvScale;',
+          withVariant ? 'attribute float aVariant;' : '',
+          '#endif',
+        ].join('\n'),
+      )
+      .replace(
+        '#include <uv_vertex>',
+        [
+          '#include <uv_vertex>',
+          '#ifdef USE_INSTANCING',
+          '#ifdef USE_MAP',
+          '  vMapUv *= aUvScale;',
+          '#endif',
+          '#ifdef USE_NORMALMAP',
+          '  vNormalMapUv *= aUvScale;',
+          '#endif',
+          '#ifdef USE_ROUGHNESSMAP',
+          '  vRoughnessMapUv *= aUvScale;',
+          '#endif',
+          withVariant ? 'vVariant = aVariant;' : '',
+          '#endif',
+        ].join('\n'),
+      );
+    if (withVariant) {
+      // Declare the varying + sampler arrays once in the fragment stage.
+      // The samplers are populated by the per-material uniform map below.
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          [
+            '#include <common>',
+            '#ifdef USE_INSTANCING',
+            'varying float vVariant;',
+            'uniform sampler2D uFacadeNormal[4];',
+            'uniform sampler2D uFacadeRough[4];',
+            '#endif',
+          ].join('\n'),
+        )
+        // Override the per-fragment normal-map sample to read from the
+        // variant-indexed array. The default chunk reads
+        // `texture2D(normalMap, vNormalMapUv)`.
+        .replace(
+          'vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;',
+          'vec3 mapN;\n#ifdef USE_INSTANCING\n  mapN = texture2D( uFacadeNormal[int(vVariant + 0.5)], vNormalMapUv ).xyz * 2.0 - 1.0;\n#else\n  mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;\n#endif',
+        )
+        // Same for the roughness-map sample. The default chunk reads
+        // `texture2D(roughnessMap, vRoughnessMapUv).g`.
+        .replace(
+          'float roughnessFactor = texture2D( roughnessMap, vRoughnessMapUv ).g;',
+          'float roughnessFactor;\n#ifdef USE_INSTANCING\n  roughnessFactor = texture2D( uFacadeRough[int(vVariant + 0.5)], vRoughnessMapUv ).g;\n#else\n  roughnessFactor = texture2D( roughnessMap, vRoughnessMapUv ).g;\n#endif',
+        );
+    }
+  };
+  // Different materials (facade / roof) share this hook, so key by a unique
+  // tag to keep their programs from colliding in the WebGL cache.
+  material.customProgramCacheKey = () => withVariant ? 'uvScale_v2_variant' : 'uvScale_v2_roof';
+}
+
+export function buildCityMesh(layout, textures, seed = PROC_SEED, { detailIntensity = 1, decals = true } = {}) {
   const rng = mulberry32(seed ^ 0x51ed);
   const group = new THREE.Group();
   group.name = 'proc_city';
@@ -116,18 +263,95 @@ export function buildCityMesh(layout, textures, seed = PROC_SEED) {
   const emissiveMats = [];
   const buildings = [];
 
+  // Shared generated-detail pool (see textures.js). Roughness scalars are set
+  // a touch above the old flat values because the maps average below 1.0 and
+  // multiply the scalar in the shader.
+  const detail = createCityDetailTextures(detailIntensity);
+
   const roadMat = mat(SURFACES.asphalt, {
-    name: 'proc_road', roughness: 0.42, metalness: 0.08, envMapIntensity: 1.15,
+    name: 'proc_road', roughness: 0.52, metalness: 0.08, envMapIntensity: 1.15,
+    normalMap: detail?.asphaltNormal, roughnessMap: detail?.asphaltRough,
   });
-  const walkMat = mat(SURFACES.sidewalk, { name: 'proc_sidewalk', roughness: 0.78 });
-  const plazaMat = mat(SURFACES.plaza, { name: 'proc_plaza', roughness: 0.7 });
+  if (detail) roadMat.normalScale.set(0.9, 0.9);
+
+  // Asphalt blend handle. Procedural pair is fixed; downloaded pair arrives
+  // async after the build returns (texture-pack.js), and `apply()` re-bakes
+  // a single owned pair whenever the debug menu moves its blend slider. The
+  // material only ever sees ONE pair — never two samplers, never a shader
+  // uniform — so the road material is unchanged for the shader; only its
+  // `normalMap` / `roughnessMap` slots get reassigned.
+  //
+  // The handle is the integration point with the debug menu; see
+  // city.js where it is attached to the returned city object.
+  const asphaltBlendHandle = detail ? {
+    material: roadMat,
+    proc: { normal: detail.asphaltNormal, rough: detail.asphaltRough },
+    downloaded: null, // filled in by city.js after loadAsphaltTexturePack resolves
+    source: 'proc',   // 'proc' | 'downloaded'
+    blend: 0,         // 0..1
+    available: false, // true once the downloaded pair lands
+    baseNormalScale: roadMat.normalScale.x,
+    _active: { normal: detail.asphaltNormal, rough: detail.asphaltRough },
+    apply() {
+      if (this.source === 'downloaded' && this.downloaded) {
+        roadMat.normalMap = this.downloaded.normal;
+        roadMat.roughnessMap = this.downloaded.rough;
+        roadMat.normalScale.set(this.baseNormalScale, this.baseNormalScale);
+      } else {
+        const t = Math.max(0, Math.min(1, this.blend));
+        const { normal, rough } = mixAsphaltMaps(this.proc, this.downloaded, t);
+        roadMat.normalMap = normal;
+        roadMat.roughnessMap = rough;
+        // Both pools average to similar bump heights; halve the scale at full
+        // blend so the downloaded pool does not double up on micro-grain.
+        const s = this.baseNormalScale * (1 - 0.4 * t);
+        roadMat.normalScale.set(s, s);
+      }
+      roadMat.needsUpdate = true;
+    },
+    /** Called by city.js once the downloaded pack resolves. */
+    setDownloaded(pack) {
+      if (!pack) { this.available = false; this.downloaded = null; return; }
+      this.downloaded = { normal: pack.normal, rough: pack.rough };
+      this.available = true;
+      clearTextureSampleCache();
+      this.apply();
+    },
+  } : null;
+  const walkMat = mat(SURFACES.sidewalk, {
+    name: 'proc_sidewalk', roughness: 0.95,
+    normalMap: detail?.pavingNormal, roughnessMap: detail?.pavingRough,
+  });
+  if (detail) walkMat.normalScale.set(0.8, 0.8);
+  const plazaMat = mat(SURFACES.plaza, {
+    name: 'proc_plaza', roughness: 0.85,
+    normalMap: detail?.pavingNormal, roughnessMap: detail?.pavingRough,
+  });
+  if (detail) plazaMat.normalScale.set(0.7, 0.7);
   const wallMat = mat(SURFACES.canalWall, { name: 'proc_wall', roughness: 0.7 });
-  const kerbMat = mat(SURFACES.kerb, { name: 'proc_kerb', roughness: 0.62 });
+  const kerbMat = mat(SURFACES.kerb, { name: 'proc_kerb', roughness: 0.62, vertexColors: true });
   const canalMat = mat(SURFACES.canal, {
     name: 'proc_canal', roughness: 0.12, metalness: 0.35, envMapIntensity: 1.4,
     emissive: SURFACES.canal, emissiveIntensity: 0.18,
   });
   const roofMat = mat(SURFACES.roof, { name: 'proc_roof', roughness: 0.9 });
+  // Roofs are flat, far, and a different material family from the facades —
+  // a tighter range keeps neighbouring roofs from ringing the eye.
+  const ROOF_UV_SCALES = [0.9, 1.4, 2.0];
+  const FACADE_UV_SCALES = [0.6, 1.0, 1.5, 2.2];
+  // Facade variant routing. The four variant ids match keys in
+  // `detail.facades`; the int is what the per-instance `aVariant` attribute
+  // stores. `mix` is a per-district flag (not a variant id) — buildings in a
+  // mix district pick one of the four at generation time, see the building
+  // loop below. Keep this in lockstep with the per-fragment sampler indexing
+  // in installUvScaleChunk.
+  const VARIANT_INDEX = { stucco: 0, weathered: 1, tiled: 2, painted: 3 };
+  const MIX_VARIANTS = ['stucco', 'weathered', 'tiled', 'painted'];
+  // Plain arrays — converted to Float32Array when the instanced meshes are
+  // built, by which point the per-building loop has populated them.
+  const bodyScale = [];
+  const bodyVariant = [];
+  const roofScale = [];
   const markMat = new THREE.MeshBasicMaterial({
     color: SURFACES.asphaltMark, fog: true, name: 'proc_mark',
   });
@@ -139,10 +363,18 @@ export function buildCityMesh(layout, textures, seed = PROC_SEED) {
 
   const facadeMat = mat(0xffffff, {
     name: 'proc_facade',
-    roughness: 0.84,
+    roughness: 0.92,
     metalness: 0.04,
     envMapIntensity: 0.35,
+    normalMap: detail?.plasterNormal,
+    roughnessMap: detail?.plasterRough,
+    // Baked base AO rides in the geometry's colour attribute and multiplies
+    // the district instance tint in-shader (see aoUnitBox below).
+    vertexColors: true,
   });
+  if (detail) facadeMat.normalScale.set(0.6, 0.6);
+  installUvScaleChunk(facadeMat);
+  installUvScaleChunk(roofMat);
   // Painted lintel, not a photo. Hangul signs sit in front of this band.
   const fasciaMat = mat(0xffffff, {
     name: 'proc_fascia',
@@ -184,6 +416,7 @@ export function buildCityMesh(layout, textures, seed = PROC_SEED) {
       x: (x0 + x1) * 0.5,
       y: top - SLAB_H,
       z: (z0 + z1) * 0.5,
+      uvTile: 3, // asphalt aggregate tile, metres
     };
     appendBox(into, spec);
     if (visual) appendBox(visual, spec);
@@ -247,7 +480,7 @@ export function buildCityMesh(layout, textures, seed = PROC_SEED) {
         const sz = mz + along.x * side * sign;
         appendBox(walkVisual, {
           w: SIDEWALK, h: 0.04, d: walkLen,
-          x: sx, y: ROAD_Y, z: sz, quat: q,
+          x: sx, y: ROAD_Y, z: sz, quat: q, uvTile: 2,
         });
         appendBox(kerbVisual, {
           w: 0.16, h: 0.06, d: walkLen,
@@ -292,12 +525,14 @@ export function buildCityMesh(layout, textures, seed = PROC_SEED) {
   }
 
   const plaza = layout.plaza;
-  appendBox(plazaVisual, { w: 26, h: 0.03, d: 26, x: plaza.x, y: ROAD_Y, z: plaza.z });
+  appendBox(plazaVisual, { w: 26, h: 0.03, d: 26, x: plaza.x, y: ROAD_Y, z: plaza.z, uvTile: 2 });
 
   // ---- Roundabout island --------------------------------------------------
   const island = layout.roundabout;
   const islandGeo = new THREE.CylinderGeometry(5.4, 5.4, 0.45, 20);
   islandGeo.translate(0, 0.22, 0);
+  // Shares kerbMat, which reads vertex colours — bake its ground contact too.
+  applyContactAO(islandGeo, { fade: 0.09, strength: 0.5 });
   const islandMesh = new THREE.Mesh(islandGeo, kerbMat);
   islandMesh.position.set(island.x, ROAD_Y, island.z);
   islandMesh.name = 'roundabout_island';
@@ -310,6 +545,11 @@ export function buildCityMesh(layout, textures, seed = PROC_SEED) {
   const fasciaRec = [];
 
   const unitBox = new THREE.BoxGeometry(1, 1, 1);
+  // Building instances share an AO-baked clone: local y −0.5 is ground level
+  // for every body regardless of scale, so one gradient covers all bases.
+  // Roofs keep the clean box — they never touch the street.
+  const aoUnitBox = unitBox.clone();
+  applyContactAO(aoUnitBox, { groundY: -0.5, fade: 0.14, strength: 0.55 });
   const unitPlane = new THREE.PlaneGeometry(1, 1);
 
   for (const block of layout.blocks) {
@@ -353,6 +593,24 @@ export function buildCityMesh(layout, textures, seed = PROC_SEED) {
         const color = pick(d.facades, rng);
         const shop = rng() < d.shopChance;
         const yaw = Math.atan2(toStreet.x, toStreet.z);
+        // Per-instance UV scale. Picked from a small table so adjacent
+        // buildings don't all stretch the same plaster tile; consumed at the
+        // tail of the per-building block so it slots into the rng sequence
+        // after the existing shop pick without disturbing earlier outputs.
+        const uvScale = pick(FACADE_UV_SCALES, rng);
+        const roofUvScale = pick(ROOF_UV_SCALES, rng);
+        // Per-building variant routing. The `mix` district (only `station` in
+        // the colour bible) is the one place where adjacent buildings get
+        // different variants; everywhere else the variant is fixed by district
+        // so the street reads as a coherent facade family. The `pick` for
+        // `mix` is deterministic and slots after the existing picks without
+        // disturbing earlier outputs.
+        const variantId = d.facadeVariant === 'mix'
+          ? pick(MIX_VARIANTS, rng)
+          : d.facadeVariant;
+        bodyScale.push(uvScale);
+        bodyVariant.push(VARIANT_INDEX[variantId] ?? VARIANT_INDEX.weathered);
+        roofScale.push(roofUvScale);
 
         bodyRec.push({
           x: fx, y: KERB_H + height * 0.5, z: fz,
@@ -392,8 +650,8 @@ export function buildCityMesh(layout, textures, seed = PROC_SEED) {
   }
 
   const addMesh = (mesh) => { if (mesh) group.add(mesh); };
-  addMesh(makeInstanced('proc_buildings', unitBox, facadeMat, bodyRec, true));
-  addMesh(makeInstanced('proc_roofs', unitBox, roofMat, roofRec, false));
+  addMesh(makeInstanced('proc_buildings', aoUnitBox, facadeMat, bodyRec, true, Float32Array.from(bodyScale)));
+  addMesh(makeInstanced('proc_roofs', unitBox, roofMat, roofRec, false, Float32Array.from(roofScale)));
   addMesh(makeInstanced('proc_fascia', unitPlane, fasciaMat, fasciaRec, true));
 
   const mergeNamed = (geos, material, name) => {
@@ -406,6 +664,10 @@ export function buildCityMesh(layout, textures, seed = PROC_SEED) {
     mesh.receiveShadow = true;
     group.add(mesh);
   };
+  // Kerb contact: the 6 cm kerb face gets a full-height gradient so its base
+  // melts into the asphalt while the top edge stays lit. Boxes are already in
+  // world space at this point, so ROAD_Y is the contact height.
+  for (const g of kerbVisual) applyContactAO(g, { fade: 0.09, strength: 0.5 });
   mergeNamed(roadVisual, roadMat, 'proc_roads');
   mergeNamed(walkVisual, walkMat, 'proc_sidewalks');
   mergeNamed(plazaVisual, plazaMat, 'proc_plaza');
@@ -413,6 +675,18 @@ export function buildCityMesh(layout, textures, seed = PROC_SEED) {
   mergeNamed(kerbVisual, kerbMat, 'proc_kerbs');
   mergeNamed(markVisual, markMat, 'proc_marks');
   mergeNamed(goldVisual, goldMark, 'proc_centerline');
+
+  // ---- Ground decals --------------------------------------------------------
+  // Manholes / patches / crosswalks / shop-front stains. Count scales with the
+  // same detailIntensity hook as the detail maps (mobile profile → sparser);
+  // their materials join roadMaterials so setWetness also polishes them.
+  const decalSet = decals && detailIntensity > 0
+    ? createGroundDecals(layout, buildings, { detailIntensity, seed })
+    : null;
+  if (decalSet) {
+    group.add(decalSet.group);
+    roadMats.push(...decalSet.materials);
+  }
 
   // ---- Perimeter walls + outer water --------------------------------------
   const wallT = 1.1;
@@ -460,9 +734,15 @@ export function buildCityMesh(layout, textures, seed = PROC_SEED) {
     colliderGeo,
     buildings,
     materials: { roadMat, walkMat, plazaMat, facadeMat, fasciaMat, canalMat, roofMat },
-    roadMaterials: [roadMat, walkMat, plazaMat],
+    roadMaterials: roadMats,
     emissiveMaterials: emissiveMats,
     roadBox,
-    stats: { buildings: buildings.length, shopFaces: fasciaRec.length },
+    decals: decalSet,
+    asphaltBlend: asphaltBlendHandle,
+    stats: {
+      buildings: buildings.length,
+      shopFaces: fasciaRec.length,
+      decals: decalSet ? decalSet.count : 0,
+    },
   };
 }

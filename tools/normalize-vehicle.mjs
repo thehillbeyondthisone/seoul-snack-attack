@@ -248,6 +248,10 @@ for (const p of live) {
   if (!recipe.wheelSeeds.some((re) => re.test(p.nodeName))) continue;
   for (const isl of p.islands) {
     if (isl.tris.length < recipe.minWheelTris) continue;
+    // One-mesh exports keep the tires in the same node as body islands larger
+    // than the tires themselves; an upper bound separates the two where
+    // minWheelTris cannot (see the pocha recipe in vehicle-recipes.mjs).
+    if (recipe.maxWheelTris !== undefined && isl.tris.length > recipe.maxWheelTris) continue;
     seedIslands.push({ part: p, isl, centre: boxCenter(isl.box), size: boxSize(isl.box) });
   }
 }
@@ -547,7 +551,7 @@ const groundY = Math.min(...Object.values(wheelOut).map((w) => w.hub[1] - w.radi
 const sidecar = {
   id: recipe.id,
   generated: new Date().toISOString(),
-  source: { dir: recipe.srcDir, obj: recipe.obj },
+  source: { dir: recipe.srcDir, obj: recipe.obj ?? recipe.glb },
   forward: '+z', up: '+y', leftAxis: '+x',
   targetLength: recipe.targetLength,
   // Enough to convert any source-space measurement into model space:

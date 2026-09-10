@@ -1,4 +1,4 @@
-// Seoul Delivery — the night rig.
+// Seoul Snack Attack — the night rig.
 //
 // The original rig stacked 1.7 hemisphere + 0.7 ambient + 1.0 directional, which
 // is a daylight amount of flat fill. Everything downstream was then over-driven
@@ -12,16 +12,21 @@
 // Every value here is live-tunable from the 조명 debug folder.
 import * as THREE from 'three';
 import { mulberry32, tileSeed } from '../core/rng.js';
+// The bible's STAGE hexes are the target colours for this rig (see the header
+// of color-bible.js). Imported, not copied, so a future retune cannot desync.
+import { STAGE } from './data/color-bible.js';
 
 export const NIGHT = {
   mode: 'night',
   // --- ambient fill: deliberately tiny ---
   // Tuned by eye: 0.30/0.12/0.45 at exposure 1.05 read as genuinely nocturnal
-  // but lost the buildings entirely. This keeps the darkness and buys back
-  // enough to read silhouettes and road markings.
-  hemiIntensity: 0.44,
-  ambientIntensity: 0.18,
-  moonIntensity: 0.55,
+  // but lost the buildings entirely. 0.44/0.18/0.55 kept the darkness under the
+  // blue rig; the warmer stage colours are darker per-lumen, and roofs read as
+  // pure black from any distance, so fill comes up a step. Signage is unlit
+  // MeshBasicMaterial — fill cannot wash it, only the practicals can.
+  hemiIntensity: 0.56,
+  ambientIntensity: 0.24,
+  moonIntensity: 0.72,
   exposure: 1.25,
   // With little fill, the environment map is doing the work on wet surfaces.
   envIntensity: 0.95,
@@ -36,9 +41,10 @@ export const NIGHT = {
   lampRange: 32,
   lampCount: 10,
   // One glow quad per pool light (10), not per anchor (180) — so each can be
-  // larger and stronger without stacking into a wash.
-  glowOpacity: 0.30,
-  glowRadius: 5.0,
+  // larger and stronger without stacking into a wash. Trimmed from 0.30/5.0:
+  // under the amber stage the quads bloomed into white pillars.
+  glowOpacity: 0.24,
+  glowRadius: 4.4,
   headlightIntensity: 95,
   heroFillIntensity: 9,
 
@@ -57,15 +63,21 @@ export const NIGHT = {
   // districts to haze, which is the intent at night, but the street you are on
   // and the one beyond it read clearly.
   fogDensity: 0.0105,
-  fogColor: 0x121a30,
+  // Amber sodium haze from the bible's night stage — was the parent's blue
+  // storm 0x121a30.
+  fogColor: STAGE.fog,
 
   // --- colours / sky presentation ---
-  hemiSkyColor: 0x3a4a78,
-  hemiGroundColor: 0x14171f,
-  ambientColor: 0x1e2740,
-  keyColor: 0x8fa8e0,
+  // All five stage colours come from color-bible.js STAGE.
+  hemiSkyColor: STAGE.hemiSky,
+  hemiGroundColor: STAGE.hemiGround,
+  ambientColor: STAGE.ambient,
+  keyColor: STAGE.key,
   keyPosition: [60, 120, -40],
-  backgroundIntensity: 0.72,
+  // The night sky is now painted from these same STAGE hexes (the amber sodium
+  // equirect in time-of-day.js), so it needs no dimming to sit in the palette —
+  // full strength lets its horizon band carry the far end of every street.
+  backgroundIntensity: 1.0,
   backgroundBlurriness: 0.035,
 };
 
@@ -135,7 +147,9 @@ export function blockPalette(tileIndex, cols = 5) {
  * menu can retune everything live without a reload.
  */
 export function createNightRig(scene, renderer) {
-  scene.background = new THREE.Color(0x05080f);
+  // Pre-skybox fallback only — time-of-day.js swaps in the sky cube, but the
+  // clear colour should already sit in the stage palette.
+  scene.background = new THREE.Color(STAGE.background);
 
   // Stable identity keeps lil-gui controllers valid while presets are copied
   // in. Sliders always edit the currently active values.

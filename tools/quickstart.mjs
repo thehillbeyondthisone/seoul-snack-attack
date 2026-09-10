@@ -2,7 +2,7 @@
 // stale game session never forces Vite to silently jump to another URL.
 //
 // PORT HANDLING
-// "Something is on port 5173" is three different situations that want three
+// "Something is on port 5273" is three different situations that want three
 // different responses, and treating them alike is what makes a launcher feel
 // broken:
 //
@@ -29,7 +29,7 @@ import { networkInterfaces } from 'node:os';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const PORT = 5173;
+const PORT = 5273;
 const VITE = resolve('node_modules/vite/bin/vite.js');
 
 /** How long a request may hang before we call the server wedged rather than slow. */
@@ -40,8 +40,31 @@ const PORT_RELEASE_TIMEOUT_MS = 10000;
 const SERVER_READY_TIMEOUT_MS = 90000;
 const POLL_INTERVAL_MS = 250;
 
+export const LAUNCH_PROFILES = Object.freeze({
+  expanse: '/?world=expanse&intro=off',
+  'expanse-review': '/?world=expanse&overview=1&intro=off&time=day&rain=off&stats=1',
+  'expanse-mobile': '/?world=expanse&gfx=mobile&intro=off&props=off&stats=1',
+  // The rebuild through M4: generated streets, blocks and massing, dressed
+  // with facades, shopfronts and signage. It runs alongside the live Expanse
+  // and does not replace it until M6.
+  expanse2: '/?world=expanse2&intro=off&stats=1',
+  classic: '/?world=proc&intro=off',
+  // Not a world: the M1/M2 city plan, regenerated on launch. The rebuild is
+  // reviewed as a drawing before any of it is extruded.
+  plan: '/_work/expanse-city-plan.html',
+});
+
+export function resolveLaunchProfile(argv = process.argv.slice(2)) {
+  const value = argv.find((arg) => arg.startsWith('--launch='))?.slice('--launch='.length) || 'expanse';
+  return {
+    id: Object.hasOwn(LAUNCH_PROFILES, value) ? value : 'expanse',
+    path: LAUNCH_PROFILES[value] || LAUNCH_PROFILES.expanse,
+  };
+}
+
 // `--restart` forces a fresh server even when a healthy one is already up.
 const forceRestart = process.argv.includes('--restart');
+const launch = resolveLaunchProfile();
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
@@ -87,10 +110,10 @@ function describeProcess(pid) {
 /**
  * One HTTP request against the port, with the three outcomes that matter.
  *
- * @returns {Promise<{ state: 'closed'|'hung'|'http', status?: number }>}
+ * @returns {Promise<{ state: 'closed'|'hung'|'http', status?: number, text?: string }>}
  *   closed — nothing accepted the connection (the port is genuinely free)
  *   hung   — the connection was accepted but no response arrived in time
- *   http   — a real HTTP response, with its status code
+ *   http   — a real HTTP response, with its status code and (drained) body text
  */
 export function probe(port, path, timeoutMs = PROBE_TIMEOUT_MS) {
   return new Promise((done) => {
@@ -104,8 +127,15 @@ export function probe(port, path, timeoutMs = PROBE_TIMEOUT_MS) {
     const req = request(
       { host: '127.0.0.1', port, path, method: 'GET', timeout: timeoutMs },
       (res) => {
-        res.resume(); // drain, or the socket stays open and the process will not exit
-        finish({ state: 'http', status: res.statusCode });
+        // Drain the body — an undrained socket keeps the process alive — and
+        // keep a bounded copy so the classifier can tell our game's server
+        // from another Vite dev server answering on the same port.
+        let text = '';
+        res.on('data', (chunk) => {
+          if (text.length < 65536) text += chunk;
+        });
+        res.on('end', () => finish({ state: 'http', status: res.statusCode, text }));
+        res.resume();
       }
     );
 
@@ -127,7 +157,7 @@ export function probe(port, path, timeoutMs = PROBE_TIMEOUT_MS) {
 
 /**
  * Classify whatever currently owns the port.
- * @returns {Promise<'free'|'vite'|'wedged'|'foreign'>}
+ * @returns {Promise<'free'|'ours'|'vite'|'wedged'|'foreign'>}
  */
 export async function inspectPort(port) {
   const root = await probe(port, '/');
@@ -135,9 +165,14 @@ export async function inspectPort(port) {
   if (root.state === 'hung') return 'wedged';
 
   // It answered. Only a Vite dev server serves its own client shim, which is
-  // what separates "our game" from "somebody's unrelated server on 5173".
+  // what separates "a game dev server" from "somebody's unrelated server on
+  // 5273". The page title then separates THIS game from the sibling fork —
+  // two Vite servers cannot share the port, and reusing the wrong one would
+  // open the other game in the browser.
   const client = await probe(port, '/@vite/client');
-  if (client.state === 'http' && client.status === 200) return 'vite';
+  if (client.state === 'http' && client.status === 200) {
+    return String(root.text).includes('Seoul Snack Attack') ? 'ours' : 'vite';
+  }
   if (client.state === 'hung') return 'wedged';
   return 'foreign';
 }
@@ -190,19 +225,33 @@ function lanAddresses() {
     .map((entry) => entry.address);
 }
 
-function printUrls(port) {
-  console.log(`This computer: http://127.0.0.1:${port}/`);
+function printUrls(port, path = '/') {
+  console.log(`This computer: http://127.0.0.1:${port}${path}`);
   const lan = lanAddresses();
   if (lan.length === 0) {
     console.log('No LAN address found — other devices will not be able to connect.');
   }
   for (const address of lan) {
-    console.log(`Other LAN devices: http://${address}:${port}/`);
+    console.log(`Other LAN devices: http://${address}:${port}${path}`);
+  }
+}
+
+/** The plan is a build artefact, so regenerate it rather than serve a stale one. */
+function buildPlanIfRequested() {
+  if (launch.id !== 'plan') return;
+  console.log('Regenerating the Expanse city plan...');
+  const result = spawnSync(process.execPath, [resolve('tools/expanse-plan.mjs')], {
+    stdio: 'inherit', windowsHide: true,
+  });
+  if (result.status !== 0) {
+    throw new Error('the city plan generator failed - see its output above.');
   }
 }
 
 function openBrowser(url) {
-  if (process.platform === 'win32') spawn('cmd.exe', ['/c', 'start', '', url], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  // Avoid `cmd /c start`: launch-profile URLs contain `&`, which cmd treats as
+  // a command separator unless its quoting survives two independent parsers.
+  if (process.platform === 'win32') spawn('rundll32.exe', ['url.dll,FileProtocolHandler', url], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
   else if (process.platform === 'darwin') spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
   else spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref();
 }
@@ -231,11 +280,21 @@ async function main() {
     );
   }
 
-  if (state === 'vite' && !forceRestart) {
-    console.log(`A Seoul Delivery dev server is already running on port ${PORT} — reusing it.`);
+  if (state === 'vite') {
+    const owner = listenersOnPort(PORT).map(describeProcess).join(', ') || 'a dev server';
+    throw new Error(
+      `Port ${PORT} is held by ${owner}, which is a Vite dev server but not this game ` +
+      `(probably the Seoul Delivery parent project).\n` +
+      `  Quick Start will not close it. Stop that server, then run Quick Start again.`
+    );
+  }
+
+  if (state === 'ours' && !forceRestart) {
+    buildPlanIfRequested();
+    console.log(`A Seoul Snack Attack dev server is already running on port ${PORT} — reusing it.`);
     console.log('(Run "Quick Start" with --restart to force a fresh server.)');
-    printUrls(PORT);
-    openBrowser(`http://127.0.0.1:${PORT}/`);
+    printUrls(PORT, launch.path);
+    openBrowser(`http://127.0.0.1:${PORT}${launch.path}`);
     process.exit(0);
   }
 
@@ -249,8 +308,9 @@ async function main() {
   if (state !== 'free') await clearPort(PORT);
 
   installIfNeeded();
-  console.log(`Starting Seoul Delivery on all local network interfaces at port ${PORT}...`);
-  const vite = spawn(process.execPath, [VITE, '--host', '0.0.0.0', '--open'], {
+  buildPlanIfRequested();
+  console.log(`Starting Seoul Snack Attack (${launch.id}) on all local network interfaces at port ${PORT}...`);
+  const vite = spawn(process.execPath, [VITE, '--host', '0.0.0.0', '--open', launch.path], {
     stdio: 'inherit',
     windowsHide: false,
   });
@@ -266,7 +326,7 @@ async function main() {
 
   if (await waitForServer(PORT, vite)) {
     console.log('Ready.');
-    printUrls(PORT);
+    printUrls(PORT, launch.path);
   } else if (vite.exitCode === null) {
     console.error(`The server did not respond within ${SERVER_READY_TIMEOUT_MS / 1000}s — leaving it running so you can read its output above.`);
   }

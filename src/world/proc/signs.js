@@ -2,10 +2,16 @@
 //
 // Photo shopfronts are gone. What you read at speed is Korean: pickup neon,
 // vertical blades, lintel strips, and the hanging 3D Hangul pieces.
+//
+// Cost control: sign names cluster by district so each canvas batch stays
+// spatially compact, sprite batches past the device cull distance hide
+// wholesale, and the landmark practicals run as a fixed light pool that
+// chases the player (tickSignLod below).
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { mulberry32 } from '../../core/rng.js';
+import { resolveGraphicsProfile } from '../../core/graphics-quality.js';
 import { RESTAURANTS } from '../../game/data/restaurants.js';
 import { STREET_SHOPS } from '../data/shop-names.js';
 import {
@@ -17,8 +23,34 @@ const UP = new THREE.Vector3(0, 1, 0);
 const _m = new THREE.Matrix4();
 const _p = new THREE.Vector3();
 const _s = new THREE.Vector3();
+const _c = new THREE.Vector3();
 
 const FONT = '"Noto Sans KR", "Malgun Gothic", sans-serif';
+
+const LOD_TICK_MS = 250; // ms between distance-LOD passes
+const FADE_RATE = 3.5;   // practical fade speed, normalized units/s — StreetlightPool parity
+const NAME_SPREAD = 7;   // Hangul names drawn from each district's slice
+
+// The LOD driver: render hooks only fire for objects actually drawn, and every
+// real sign must stay free to hide itself — so an always-drawn, fully
+// transparent speck parked under the map owns the tick. Two triangles.
+let driverGeo = null;
+let driverMat = null;
+
+function makeLodDriver(onTick) {
+  if (!driverGeo) {
+    driverGeo = new THREE.PlaneGeometry(0.05, 0.05);
+    driverMat = new THREE.MeshBasicMaterial({
+      transparent: true, opacity: 0, depthWrite: false, fog: false,
+    });
+  }
+  const driver = new THREE.Mesh(driverGeo, driverMat);
+  driver.name = 'proc_sign_lod_driver';
+  driver.position.set(0, -60, 0);
+  driver.frustumCulled = false;
+  driver.onBeforeRender = (_renderer, _scene, camera) => onTick(camera);
+  return driver;
+}
 
 function paintHangul(ctx, ko, color, vertical) {
   const w = ctx.canvas.width;
@@ -79,11 +111,22 @@ function restaurantOf(id) {
   return RESTAURANTS.find((r) => r.id === id) || { id, nameKo: id, nameEn: id };
 }
 
-export async function dressSigns(group, buildings, { manager, seed = PROC_SEED } = {}) {
+export async function dressSigns(group, buildings, { manager, seed = PROC_SEED, profile = resolveGraphicsProfile() } = {}) {
   const rng = mulberry32(seed ^ 0x51a1);
   const signGroup = new THREE.Group();
   signGroup.name = 'proc_signs';
   group.add(signGroup);
+
+  // Sprite meshes with their instance XZ positions, fed to the distance LOD.
+  const lodSprites = [];
+  function trackSprite(mesh, points) {
+    const xz = new Float32Array(points.length * 2);
+    for (let i = 0; i < points.length; i++) {
+      xz[i * 2] = points[i].x;
+      xz[i * 2 + 1] = points[i].z;
+    }
+    lodSprites.push({ mesh, xz });
+  }
 
   const hanging = [];
   try {
@@ -107,7 +150,8 @@ export async function dressSigns(group, buildings, { manager, seed = PROC_SEED }
     const d = DISTRICT_BY_ID[b.districtId];
     if (!d || rng() > d.signChance) continue;
     if (!hanging.length) continue;
-    const slot = Math.floor(rng() * hanging.length) % hanging.length;
+    // Blade style clusters by district too, so these batches stay compact.
+    const slot = (d.index * 2 + Math.floor(rng() * 2)) % hanging.length;
     const along = new THREE.Vector3(-b.toStreet.z, 0, b.toStreet.x);
     const side = (rng() < 0.5 ? -1 : 1) * (b.width * 0.22);
     hangRec[slot].push({
@@ -126,17 +170,21 @@ export async function dressSigns(group, buildings, { manager, seed = PROC_SEED }
     if (!rec.length) return;
     const mesh = new THREE.InstancedMesh(src.geometry, src.material, rec.length);
     mesh.name = `hanging_sign_${i}`;
-    mesh.frustumCulled = false;
     rec.forEach((r, n) => {
       mesh.setMatrixAt(n, _m.compose(_p.set(r.x, r.y, r.z), r.quat, _s.set(r.sx, r.sy, r.sz)));
     });
     mesh.instanceMatrix.needsUpdate = true;
+    // Instance-aware bounds let the renderer reject the whole batch off-screen;
+    // tickSignLod below handles what the frustum cannot.
+    mesh.computeBoundingSphere();
+    trackSprite(mesh, rec);
     signGroup.add(mesh);
   });
 
   const used = new Set();
   const pickupSites = [];
   const emissive = [];
+  const practicalSites = [];
 
   for (const landmark of LANDMARK_SHOPS) {
     const rest = restaurantOf(landmark.id);
@@ -157,14 +205,17 @@ export async function dressSigns(group, buildings, { manager, seed = PROC_SEED }
     mesh.quaternion.setFromAxisAngle(UP, building.yaw);
     signGroup.add(mesh);
     emissive.push(material);
+    trackSprite(mesh, [mesh.position]);
 
-    const practical = new THREE.PointLight(landmark.neon, 11, 14, 2);
-    practical.position.set(
-      building.faceX + building.toStreet.x * 1.1,
-      building.y + 2.8,
-      building.faceZ + building.toStreet.z * 1.1,
-    );
-    signGroup.add(practical);
+    // Practical sites feed the light pool further down; desktop keeps all of
+    // them lit exactly like the old per-landmark practicals.
+    practicalSites.push({
+      x: building.faceX + building.toStreet.x * 1.1,
+      y: building.y + 2.8,
+      z: building.faceZ + building.toStreet.z * 1.1,
+      color: landmark.neon,
+      intensity: 11,
+    });
 
     const door = new THREE.Vector3(
       building.faceX + building.toStreet.x * 2.4,
@@ -183,6 +234,9 @@ export async function dressSigns(group, buildings, { manager, seed = PROC_SEED }
   }
 
   // Filler Hangul: one canvas per (name, neon, orientation), then instance.
+  // Names come from a per-district slice of the roster — the same few shops
+  // repeat around a neighbourhood, like any real commercial street. That is
+  // what keeps each batch spatially compact enough for whole-batch culling.
   const batches = new Map();
   const hGeom = new THREE.PlaneGeometry(2.6, 0.64);
   const vGeom = new THREE.PlaneGeometry(0.52, 2.6);
@@ -191,7 +245,7 @@ export async function dressSigns(group, buildings, { manager, seed = PROC_SEED }
     if (used.has(b)) continue;
     const d = DISTRICT_BY_ID[b.districtId];
     if (!d || rng() > d.signChance) continue;
-    const ko = pick(STREET_SHOPS, rng);
+    const ko = STREET_SHOPS[(d.index * 13 + Math.floor(rng() * NAME_SPREAD)) % STREET_SHOPS.length];
     const neon = pick(d.neon, rng);
     const vertical = rng() < 0.62;
     const key = `${vertical ? 'v' : 'h'}:${ko}`;
@@ -228,7 +282,6 @@ export async function dressSigns(group, buildings, { manager, seed = PROC_SEED }
   for (const batch of batches.values()) {
     const mesh = new THREE.InstancedMesh(batch.geometry, batch.material, batch.rec.length);
     mesh.name = `hangul_${n++}`;
-    mesh.frustumCulled = false;
     mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(batch.rec.length * 3), 3);
     const tint = new THREE.Color();
     batch.rec.forEach((r, i) => {
@@ -237,8 +290,113 @@ export async function dressSigns(group, buildings, { manager, seed = PROC_SEED }
     });
     mesh.instanceMatrix.needsUpdate = true;
     mesh.instanceColor.needsUpdate = true;
+    mesh.computeBoundingSphere();
+    trackSprite(mesh, batch.rec);
     signGroup.add(mesh);
   }
+
+  // Practical neon pool — the StreetlightPool doctrine verbatim: the number of
+  // VISIBLE lights is part of every lit material's program key, so the pool is
+  // sized once from the device budget (desktop keeps every site, mobile caps
+  // at profile.streetlights = 4) and afterwards only intensity ever moves.
+  // Chasing the nearest landmarks is what prunes by distance.
+  const budget = Math.min(practicalSites.length, profile.streetlights);
+  const practicals = [];
+  for (let i = 0; i < budget; i++) {
+    const site = practicalSites[i];
+    const light = new THREE.PointLight(site.color, site.intensity, 14, 2);
+    // Visible from frame zero at full level — settled before the first render,
+    // then never toggled again.
+    light.visible = true;
+    light.position.set(site.x, site.y, site.z);
+    signGroup.add(light);
+    practicals.push({ light, siteIndex: i, level: 1, base: site.intensity });
+  }
+
+  const order = practicalSites.map((_, i) => i);
+  const siteDistSq = new Float32Array(practicalSites.length);
+  const wanted = new Uint8Array(practicalSites.length);
+
+  function retargetPracticals(camPos) {
+    for (let i = 0; i < practicalSites.length; i++) {
+      const s = practicalSites[i];
+      const dx = s.x - camPos.x;
+      const dz = s.z - camPos.z;
+      siteDistSq[i] = dx * dx + dz * dz;
+    }
+    order.sort((a, b) => siteDistSq[a] - siteDistSq[b]);
+    wanted.fill(0);
+    let claimed = 0;
+    for (let i = 0; i < order.length && claimed < budget; i++) {
+      const idx = order[i]; // ascending distance
+      if (siteDistSq[idx] > lodDistanceSq) break;
+      wanted[idx] = 1;
+      claimed++;
+    }
+    // Release lights whose site fell out of favour, then hand out the still-
+    // wanted unclaimed sites nearest-first. Lights only jump position when
+    // claimed, mirroring StreetlightPool._retarget().
+    for (const p of practicals) {
+      if (p.siteIndex >= 0 && !wanted[p.siteIndex]) p.siteIndex = -1;
+    }
+    for (const p of practicals) {
+      if (p.siteIndex >= 0) continue;
+      for (const idx of order) {
+        if (!wanted[idx]) continue;
+        if (practicals.some((o) => o.siteIndex === idx)) continue;
+        p.siteIndex = idx;
+        const s = practicalSites[idx];
+        p.light.position.set(s.x, s.y, s.z);
+        p.light.color.setHex(s.color);
+        break;
+      }
+    }
+  }
+
+  function fadePracticals(dt) {
+    for (const p of practicals) {
+      const target = p.siteIndex >= 0 ? 1 : 0;
+      if (p.level !== target) {
+        p.level = target > p.level
+          ? Math.min(target, p.level + FADE_RATE * dt)
+          : Math.max(target, p.level - FADE_RATE * dt);
+      }
+      p.light.intensity = p.base * p.level;
+    }
+  }
+
+  // Distance LOD: hide sprite batches whose every instance sits past the
+  // device cull distance (profile.cullDistance — the same threshold main.js
+  // feeds city.cullDistance), and let the practical pool chase the camera.
+  // Runs ~4×/s; all scratch state above is allocated once at build time.
+  const lodDistanceSq = profile.cullDistance * profile.cullDistance;
+  let lastLodAt = performance.now();
+  function tickSignLod(camera) {
+    const now = performance.now();
+    const elapsed = now - lastLodAt;
+    if (elapsed < LOD_TICK_MS) return;
+    lastLodAt = now;
+
+    _c.setFromMatrixPosition(camera.matrixWorld);
+    for (let i = 0; i < lodSprites.length; i++) {
+      const entry = lodSprites[i];
+      const xz = entry.xz;
+      let best = Infinity;
+      for (let k = 0; k < xz.length; k += 2) {
+        const dx = xz[k] - _c.x;
+        const dz = xz[k + 1] - _c.z;
+        const d = dx * dx + dz * dz;
+        if (d < best) best = d;
+      }
+      entry.mesh.visible = best <= lodDistanceSq;
+    }
+
+    if (practicals.length) {
+      retargetPracticals(_c);
+      fadePracticals(Math.min(0.25, elapsed / 1000));
+    }
+  }
+  signGroup.add(makeLodDriver(tickSignLod));
 
   return {
     group: signGroup,
@@ -248,6 +406,7 @@ export async function dressSigns(group, buildings, { manager, seed = PROC_SEED }
       hanging: hangRec.reduce((n, a) => n + a.length, 0),
       hangul: hangulCount,
       landmarks: pickupSites.length,
+      practicalLights: budget,
     },
   };
 }

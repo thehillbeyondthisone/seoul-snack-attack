@@ -1,7 +1,7 @@
 // Capability-driven graphics profile. The mobile profile changes rendering
 // cost only; it never touches physics, timers, routes, or gameplay state.
 
-const STORAGE_KEY = 'seoul-delivery-graphics-quality-v1';
+const STORAGE_KEY = 'snack-attack-graphics-quality-v1';
 const PREFERENCES = ['auto', 'desktop', 'mobile'];
 
 export const DESKTOP_GRAPHICS = Object.freeze({
@@ -13,6 +13,7 @@ export const DESKTOP_GRAPHICS = Object.freeze({
   propDensity: 1,
   streetlights: 10,
   cullDistance: 105,
+  detailIntensity: 1, // proc-city detail-map bump strength (0 disables generation)
 });
 
 export const MOBILE_GRAPHICS = Object.freeze({
@@ -24,6 +25,7 @@ export const MOBILE_GRAPHICS = Object.freeze({
   propDensity: 0.3,
   streetlights: 4,
   cullDistance: 65,
+  detailIntensity: 0.35, // same pool, weaker bumps — keeps the one texture set cheap
 });
 
 export function shouldAutoUseMobileGraphics({
@@ -107,6 +109,18 @@ body.graphics-toggle-visible #touch-controls .touch-toggle { left: calc(50% - 52
   document.body.appendChild(button);
 }
 
+/** Side-effect-free profile resolution for systems that need the device
+ *  budget outside createGraphicsQuality()'s UI mounting (e.g. world dressing
+ *  deciding how many practical lights it may afford). */
+export function resolveGraphicsProfile() {
+  const query = new URLSearchParams(location.search).get('gfx');
+  const preference = normalize(query || readSavedPreference());
+  const detected = shouldAutoUseMobileGraphics(capabilities());
+  return preference === 'mobile' || (preference === 'auto' && detected)
+    ? MOBILE_GRAPHICS
+    : DESKTOP_GRAPHICS;
+}
+
 export function createGraphicsQuality() {
   const query = new URLSearchParams(location.search).get('gfx');
   const preference = normalize(query || readSavedPreference());
@@ -117,7 +131,7 @@ export function createGraphicsQuality() {
     queryOverride: PREFERENCES.includes(query) ? query : null,
     detected,
     mobile,
-    profile: mobile ? MOBILE_GRAPHICS : DESKTOP_GRAPHICS,
+    profile: resolveGraphicsProfile(),
   };
   mountToggle(controller);
   return controller;

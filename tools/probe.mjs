@@ -115,6 +115,12 @@ const probe = await send('Runtime.evaluate', {
       van: [ +s.phys.meshPosition.x.toFixed(1), +s.phys.meshPosition.y.toFixed(2), +s.phys.meshPosition.z.toFixed(1) ],
       speedKmh: +s.phys.speedKmh.toFixed(1),
       grounded: s.phys.groundedWheels,
+      playerMode: s.player?.mode || 'driving',
+      locomotion: s.player?.state || 'driving',
+      player: s.player ? [ +s.player.activePosition.x.toFixed(1),
+                           +s.player.activePosition.y.toFixed(2),
+                           +s.player.activePosition.z.toFixed(1) ] : null,
+      playerGrounded: s.player?.isDriving ? null : !!s.player?.grounded,
       props: s.props ? s.props.stats : null,
       awake: s.props ? s.props.world.awakeCount : null,
       movedProps: s.props ? s.props.placements.filter(p => p.handle &&

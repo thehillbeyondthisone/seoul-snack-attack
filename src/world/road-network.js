@@ -238,7 +238,11 @@ export function createDeliveryAnchors(graph, findGround = null) {
       const normal = new THREE.Vector3(-dir.z, 0, dir.x);
       // 32% of road width, not the ladder's 46%: these streets are 5.8-7 m
       // between curbs, and 3.7 m off centre overshoots the carriageway.
-      const point = center.clone().addScaledVector(normal, side * graph.roadWidth * 0.32);
+      // Delivery pull-ins follow the selected edge's real carriageway width.
+      // Expanse mixes alleys, arterials and the ring, so the graph-wide
+      // fallback would put markers outside narrow roads and too near the
+      // centreline on wide ones.
+      const point = center.clone().addScaledVector(normal, side * edge.width * 0.32);
       const ground = findGround?.(point.x, point.z);
       if (!ground || Math.abs(ground.point.y - center.y) > 2) return;
       point.y = ground.point.y;

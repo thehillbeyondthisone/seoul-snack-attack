@@ -1,4 +1,4 @@
-// Seoul Delivery — boot: renderer, loading, module wiring, main loop.
+// Seoul Snack Attack — boot: renderer, loading, module wiring, main loop.
 import * as THREE from 'three';
 import { Input } from './core/input.js';
 import { Soundtrack } from './core/soundtrack.js';
@@ -7,6 +7,9 @@ import { Post } from './core/post.js';
 import { createGraphicsQuality } from './core/graphics-quality.js';
 import { loadCity } from './world/city.js';
 import { loadProcCity } from './world/proc/city.js';
+import { loadExpanseCity } from './world/expanse-city.js';
+import { loadExpanse2City } from './world/expanse2-city.js';
+import { loadExpanseProps } from './world/expanse-props.js';
 import { loadDistrictDressing } from './world/district-dressing.js';
 import { NIGHT } from './world/lighting.js';
 import { createTimeOfDay } from './world/time-of-day.js';
@@ -14,14 +17,17 @@ import { loadProps } from './world/props.js';
 import { Rain } from './world/rain.js';
 import { loadVan } from './vehicle/van.js';
 import { loadVehicle } from './vehicle/vehicle.js';
-import { VehiclePhysics } from './vehicle/physics.js';
+import { VehiclePhysics, DEFAULT_PARAMS } from './vehicle/physics.js';
 import { getVehicle, VEHICLE_IDS, DEFAULT_VEHICLE } from './game/data/vehicles.js';
 import { soundtrackTracks } from './game/data/soundtrack.js';
 import { loadSave } from './game/save.js';
 import { ChaseCamera } from './vehicle/camera.js';
+import { PlayerCharacter } from './character/controller.js';
+import { OnFootCamera } from './character/camera.js';
 import { Orders } from './game/orders.js';
-import { preloadFoodCatalog } from './game/food-display.js';
+import { startFoodBackgroundWarmup } from './game/food-display.js';
 import { HUD3 } from './ui/hud3.js';
+import { CityMap } from './ui/city-map.js';
 import { initDebug } from './ui/debug.js';
 
 const app = document.getElementById('app');
@@ -36,7 +42,7 @@ const graphicsQuality = createGraphicsQuality();
 const assetLabel = (url = '') => {
   const name = decodeURIComponent(url.split('/').pop() || url);
   if (/city\.glb/i.test(name)) return '도시 불러오는 중 · Loading city';
-  if (/van\.glb|compact\.glb/i.test(name)) return '차량 불러오는 중 · Loading vehicle';
+  if (/van\.glb|pocha\.glb/i.test(name)) return '차량 불러오는 중 · Loading vehicle';
   if (/storefront|diorama/i.test(name)) return '상점 불러오는 중 · Loading storefronts';
   if (/\.(webp|png|jpe?g)$/i.test(name)) return '텍스처 불러오는 중 · Loading textures';
   return `에셋 불러오는 중 · Loading ${name || 'assets'}`;
@@ -95,23 +101,53 @@ async function boot() {
   setLoadingProgress(2, '렌더러 시작 중 · Starting renderer');
 
   // ---- Which vehicle -------------------------------------------------------
-  // ?car=van|compact remains an unrestricted test override. Normal boot uses
-  // the player's selected owned vehicle; a fresh save starts with the van.
+  // ?car= remains an unrestricted test override. Normal boot uses the player's
+  // selected owned vehicle; a fresh save starts with the hero pocha truck.
   const playerSave = loadSave();
   const requestedCarId = qp.get('car') ?? playerSave.vehicle ?? DEFAULT_VEHICLE;
   const carId = VEHICLE_IDS.includes(requestedCarId) ? requestedCarId : DEFAULT_VEHICLE;
   if (carId !== requestedCarId) {
     console.warn(`?car=${requestedCarId} is not a known vehicle (have: ${VEHICLE_IDS.join(', ')}); using ${DEFAULT_VEHICLE}`);
   }
-  const vehicleDef = getVehicle(carId);
+  // Reassigned by the garage's live vehicle swap — see switchVehicle below.
+  let vehicleDef = getVehicle(carId);
 
-  // Procedural city is the default driveable version. `?world=block` keeps the
-  // authored repeating Seoul block for comparison and regression.
-  const worldId = qp.get('world') === 'block' ? 'block' : 'proc';
-  const [city, van] = await Promise.all([
+  // Procedural city remains the default. `?world=expanse` is the staged,
+  // kilometre-scale greybox review build; it intentionally ships before its
+  // permanent art pass. `?world=expanse2` is the M3 rebuild of that same
+  // kilometre — generated streets, blocks and massing — reviewed alongside it
+  // and promoted only at M6 (see CITY-REBUILD.md). `?world=block` keeps the
+  // authored repeating Seoul block available for regression comparison.
+  const requestedWorld = qp.get('world');
+  const worldId = ['block', 'expanse', 'expanse2'].includes(requestedWorld)
+    ? requestedWorld
+    : 'proc';
+  // Both kilometre-scale worlds need the far plane pushed out or the ring
+  // disappears before its next corner.
+  const kilometreWorld = worldId === 'expanse' || worldId === 'expanse2';
+  if (kilometreWorld) {
+    // The new city is 1 km wide.  Keep distant ring sightlines in the camera
+    // frustum while leaving the normal city's depth precision unchanged.
+    camera.far = 1600;
+    camera.updateProjectionMatrix();
+  }
+  const [city, firstVehicle] = await Promise.all([
     worldId === 'block'
       ? loadCity(scene, manager, 'assets/world/seoul-block.glb', renderer, setLoadingProgress)
-      : loadProcCity(scene, manager, renderer, setLoadingProgress),
+      : worldId === 'expanse'
+        ? loadExpanseCity(scene, manager, renderer, setLoadingProgress)
+      : worldId === 'expanse2'
+        // M4's facade sheets and signage atlas are generated canvases, so the
+        // mobile profile buys its VRAM back by painting them at half size.
+        // Nothing downstream reads a pixel size — the meshes bake metres into
+        // their UVs — so a phone gets the same city, only softer.
+        ? loadExpanse2City(scene, manager, renderer, setLoadingProgress, {
+          textureScale: graphicsQuality.mobile ? 0.5 : 1,
+        })
+      : loadProcCity(scene, manager, renderer, setLoadingProgress, undefined, {
+        // Detail-map bump strength scales with the gfx profile (mobile dials it down).
+        detailIntensity: graphicsQuality.profile.detailIntensity,
+      }),
     // Assets built through tools/build-vehicle.mjs carry a baked rig and go
     // through the thin loader; the van is still on its runtime heuristics.
     // See the `van` note in src/game/data/vehicles.js for why it has not moved.
@@ -119,15 +155,17 @@ async function boot() {
       ? loadVehicle(manager, vehicleDef)
       : loadVan(manager, vehicleDef.asset),
   ]);
+  // `let`: the garage swaps this object live — see switchVehicle below.
+  let van = firstVehicle;
   setLoadingProgress(94, '게임 시스템 준비 중 · Preparing game systems');
   console.log(`vehicle: ${vehicleDef.nameEn} (${vehicleDef.id}, ${vehicleDef.loader} rig)`);
 
   // Authored-block dressing is only for `?world=block`. The procedural city
   // labels shops with Hangul neon from the colour bible.
   let district = null;
-  if (worldId === 'proc') {
+  if (worldId === 'proc' || kilometreWorld) {
     console.log(
-      `world: procedural — ${city.stats.buildings} buildings, ` +
+      `world: ${worldId} — ${city.stats.buildings} buildings, ` +
       `${city.pickupSites?.length || 0} labelled shops, ` +
       `${city.stats.roadNodes} nodes / ${city.stats.roadEdges} edges`
     );
@@ -165,7 +203,7 @@ async function boot() {
   phys.place(city.spawn.position, city.spawn.heading);
   scene.add(van.group);
 
-  const chaseCam = new ChaseCamera(camera);
+  const chaseCam = new ChaseCamera(camera, city);
   chaseCam.snapTo(phys);
 
   // ---- World systems --------------------------------------------------------
@@ -179,7 +217,13 @@ async function boot() {
   // bloom and base fog. Weather remains independent.
   setLoadingProgress(97, '조명 준비 중 · Preparing lighting');
   const timeOfDay = createTimeOfDay({
-    scene, renderer, city, van, post, rain,
+    scene, renderer, city, post, rain,
+    // Forwarded getters: the garage swaps rigs live, and the presets must
+    // always light the CURRENT vehicle's lamps.
+    van: {
+      get headlights() { return van.headlights; },
+      get heroFill() { return van.heroFill; },
+    },
     initial: qp.get('time') || 'night',
   });
 
@@ -192,29 +236,119 @@ async function boot() {
   const audio = new AudioManager({ music: soundtrack });
   hud.bindAudioControls?.({ soundtrack, audio });
   hud.setAudioStatus?.(audio.muted ? 'muted' : 'ready');
-  const orders = new Orders({ scene, city, phys, hud, camera, audio });
+  const player = new PlayerCharacter({
+    scene, city, phys, hud,
+    getVehicleDef: () => vehicleDef,
+  });
+  const onFootCam = new OnFootCamera(camera, city);
+  player.onModeChange = (mode) => {
+    hud.setGameplayMode?.(mode);
+    input.touch.setGameplayMode?.(mode);
+    if (mode === 'driving') {
+      chaseCam.snapTo(phys);
+    } else if (mode === 'onFoot') {
+      onFootCam.setHeading(player.heading);
+    }
+  };
+  const orders = new Orders({ scene, city, phys, hud, camera, audio, player });
+  let onboardingPaused = hud.isOnboardingVisible?.() ?? false;
+  let garagePaused = false;
+  let mapPaused = false;
+  const syncOverlayPause = () => {
+    const paused = onboardingPaused || garagePaused || mapPaused;
+    orders.setPaused?.(paused);
+    input.setTouchSuspended(paused);
+  };
+  const cityMap = new CityMap({
+    city, orders, player,
+    onToggle: (open) => {
+      mapPaused = open;
+      syncOverlayPause();
+    },
+  });
+  syncOverlayPause();
+  hud.onStart?.(() => {
+    onboardingPaused = false;
+    syncOverlayPause();
+    if (orders.state === 'idle') orders.offerNow(null, { first: true });
+  });
+
+  // ---- Garage ---------------------------------------------------------------
+  // The HUD's garage overlay lists the roster. Choosing a car buys it when
+  // needed (orders.purchaseVehicle persists through save.js under the
+  // `snack-attack-save` key) and swaps the rig IN PLACE via switchVehicle
+  // below — same loaders as boot, no page reload. The debug menu deliberately
+  // keeps its reload picker so QA can compare cars under one set of URL flags.
+  let vehicleSwap = Promise.resolve();
+
+  async function switchVehicle(id) {
+    const nextDef = getVehicle(id);
+    if (!nextDef || nextDef.id === vehicleDef.id) return;
+    hud.toast(`${nextDef.nameKo}로 교체 중…`, `Switching to ${nextDef.nameEn}…`);
+    // Capture the pose BEFORE the await: loading yields to the render loop,
+    // which keeps moving (and could crash) the rig we are about to replace.
+    const position = phys.meshPosition.clone();
+    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(phys.quaternion);
+    const heading = Math.atan2(forward.x, forward.z);
+
+    // Same load path as boot — see the Promise.all near the top of boot().
+    const next = nextDef.loader === 'canonical'
+      ? await loadVehicle(manager, nextDef)
+      : await loadVan(manager, nextDef.asset);
+
+    scene.remove(van.group);
+    // Reset to DEFAULT_PARAMS first: each def overrides only a subset, and
+    // keys unique to the outgoing rig (the pocha's camera offsets, say) would
+    // otherwise linger. attach() reads comHeight/mass, so it must follow.
+    Object.assign(phys.params, DEFAULT_PARAMS);
+    Object.assign(phys.params, nextDef.params, {
+      collisionHalf: nextDef.collisionHalf,
+      bumperY: nextDef.bumperY,
+    });
+    phys.attach(next);
+    van = next;
+    vehicleDef = nextDef;
+    phys.place(position, heading);
+    scene.add(van.group);
+    if (player.isDriving) chaseCam.snapTo(phys);
+    // Props may still be loading (?props=off leaves them null); their loader
+    // reads `vehicleDef` on arrival, which now points at the new rig too.
+    props?.world.setVehicle({
+      half: new THREE.Vector3(nextDef.collisionHalf.x, nextDef.collisionHalf.y, nextDef.collisionHalf.z),
+      mass: phys.params.mass,
+    });
+    debug.setVehicleId?.(nextDef.id);
+    if (debugEnabled) window.__seoul.van = van;
+    hud.toast(`${nextDef.nameKo} 탑승`, `Driving ${nextDef.nameEn}`);
+  }
+
+  function queueVehicleSwap(id) {
+    // Serialize: a second click while a GLB loads queues behind it instead of
+    // racing two swaps onto one physics rig.
+    vehicleSwap = vehicleSwap
+      .then(() => switchVehicle(id))
+      .catch((err) => console.error('vehicle swap failed:', err));
+  }
+
   hud.configureGarage?.({
     vehicles: VEHICLE_IDS.map(getVehicle),
-    currentId: vehicleDef.id,
+    currentId: () => vehicleDef.id,
     getSave: () => orders.save,
+    onToggle: (open) => {
+      // The overlay is a pause screen: timers stop offering/decaying and the
+      // pedals go dead until it closes.
+      garagePaused = open;
+      syncOverlayPause();
+    },
     onChoose: (vehicle) => {
       const result = orders.purchaseVehicle(vehicle);
       if (!result.ok) {
         hud.refreshGarage?.();
         return;
       }
-      const url = new URL(location.href);
-      url.searchParams.set('car', vehicle.id);
-      location.href = url.toString();
+      hud.closeGarage?.();
+      queueVehicleSwap(vehicle.id);
     },
-  });
-  const firstRun = hud.isOnboardingVisible?.() ?? false;
-  orders.setPaused?.(firstRun);
-  input.setTouchSuspended(firstRun);
-  hud.onStart?.(() => {
-    input.setTouchSuspended(false);
-    orders.setPaused?.(false);
-    if (orders.state === 'idle') orders.offerNow(null, { first: true });
   });
 
   // Crash events also shake the camera.
@@ -243,7 +377,8 @@ async function boot() {
   if (graphicsQuality.mobile) {
     post.setScale(graphicsQuality.profile.postScale);
     rain.densityScale *= graphicsQuality.profile.rainDensity;
-    city.cullDistance = graphicsQuality.profile.cullDistance;
+    city.cullDistance = kilometreWorld ? 280 : graphicsQuality.profile.cullDistance;
+    if (kilometreWorld) city.detailDistance = 160;
     city.lights.streetlights.setActiveCount(graphicsQuality.profile.streetlights);
   }
 
@@ -254,7 +389,10 @@ async function boot() {
     uiSlice = await startUISlice({ hudEl: hud.el, orders, params: qp });
   }
 
-  preloadFoodCatalog().catch(() => {});
+  // Decode and actually render one catalog model per idle slice. This warms
+  // geometry, textures, and the real gameplay shader variants without one
+  // catalog-wide compile spike. Offered dishes jump to the front of the queue.
+  startFoodBackgroundWarmup(renderer, scene);
 
   // ---- Props: loaded AFTER the first frame ---------------------------------
   // The game is fully playable without them, so they must never delay
@@ -267,11 +405,21 @@ async function boot() {
 
   let props = null;
   const propMode = qp.get('props');
-  if (propMode !== 'off') {
-    loadProps(scene, city, {
-      mode: propMode === 'gallery' ? 'gallery' : 'world',
-      density: propMode === 'gallery' ? 1 : graphicsQuality.profile.propDensity,
-    })
+  const richExpanse = worldId === 'expanse'
+    && city.expanseData?.layout?.source === 'seoul-expanse-authoring-contract';
+  // Gallery mode never scans the city, so it remains shared. Normal Expanse
+  // play uses its own deterministic, chunk-owned review slice; the compact
+  // layoutWorld() scanner is never invoked over the kilometre-scale map — and
+  // the M3 rebuild has no prop pass at all yet, so `?world=expanse2` opts out
+  // of it entirely rather than dragging the compact scanner over a kilometre.
+  const greyboxRebuild = worldId === 'expanse2' && propMode !== 'gallery';
+  if (propMode !== 'off' && !greyboxRebuild && (!richExpanse || propMode === 'gallery')) {
+    const loader = propMode === 'gallery'
+      ? loadProps(scene, city, { mode: 'gallery', density: 1 })
+      : worldId === 'expanse'
+        ? loadExpanseProps(scene, city, { density: graphicsQuality.profile.propDensity })
+        : loadProps(scene, city, { mode: 'world', density: graphicsQuality.profile.propDensity });
+    loader
       .then((p) => {
         props = p;
         p.world.setVehicle({
@@ -290,19 +438,26 @@ async function boot() {
         // Props arrive after the first frame, so their materials would otherwise
         // all compile in the single frame they first come into view. Queue them
         // to be warmed a few at a time instead.
-        queueWarm(p.group);
+        if (p.group) queueWarm(p.group);
+        for (const group of p.groups || []) queueWarm(group);
         debug.attachProps(p);
         if (debugEnabled) window.__seoul.props = p;
-        console.log(`props: ${p.stats.placed} placed, ${p.stats.types} types, ${p.stats.bodies} bodies`);
+        console.log(`props: ${p.stats.placed} placed, ${p.stats.types} types, ${p.stats.bodies} bodies`
+          + (p.stats.stage ? `, ${p.stats.stage}` : ''));
       })
       .catch((err) => console.warn('props failed to load, continuing without:', err));
+  } else if (richExpanse && propMode !== 'off') {
+    // The restored GLB already contains its authored street furniture. The
+    // separate 28-object review slice was clearance-tested against the retired
+    // 25-node schematic, so do not layer it onto the rich graph by default.
+    console.log('props: using authored rich-Expanse street furniture');
   }
 
   // Console/automated probing handle (spawn placement, physics state). Tied to
   // the same switch as the menu, so tools/probe.mjs works against an internal
   // dist build and not just the dev server.
   if (debugEnabled) {
-    window.__seoul = { city, district, van, phys, orders, input, camera, scene, renderer, grid: city.grid, timeOfDay, debug, audio, soundtrack, graphicsQuality, THREE };
+    window.__seoul = { city, district, van, phys, player, onFootCam, orders, input, cityMap, camera, scene, renderer, grid: city.grid, timeOfDay, debug, audio, soundtrack, graphicsQuality, THREE };
   }
 
   // ---- Apply test hooks ---------------------------------------------------
@@ -312,6 +467,17 @@ async function boot() {
     if (qp.get('accept')) orders._accept();
   }
   const autoDrive = !!qp.get('auto');
+  if (qp.get('mode') === 'foot') player.exitVehicle({ force: true });
+  if (qp.get('map') === '1') cityMap.show();
+
+  // Mouse orbit is opt-in through pointer lock in both driving and on-foot
+  // modes, so UI overlays and the tape deck remain ordinary clickable DOM.
+  // Escape releases it as browsers expect.
+  renderer.domElement.addEventListener('pointerdown', () => {
+    if (!overview && !document.pointerLockElement && !onboardingPaused && !garagePaused && !mapPaused) {
+      renderer.domElement.requestPointerLock?.();
+    }
+  });
   // ?stats=1 — on-screen physics/spawn readout (also readable via --dump-dom)
   let statsEl = null;
   if (qp.get('stats')) {
@@ -324,10 +490,62 @@ async function boot() {
   // Static cameras for map QA. `shop=<restaurant id>` is deliberately a test
   // hook, not gameplay: it frames the authored pickup front for visual probes.
   const shopView = qp.get('shop');
-  const overview = !!qp.get('overview') || !!shopView;
+  // Both kilometre worlds get staged review cameras; the rebuild adds its own
+  // because M3 is reviewed before it is played (see CITY-REBUILD.md).
+  const expanseView = kilometreWorld ? qp.get('expanseView') : null;
+  const overview = !!qp.get('overview') || !!shopView || !!expanseView;
   if (overview) {
     const site = shopView && city.pickupSites.find((p) => p.id === shopView);
-    if (site) {
+    const expanseViews = {
+      station: { camera: [4, 11, -4], target: [0, 5, -100] },
+      market: { camera: [84, 12, 48], target: [176, 5, -16] },
+      bridge: { camera: [32, 12, 240], target: [0, 4, 158] },
+      westBridge: { camera: [-214, 12, 238], target: [-245, 7, 170] },
+      eastBridge: { camera: [272, 10, 238], target: [235, 4, 170] },
+      hills: { camera: [-60, 22, -330], target: [-175, 12, -235] },
+      hongdae: { camera: [-170, 14, -175], target: [-260, 6, -65] },
+      hangang: { camera: [-30, 14, 230], target: [-115, 6, 300] },
+      pocha: { camera: [245, 12, 205], target: [290, 5, 300] },
+      tunnel: { camera: [415, 6.5, -205], target: [415, 5, -145] },
+      propsStation: { camera: [4, 7, -101.8], target: [-11, 1.6, -101.8] },
+      propsHongdae: { camera: [-308, 7, -160], target: [-305, 1.6, -174] },
+      propsHangang: { camera: [-130, 6.5, 197], target: [-130, 1, 210.7] },
+      // M3 rebuild review slice. `plan` is the whole city from directly above,
+      // for comparison against the M1/M2 drawing. The rest are eye-height views
+      // down the densest street each district generated — chosen from the
+      // generator output rather than guessed, so they stay pointed at buildings
+      // if the seed ever moves.
+      plan: { camera: [0, 900, 1], target: [0, 0, 0] },
+      massingHills: { camera: [-173.5, 5.2, -213], target: [-119.8, 7, -203.2] },
+      massingHongdae: { camera: [-268, 5.2, -115.7], target: [-286.1, 7, -157.2] },
+      massingStation: { camera: [-54.1, 5.2, -62.4], target: [-56.2, 7, -22.6] },
+      massingMarket: { camera: [98.9, 5.2, 31.8], target: [148.3, 7, 22.7] },
+      massingHangang: { camera: [-128.7, 5.2, 90], target: [-85.7, 7, 90] },
+      massingPocha: { camera: [303.4, 5.2, 57.2], target: [290.9, 7, 18.8] },
+      // Down the ring's 175 m west straight: the sightline the whole map exists
+      // for, and the one place massing intruding on the carriageway would show.
+      massingRing: { camera: [-430, 6.5, -20], target: [-430, 7.5, -186] },
+      // M4 facade review slice. Picked by tools/pick-facade-cameras.mjs from
+      // the generator output rather than guessed, on the same principle as the
+      // M3 district views: each one frames what M4 actually delivers.
+      //
+      //   facadeShop   — a shopfront at standing height: glass, fascia board,
+      //                  awning and blade sign in one frame.
+      //   facadeRoofs  — the roofscape of the densest chunk, where the parapets
+      //                  and the setback ledges are the whole picture.
+      //   facadeColour — three districts at once from 210 m, which is the only
+      //                  shot that reviews the colour rule rather than one
+      //                  district's palette.
+      facadeShop: { camera: [-230.7, 2.3, 91.5], target: [-230.7, 2.6, 76.5] },
+      facadeRoofs: { camera: [-242, 58, -114.9], target: [-147, 12, -19.9] },
+      facadeColour: { camera: [-91.4, 210, 201.9], target: [-91.4, 8, -88.1] },
+    };
+    const staged = expanseView && expanseViews[expanseView];
+    if (staged) {
+      camera.position.fromArray(staged.camera);
+      camera.lookAt(...staged.target);
+      city.cullDistance = 1500;
+    } else if (site) {
       const localInward = new THREE.Vector3(site.toStreet.x, 0, site.toStreet.z);
       localInward.transformDirection(city.grid.matrices[site.tile]);
       camera.position.copy(site.point).addScaledVector(localInward, 6).add(new THREE.Vector3(0, 5.5, 0));
@@ -343,6 +561,7 @@ async function boot() {
       // Overview is an explicit QA mode, so show the whole expanded grid even
       // though normal gameplay keeps the original distance culling budget.
       city.cullDistance = span * 2;
+      city.detailDistance = span * 2;
     }
   }
 
@@ -359,8 +578,8 @@ async function boot() {
   // freezes, and the soundtrack carries on over whatever the player opened next.
   // Nothing was listening for that.
   //
-  // Only un-pause what WE paused. A player who hit M, or who paused the stereo
-  // themselves, must not have it start up again just because they took a call —
+  // Only un-pause what WE paused. A player who paused or muted the tape deck
+  // must not have it start up again just because they took a call —
   // hence the flag rather than a blind resume().
   let musicPausedByBackground = false;
   const handleVisibility = () => {
@@ -430,18 +649,42 @@ async function boot() {
       }
     }
 
+    if (input.pressed('map')) {
+      if (cityMap.isOpen) cityMap.hide();
+      else {
+        if (garagePaused) hud.closeGarage?.();
+        cityMap.show();
+      }
+    }
+
     // Controls
-    phys.controls.throttle = autoDrive ? 1 : input.actionValue('throttle');
-    phys.controls.brake = input.actionValue('brake');
-    phys.controls.steer = input.steerAxis();
-    phys.controls.handbrake = input.isDown('handbrake');
+    phys.controls.throttle = player.isDriving ? (autoDrive ? 1 : input.actionValue('throttle')) : 0;
+    phys.controls.brake = player.isDriving ? input.actionValue('brake') : 0;
+    phys.controls.steer = player.isDriving ? input.steerAxis() : 0;
+    phys.controls.handbrake = player.isDriving && input.isDown('handbrake');
+    if (garagePaused || mapPaused || !player.isDriving) {
+      phys.controls.throttle = 0;
+      phys.controls.brake = 0;
+      phys.controls.steer = 0;
+      // The brake input also means reverse at low speed. Use the rear
+      // handbrake as a true parking brake while the courier is outside.
+      phys.controls.handbrake = !player.isDriving;
+    }
+
+    if (!garagePaused && !mapPaused && input.pressed('interact')) {
+      if (player.isDriving) player.exitVehicle();
+      else if (player.mode === 'onFoot') player.beginEnterVehicle();
+    }
 
     // Fixed-step physics. Props run on the SAME accumulator, so the van's pose
     // is current before contacts are found and its reaction is drained after.
-    acc += dt;
+    if (!mapPaused) acc += dt;
+    else acc = 0;
     let steps = 0;
+    const footForward = onFootCam.forward;
     while (acc >= FIXED && steps < 12) {
       phys.step(FIXED);
+      player.updateFixed(FIXED, input, footForward);
       if (props) {
         props.world.setVehiclePose(phys.position, phys.quaternion, phys.velocity, phys.angularVelocity);
         props.world.step(FIXED);
@@ -453,14 +696,11 @@ async function boot() {
     if (props) props.update();
 
     // Edge-triggered keys
-    if (input.pressed('reset')) phys.resetToRoad();
-    if (input.pressed('debug')) debug.toggle();
-    if (input.pressed('mute')) {
-      const muted = audio.toggleMute();
-      soundtrack.audio.muted = muted;
-      hud.setAudioStatus?.(muted ? 'muted' : 'on');
-      hud.toast(muted ? '소리 꺼짐' : '소리 켜짐', muted ? 'Audio muted' : 'Audio on');
+    if (!mapPaused && input.pressed('reset')) {
+      if (player.isDriving) phys.resetToRoad();
+      else player.resetToRoad();
     }
+    if (!mapPaused && input.pressed('debug')) debug.toggle();
 
     // phys.position is the CENTRE OF MASS; meshPosition is the model origin.
     van.group.position.copy(phys.meshPosition);
@@ -468,7 +708,12 @@ async function boot() {
     van.update(dt, phys);
     van.setBraking(phys.controls.brake > 0 && phys.forwardSpeed > 0.5);
 
-    if (!overview) chaseCam.update(dt, phys);
+    if (!overview && !mapPaused) {
+      const lookAxes = input.consumeLookAxes();
+      if (player.isDriving) chaseCam.update(dt, phys, lookAxes);
+      else onFootCam.update(dt, player, lookAxes);
+    }
+    player.updateVisual(dt);
     city.update(dt, camera);
     rain.update(dt, camera);
     orders.update(dt, input);
@@ -478,12 +723,12 @@ async function boot() {
       phys.speedKmh > 18 ? Math.abs(phys.latG) * 0.9 : 0
     ));
     audio.update({
-      speed: phys.forwardSpeed,
-      throttle: phys.controls.throttle,
-      skid,
+      speed: player.isDriving && !mapPaused ? phys.forwardSpeed : 0,
+      throttle: player.isDriving && !mapPaused ? phys.controls.throttle : 0,
+      skid: mapPaused ? 0 : skid,
       rain: rainAmount,
     });
-    hud.setSpeed(phys.speedKmh);
+    hud.setSpeed(player.isDriving ? phys.speedKmh : 0);
     uiSlice?.update(dt, phys);
     debug.update(dt);
 
@@ -497,11 +742,14 @@ async function boot() {
       const tile = city.grid.indexAt(p.x, p.z);
       const vis = city.tiles.reduce((n, t) => n + (t.root.visible ? 1 : 0), 0);
       const det = city.tiles.reduce((n, t) => n + (t.root.visible && t.detail.visible ? 1 : 0), 0);
+      const chunks = city.chunkStats;
       const r = renderer.info.render;
       statsEl.textContent =
         `van (${p.x.toFixed(1)}, ${p.y.toFixed(2)}, ${p.z.toFixed(1)}) ` +
         `tile ${tile} of ${city.grid.count} (${vis} drawn, ${det} dressed) | ` +
-        `grounded ${phys.groundedWheels}/4 | v ${phys.speedKmh.toFixed(1)} km/h | state ${orders.state}\n` +
+        `mode ${player.mode} | locomotion ${player.state} | grounded ${player.isDriving ? `${phys.groundedWheels}/4` : player.grounded}\n` +
+        `v ${phys.speedKmh.toFixed(1)} km/h | order ${orders.state}\n` +
+        (chunks ? `chunks ${chunks.visible}/${chunks.total} detail ${chunks.detailed} micro ${chunks.micro} | ` : '') +
         `draws ${r.calls} tris ${(r.triangles / 1000).toFixed(0)}k | ` +
         `props ${props ? props.stats.placed : 0} awake ${props ? props.world.awakeCount : 0} | ` +
         `dt ${dt.toFixed(4)} steps ${steps} vy ${phys.velocity.y.toFixed(2)} | killY ${city.killY.toFixed(2)}`;

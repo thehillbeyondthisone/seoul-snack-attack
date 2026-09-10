@@ -11,11 +11,12 @@ import { DISTRICT_BY_INDEX, districtAt } from '../data/color-bible.js';
 import { generateLayout, PROC_SEED, ROAD_Y } from './layout.js';
 import { buildCityMesh } from './mesh.js';
 import { dressSigns } from './signs.js';
+import { loadAsphaltTexturePack, applyAsphaltTextureDefaults } from './texture-pack.js';
 
 const DOWN = new THREE.Vector3(0, -1, 0);
 const UP = new THREE.Vector3(0, 1, 0);
 
-export async function loadProcCity(scene, manager, renderer = null, onPhase = null, seed = PROC_SEED) {
+export async function loadProcCity(scene, manager, renderer = null, onPhase = null, seed = PROC_SEED, { detailIntensity } = {}) {
   const startedAt = performance.now();
   onPhase?.(8, '컬러 바이블 적용 중 · Applying colour bible');
 
@@ -24,8 +25,24 @@ export async function loadProcCity(scene, manager, renderer = null, onPhase = nu
 
   onPhase?.(18, '한글 간판 그리는 중 · Painting Hangul signs');
   onPhase?.(36, '도시 생성 중 · Generating city');
-  const built = buildCityMesh(layout, {}, seed);
+  const built = buildCityMesh(layout, {}, seed, { detailIntensity });
   scene.add(built.group);
+
+  // Downloaded asphalt pack loads in parallel with the BVH build. The road
+  // material is already bound to the procedural pair; when the pack lands
+  // we attach it to the blend handle exposed on `built.asphaltBlend` and
+  // the debug menu can drive the comparison at any point after.
+  const asphaltPackPromise = loadAsphaltTexturePack(manager).then((pack) => {
+    if (!pack) return null;
+    applyAsphaltTextureDefaults(pack.normal);
+    applyAsphaltTextureDefaults(pack.rough);
+    if (built.asphaltBlend) built.asphaltBlend.setDownloaded(pack);
+    console.log(`asphalt pack: ${pack.provenance.asset} (${pack.provenance.license}) loaded`);
+    return pack;
+  }).catch((err) => {
+    console.warn('asphalt pack load failed:', err);
+    return null;
+  });
 
   onPhase?.(58, '도로 충돌 인덱싱 중 · Indexing road collision');
   const colliderGeo = built.colliderGeo;
@@ -173,25 +190,64 @@ export async function loadProcCity(scene, manager, renderer = null, onPhase = nu
     size: NIGHT.lampCount, range: NIGHT.lampRange, intensity: NIGHT.lampIntensity,
     glowOpacity: NIGHT.glowOpacity, glowRadius: NIGHT.glowRadius,
   });
+  // Per-node road yaw: the average direction of the incident edges, so each
+  // wet-reflection streak lies along its street instead of a global axis.
+  // Adjacency items carry the neighbour's id, not its node object.
+  const nodeById = new Map(roadGraph.nodes.map((n) => [n.id, n]));
+  let _dirX = 0; let _dirZ = 0;
   const lightAnchors = roadGraph.nodes.map((node) => {
     const d = DISTRICT_BY_INDEX[districtIndexAt(node.position.x, node.position.z)];
+    _dirX = 0; _dirZ = 0;
+    for (const item of roadGraph.adjacency.get(node.id) || []) {
+      const other = nodeById.get(item.node);
+      if (!other) continue;
+      _dirX += other.position.x - node.position.x;
+      _dirZ += other.position.z - node.position.z;
+    }
+    if (_dirX === 0 && _dirZ === 0) { _dirX = 1; }
     return {
       position: node.position.clone().add(new THREE.Vector3(1.6, 0, 1.6)),
       lamp: d?.lamp ?? 0xffb46a,
       glow: d?.glow ?? 0xff9a4a,
+      // PlaneGeometry lies on +X before its flat rotation, and rotationY(θ)
+      // maps +X to (cosθ, 0, -sinθ), so θ = atan2(-dz, dx).
+      yaw: Math.atan2(-_dirZ, _dirX),
     };
   });
   streetlights.setAnchors(lightAnchors);
 
+  // --- SSR-lite: neon streaks on wet asphalt ---------------------------------
+  // Screen-space reflections are out of budget here, so wet roads fake them
+  // the classic way: one elongated additive quad per lamp anchor, stretched
+  // along its street. Geometry, matrices and instance colours are built once;
+  // wetness only drives the shared material's opacity, so the hot path
+  // (rain.update → setWetness every frame) never touches an instance or
+  // allocates. The mobile budget halves the streaks and their strength via
+  // the existing detailIntensity hook rather than a new quality field.
+  const wetStreaks = buildWetStreaks(lightAnchors, { detailIntensity });
+  built.group.add(wetStreaks.mesh);
+
   const roadSnap = new Map(built.roadMaterials.map((m) => [m, {
     roughness: m.roughness ?? 1,
     envMapIntensity: m.envMapIntensity ?? 1,
+    color: m.color ? m.color.clone() : null,
   }]));
   function setWetness(w) {
+    // Roughness maps multiply the scalar, so easing the scalar still eases the
+    // whole response. Wet asphalt both darkens AND mirrors: roughness drops
+    // harder than before, the env gain is what makes it reflect the amber sky,
+    // and the albedo dip gives the emissive streaks something to read against.
     for (const [m, orig] of roadSnap) {
-      m.roughness = orig.roughness * (1 - 0.5 * w);
-      if ('envMapIntensity' in m) m.envMapIntensity = orig.envMapIntensity + w * 0.6;
+      m.roughness = orig.roughness * (1 - 0.62 * w);
+      if ('envMapIntensity' in m) m.envMapIntensity = orig.envMapIntensity + w * 1.35;
+      if (orig.color) m.color.copy(orig.color).multiplyScalar(1 - 0.24 * w);
     }
+    // Streak fakes read as dirt under sunlight, so they follow the preset too;
+    // rain.update re-runs this every frame, so a mid-session switch settles
+    // within a frame without time-of-day.js knowing about this system.
+    const gain = nightRig.params.mode === 'night' ? 1 : 0.3;
+    wetStreaks.mat.opacity = wetStreaks.baseOpacity * w * gain;
+    wetStreaks.mesh.visible = wetStreaks.mat.opacity > 0.005;
   }
 
   let cullDistance = 160;
@@ -237,6 +293,11 @@ export async function loadProcCity(scene, manager, renderer = null, onPhase = nu
     findRoute: (a, b) => roadGraph.findRoute(a, b),
     roadMaterials: built.roadMaterials,
     emissiveMaterials,
+    textures: { asphalt: built.asphaltBlend },
+    // Resolves when the async texture pack has either loaded or failed. The
+    // debug menu's Textures folder awaits this so the downloaded toggle is
+    // only enabled once the pack is actually available.
+    texturesReady: asphaltPackPromise,
     setWetness, update,
     fog: nightRig.fog, nightRig,
     lights: { hemi: nightRig.hemi, amb: nightRig.amb, moon: nightRig.moon, streetlights },
@@ -267,4 +328,79 @@ export async function loadProcCity(scene, manager, renderer = null, onPhase = nu
 
 function districtIndexAt(x, z) {
   return districtAt(x, z).index;
+}
+
+/**
+ * One instanced draw call of elongated "reflection" pools, one per lamp anchor.
+ * Each quad is a soft streak aligned to its street's yaw and tinted with the
+ * district glow colour; setWetness() fades the whole sheet in with wetness.
+ * Anchors: { position, yaw, glow } from the lightAnchors list above.
+ */
+function buildWetStreaks(anchors, { detailIntensity = 1 } = {}) {
+  const lowBudget = detailIntensity < 1;
+  const geo = new THREE.PlaneGeometry(1, 1);
+  geo.rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshBasicMaterial({
+    map: makeStreakTexture(),
+    color: 0xffffff, // per-instance colour multiplies this — keep it neutral
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    fog: false,
+  });
+  // Mobile skips every other anchor (they overlap at alley widths anyway) and
+  // runs dimmer, matching how detailIntensity already scales texture work.
+  const stride = lowBudget ? 2 : 1;
+  const count = Math.max(1, Math.ceil(anchors.length / stride));
+  const mesh = new THREE.InstancedMesh(geo, mat, count);
+  mesh.name = 'wet_neon_streaks';
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 2; // same layer as the streetlight glow pools
+
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const p = new THREE.Vector3();
+  const s = new THREE.Vector3(lowBudget ? 7 : 10, 1, lowBudget ? 2 : 2.6);
+  const c = new THREE.Color();
+  for (let i = 0; i < count; i++) {
+    const anchor = anchors[i * stride];
+    p.set(anchor.position.x, anchor.position.y + 0.06, anchor.position.z);
+    q.setFromAxisAngle(UP, anchor.yaw);
+    m.compose(p, q, s);
+    mesh.setMatrixAt(i, m);
+    mesh.setColorAt(i, c.setHex(anchor.glow));
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  mesh.visible = false;
+
+  return { mesh, mat, baseOpacity: lowBudget ? 0.17 : 0.28 };
+}
+
+/** Streak alpha: long tail along the street, tight falloff across it. */
+function makeStreakTexture() {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 64;
+  const ctx = c.getContext('2d');
+  const along = ctx.createLinearGradient(0, 0, c.width, 0);
+  along.addColorStop(0, 'rgba(255,255,255,0)');
+  along.addColorStop(0.3, 'rgba(255,255,255,0.5)');
+  along.addColorStop(0.5, 'rgba(255,255,255,1)');
+  along.addColorStop(0.7, 'rgba(255,255,255,0.5)');
+  along.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = along;
+  ctx.fillRect(0, 0, c.width, c.height);
+  // Mask across the width so the streak reads as a smear, not a rectangle.
+  ctx.globalCompositeOperation = 'destination-in';
+  const across = ctx.createLinearGradient(0, 0, 0, c.height);
+  across.addColorStop(0, 'rgba(0,0,0,0)');
+  across.addColorStop(0.5, 'rgba(0,0,0,1)');
+  across.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = across;
+  ctx.fillRect(0, 0, c.width, c.height);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }

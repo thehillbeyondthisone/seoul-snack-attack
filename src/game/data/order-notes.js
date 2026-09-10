@@ -1,4 +1,4 @@
-// Seoul Delivery — per-order request notes.
+// Seoul Snack Attack — per-order request notes.
 //
 // Every Korean delivery app puts two free-text boxes on the order form: one for
 // the kitchen (가게 요청사항) and one for the rider (배달 요청사항). They are

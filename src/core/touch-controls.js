@@ -2,7 +2,7 @@
 // capabilities, never a user-agent string, so desktop keyboard/gamepad input
 // remains available and touchscreen laptops can opt out.
 
-const STORAGE_KEY = 'seoul-delivery-touch-controls-v1';
+const STORAGE_KEY = 'snack-attack-touch-controls-v1';
 const PREFERENCES = ['auto', 'off', 'on'];
 const STICK_RADIUS = 46;
 
@@ -87,6 +87,12 @@ const CSS = `
   font: 750 9px/1.15 inherit; letter-spacing: .06em; touch-action: none;
 }
 #touch-controls .touch-action.pressed { color: #07101a; background: var(--touch-nav); }
+#touch-controls .foot-only { display: none; }
+#touch-controls.on-foot .drive::before { content: 'FORWARD'; }
+#touch-controls.on-foot .drive::after { content: 'BACK'; }
+#touch-controls.on-foot .steer::before { content: 'MOVE'; }
+#touch-controls.on-foot .touch-action.handbrake { display: none; }
+#touch-controls.on-foot .foot-only { display: block; }
 /* Keyboard and gamepad hints have nothing to say on a touch device. */
 body.touch-controls-active #hud3 .legend,
 body.touch-controls-active #hud3 .translate-hint,
@@ -104,16 +110,10 @@ body.touch-controls-active #hud3 .audio-status {
 }
 /* Sliders and transport buttons need finger-sized rows too.
    NOTE: this stylesheet is a JS template literal — no backticks in comments.
-   The offset has to clear the touch stack (150px) plus the taller audio chip,
-   or the chip overlaps the panel and a tap meant for PREV shuts the menu.
-   border-box keeps the 14/16px padding inside the width on a 375px screen. */
-body.touch-controls-active #hud3 .audio-menu {
-  box-sizing: border-box;
-  width: min(320px, calc(100vw - 36px));
-  bottom: 222px;
-}
-body.touch-controls-active #hud3 .audio-menu input[type="range"] { height: 30px; }
-body.touch-controls-active #hud3 .audio-menu button {
+   The cassette deck is a centred overlay, so no bottom offset is needed here;
+   only the tap targets are grown. */
+body.touch-controls-active .cassette-deck input[type="range"] { height: 30px; }
+body.touch-controls-active .cassette-deck button {
   min-height: 38px; padding: 9px 12px; font-size: 11px;
 }
 body.touch-controls-active #hud3 .stack { bottom: 150px; }
@@ -152,7 +152,7 @@ export class TouchControls {
     this.preference = normalizedPreference(queryPreference || savedPreference);
     this.detected = shouldAutoEnableTouch(capabilitySnapshot());
     this.suspended = false;
-    this.values = { throttle: 0, brake: 0, steer: 0, handbrake: 0 };
+    this.values = { throttle: 0, brake: 0, steer: 0, handbrake: 0, jump: 0, interact: 0 };
     this.edges = new Set();
     this.activity = false;
 
@@ -164,6 +164,8 @@ export class TouchControls {
         <div class="touch-stick steer" role="slider" aria-label="Steering"><div class="touch-knob"></div></div>
         <div class="touch-actions">
           <button class="touch-action handbrake" type="button">HANDBRAKE</button>
+          <button class="touch-action jump foot-only" type="button">JUMP</button>
+          <button class="touch-action interact foot-only" type="button">VEHICLE</button>
           <button class="touch-action reset" type="button">RESET</button>
         </div>
       </div>
@@ -175,6 +177,8 @@ export class TouchControls {
     this._bindStick(root.querySelector('.drive'), 'drive');
     this._bindStick(root.querySelector('.steer'), 'steer');
     this._bindButton(root.querySelector('.handbrake'), 'handbrake');
+    this._bindButton(root.querySelector('.jump'), 'jump');
+    this._bindButton(root.querySelector('.interact'), 'interact');
     this._bindButton(root.querySelector('.reset'), 'reset');
     this.toggle.addEventListener('click', () => {
       const next = { auto: 'off', off: 'on', on: 'auto' }[this.preference];
@@ -196,6 +200,11 @@ export class TouchControls {
     this.suspended = !!suspended;
     if (this.suspended) this._releaseAll();
     this._refresh();
+  }
+
+  setGameplayMode(mode) {
+    this.root.classList.toggle('on-foot', mode === 'onFoot' || mode === 'entering');
+    this._releaseAll();
   }
 
   actionValue(action) { return this.enabled && !this.suspended ? (this.values[action] || 0) : 0; }
@@ -289,6 +298,8 @@ export class TouchControls {
     this.values.brake = 0;
     this.values.steer = 0;
     this.values.handbrake = 0;
+    this.values.jump = 0;
+    this.values.interact = 0;
     this.edges.clear();
     this.root?.querySelectorAll('.touch-knob').forEach((knob) => { knob.style.transform = ''; });
     this.root?.querySelectorAll('.touch-action').forEach((button) => button.classList.remove('pressed'));

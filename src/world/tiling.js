@@ -1,4 +1,4 @@
-// Seoul Delivery — city tile grid: per-tile transforms + a tile-local raycast.
+// Seoul Snack Attack — city tile grid: per-tile transforms + a tile-local raycast.
 //
 // The city is ONE block of geometry repeated on a grid, so the only thing that
 // differs per tile is a rigid transform. We therefore keep exactly one MeshBVH,

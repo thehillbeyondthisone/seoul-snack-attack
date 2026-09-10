@@ -1,4 +1,4 @@
-// Seoul Delivery — car stereo playlist.
+// Seoul Snack Attack — car stereo playlist.
 //
 // THIS ARRAY IS THE PLAY ORDER. Move a line to move the track; the stereo plays
 // top to bottom and NEXT/PREV walk this list. The first entry is what starts
@@ -12,6 +12,11 @@
 //   3. add a line below, in the position you want it played.
 //
 // `file` is the name inside public/audio/music/; `title` is what the HUD shows.
+//
+// BONUS-TRACK HOOK (not yet implemented): a track may carry `locked: true` —
+// the cassette deck then renders its tape card dimmed and refuses to insert it
+// until an unlocking system (progression, codes, saves) starts clearing that
+// flag. Nothing sets `locked` today; it is reserved by convention.
 
 export const SOUNDTRACK = [
   { file: 'budae-sizzle-hot.mp3',  title: 'BUDAE (Sizzle Hot)' },
@@ -36,8 +41,10 @@ export const SOUNDTRACK = [
  * @param {string} baseUrl typically `import.meta.env.BASE_URL`
  */
 export function soundtrackTracks(baseUrl = '/') {
-  return SOUNDTRACK.map(({ file, title }) => ({
+  // `locked` passes through untouched so the deck's bonus-track hook sees it.
+  return SOUNDTRACK.map(({ file, title, locked }) => ({
     url: `${baseUrl}audio/music/${file}`,
     title,
+    ...(locked ? { locked: true } : {}),
   }));
 }

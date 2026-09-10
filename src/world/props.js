@@ -1,4 +1,4 @@
-// Seoul Delivery — street props: load, place, render, and hand the movable ones
+// Seoul Snack Attack — street props: load, place, render, and hand the movable ones
 // to the physics world.
 //
 // Placement is scanned ONCE in tile-local space (every tile is the same

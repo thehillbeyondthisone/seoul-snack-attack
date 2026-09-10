@@ -1,4 +1,4 @@
-// Seoul Delivery — custom raycast arcade-sim vehicle physics (no physics engine).
+// Seoul Snack Attack — custom raycast arcade-sim vehicle physics (no physics engine).
 // Rigid body + 4 suspension raycasts against the city BVH, pacejka-lite tire
 // forces with a friction ellipse, wet grip, body collision rays + crash events.
 import * as THREE from 'three';
@@ -18,6 +18,12 @@ export const DEFAULT_PARAMS = {
   gripWet: 0.76,           // ~28% cut in the rain
   wetGripEnabled: true,
   tireStiffness: 9,        // slip-angle stiffness (pacejka-lite B factor)
+  // Sketchbook/Cannon-style roll influence. Lateral tire force is applied at
+  // this fraction of the contact patch's vertical lever arm: 1 is fully
+  // physical, lower values move the effective roll centre toward the CoM.
+  rollInfluence: 1,
+  rollInfluenceAtMax: 1,
+  rollInfluenceSpeedStart: 1,
   steerLockLow: 0.70,      // rad at standstill; tighter low-speed city turns
   steerLockHigh: 0.13,     // rad at speed
   steerSpeedRef: 24,       // m/s where high-speed lock applies
@@ -27,13 +33,16 @@ export const DEFAULT_PARAMS = {
   springK: 38000,          // N/m
   damperC: 3600,           // Ns/m
 
-  // Centre of mass, as an offset BELOW the model origin (body frame, metres).
+  // Centre of mass, as an offset from the model origin (body frame, metres).
   // The model origin is the mesh bounding-box centre (van.js recenters there),
   // which put the CoM 1.33 m above the road on a 1.298 m track — a rollover
   // threshold of track/(2h) = 0.49 g, well under the 1.02 g the tires make. The
   // van therefore tipped over in any real corner. Lowering the CoM to ~0.55 m
   // puts the threshold at ~1.18 g, safely above the grip ceiling.
   comHeight: -0.78,
+  // +X is body-left. Canonical rigs whose visual bbox is laterally skewed can
+  // use this to keep the physical CoM centred between the wheel contact lines.
+  comLateral: 0,
 
   // Anti-roll bars: N of force per metre of differential compression across an
   // axle. These are what let a soft, rolly car corner flat-ish without tipping,
@@ -135,7 +144,7 @@ export class VehiclePhysics {
     // equivalent to moving the CoM down, and keeps the integrator honest
     // (rotation happens about the point we take torques around). Rendering
     // compensates by offsetting the mesh — see main.js.
-    this.comOffset = new THREE.Vector3(0, this.params.comHeight, 0);
+    this.comOffset = new THREE.Vector3(this.params.comLateral, this.params.comHeight, 0);
     for (const w of this.wheels) w.localPos.sub(this.comOffset);
 
     // Approximate box inertia for a van (4.5 × 1.9 × 1.9 m).
@@ -160,12 +169,23 @@ export class VehiclePhysics {
 
   place(position, heading = 0) {
     this.quaternion.setFromAxisAngle(UP, heading);
+    // The boot drop-in (city.js: road + 0.8) presumes an origin ~1 m above the
+    // road, like the van's. A taller rig — the pocha's bbox
+    // centre sits 2.36 m up because of the roof sign — would start with its
+    // hubs below the road, where the downward suspension rays can never catch,
+    // and fall through the world. Lift the drop to clear the lowest hub;
+    // rigs that already clear it are unaffected.
+    let dropY = position.y;
+    if (this._initialized && this.wheels.length) {
+      const lowestHub = Math.min(...this.wheels.map((w) => w.localPos.y + this.comOffset.y));
+      dropY = Math.max(dropY, 0.05 - lowestHub);
+    }
     // Callers pass a model-origin position; convert to the CoM we integrate.
-    this.position.copy(position)
+    this.position.copy(position).setY(dropY)
       .add(_com.copy(this.comOffset).applyQuaternion(this.quaternion));
     this.velocity.set(0, 0, 0);
     this.angularVelocity.set(0, 0, 0);
-    this.lastRoadPosition.copy(position);
+    this.lastRoadPosition.set(position.x, dropY, position.z);
     this.lastRoadHeading = heading;
   }
 
@@ -340,8 +360,28 @@ export class VehiclePhysics {
       }
       if (handbrakeOn && Math.abs(vLong) < 0.4) fLong = 0; // fully locked
 
-      const tireF = gFwd.multiplyScalar(fLong).addScaledVector(gRight, fLat);
-      applyForceAt(tireF, contact);
+      // Keep longitudinal force at the road so acceleration/braking still
+      // pitches the chassis naturally. For lateral force, use the same roll-
+      // influence convention as Sketchbook's Cannon RaycastVehicle: scale the
+      // contact patch's body-up lever arm before computing chassis torque.
+      applyForceAt(gFwd.multiplyScalar(fLong), contact);
+      const rollInfluenceLow = THREE.MathUtils.clamp(p.rollInfluence ?? 1, 0, 1);
+      const rollInfluenceHigh = THREE.MathUtils.clamp(p.rollInfluenceAtMax ?? rollInfluenceLow, 0, 1);
+      const rollRampStart = THREE.MathUtils.clamp(p.rollInfluenceSpeedStart ?? 1, 0, 0.999);
+      let rollRamp = THREE.MathUtils.clamp(
+        (Math.abs(this.forwardSpeed) / Math.max(p.maxSpeed, 0.01) - rollRampStart) /
+          (1 - rollRampStart),
+        0,
+        1,
+      );
+      rollRamp = rollRamp * rollRamp * (3 - 2 * rollRamp);
+      const rollInfluence = THREE.MathUtils.lerp(rollInfluenceLow, rollInfluenceHigh, rollRamp);
+      const verticalArm = contact.clone().sub(this.position).dot(bodyUp);
+      const rollContact = contact.clone().addScaledVector(
+        bodyUp,
+        verticalArm * (rollInfluence - 1),
+      );
+      applyForceAt(gRight.multiplyScalar(fLat), rollContact);
     }
 
     // --- anti-roll bars ----------------------------------------------------
@@ -418,18 +458,20 @@ export class VehiclePhysics {
     // out of CoM space (see attach()).
     // Shared with prop collision — main.js reads the same box off the vehicle
     // definition. Defaults are the van's (src/vehicle/van-spec.js).
-    const halfL = p.collisionHalf.z, halfW = p.collisionHalf.x, bumperY = p.bumperY - p.comHeight;
+    const halfL = p.collisionHalf.z, halfW = p.collisionHalf.x;
+    const bodyX = -p.comLateral;
+    const bumperY = p.bumperY - p.comHeight;
     // A contact skin, not an invisible half-metre extension of the body.
     const rayLen = 0.14;
     const rays = [
-      [new THREE.Vector3(-halfW, bumperY, halfL), fwd],
-      [new THREE.Vector3(halfW, bumperY, halfL), fwd],
-      [new THREE.Vector3(-halfW, bumperY, -halfL), fwd.clone().negate()],
-      [new THREE.Vector3(halfW, bumperY, -halfL), fwd.clone().negate()],
-      [new THREE.Vector3(-halfW, bumperY, 0), right.clone().negate()],
-      [new THREE.Vector3(halfW, bumperY, 0), right],
-      [new THREE.Vector3(-halfW, bumperY, halfL * 0.5), right.clone().negate()],
-      [new THREE.Vector3(halfW, bumperY, halfL * 0.5), right],
+      [new THREE.Vector3(bodyX - halfW, bumperY, halfL), fwd],
+      [new THREE.Vector3(bodyX + halfW, bumperY, halfL), fwd],
+      [new THREE.Vector3(bodyX - halfW, bumperY, -halfL), fwd.clone().negate()],
+      [new THREE.Vector3(bodyX + halfW, bumperY, -halfL), fwd.clone().negate()],
+      [new THREE.Vector3(bodyX - halfW, bumperY, 0), right.clone().negate()],
+      [new THREE.Vector3(bodyX + halfW, bumperY, 0), right],
+      [new THREE.Vector3(bodyX - halfW, bumperY, halfL * 0.5), right.clone().negate()],
+      [new THREE.Vector3(bodyX + halfW, bumperY, halfL * 0.5), right],
     ];
     const contacts = [];
     for (const [local, dirB] of rays) {

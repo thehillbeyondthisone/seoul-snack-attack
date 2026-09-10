@@ -1,4 +1,4 @@
-// Seoul Delivery — rain: instanced streaks + splash rings, wet-look + fog + grip hooks.
+// Seoul Snack Attack — rain: instanced streaks + splash rings, wet-look + fog + grip hooks.
 import * as THREE from 'three';
 
 const MAX_DROPS = 1500;

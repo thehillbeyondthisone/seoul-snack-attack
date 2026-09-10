@@ -1,4 +1,4 @@
-// Seoul Delivery — playable vehicle roster.
+// Seoul Snack Attack — playable vehicle roster.
 //
 // handoff.md 7 asked for "the vehicle-definition schema and build-time rig
 // normalization now so the other 9 are drop-in". This is the schema half; the
@@ -41,129 +41,136 @@ export const VEHICLES = {
   },
 
   // -------------------------------------------------------------------------
-  // Bubble microcar — the nimble counterpart. A metre shorter than the van,
-  // 40% lighter, and on a 2.39 m wheelbase it turns inside anything the van
-  // can manage.
-  //
-  // Geometry is from public/assets/vehicles/compact.json. Model origin is the body
-  // bbox centre, which sits 0.950 m above the road (`groundY`), so every
-  // height below is quoted as "origin-relative = road-relative - 0.950".
+  // NOTE: the `compact` (bubble microcar) was retired on 2026-08-25 — it is
+  // ripped commercial game content (see ATTRIBUTION.md, "Bubble microcar").
+  // Its recipe, build outputs (public/assets/vehicles/compact.glb|.json) and
+  // roster entry are gone; do not reintroduce them.
   // -------------------------------------------------------------------------
-  compact: {
-    id: 'compact',
-    nameKo: '버블 경차',
-    nameEn: 'bubble microcar',
-    blurb: 'Light, short, and eager to rotate. Less to carry, far less to park.',
-    price: 100000,
-    // 3.2 m against the van's 4.5, on a 2.19 m wheelbase — see the recipe in
-    // tools/vehicle-recipes.mjs for why the scale is a compromise.
-    asset: 'assets/vehicles/compact.glb',
-    loader: 'canonical',
-    length: 3.2,
 
-    // Measured body half is 0.885 x 0.847 x 1.60. Trimmed inside that: the
-    // half-width is the wheel-arch bulge, flush with the tires' outer faces,
-    // and a hull that wide catches on kerbs the bodywork would clear.
-    collisionHalf: Object.freeze({ x: 0.82, y: 0.80, z: 1.54 }),
-    // Bumper ring ~0.49 m above the road (origin sits at 0.950 m).
-    bumperY: -0.46,
+  // -------------------------------------------------------------------------
+  // Pocha truck — the snack-van hero (slice C1). Quaternius "Sushi Truck",
+  // CC0 (attribution: _source-assets/vehicles/LICENSES.md), built by the
+  // `pocha` recipe in tools/vehicle-recipes.mjs.
+  //
+  // Geometry from public/assets/vehicles/pocha.json. Origin is the body bbox
+  // centre, 2.363 m above the road (`groundY`) — high because the bbox is
+  // dominated by the roof sushi sign and the serving-side awning, which also
+  // push the bbox centre 0.40 src-units off the wheel plane's centre: the
+  // hubs are NOT symmetric about x=0 (fl +0.79 / fr -1.29). `comLateral`
+  // compensates for that visual-origin skew in the physics rig.
+  // -------------------------------------------------------------------------
+  pocha: {
+    id: 'pocha',
+    nameKo: '포차 트럭',
+    nameEn: 'pocha snack truck',
+    blurb: 'The snack van itself. Tall, boxy, and top-heavy in the fun way.',
+    price: 0,
+    asset: 'assets/vehicles/pocha.glb',
+    loader: 'canonical',
+    length: 5.0,
+
+    // Measured body half is 1.596 x 2.219 x 2.500. Trimmed: x to 1.35 so the
+    // awning (which reaches the full 1.596) overhangs kerbs instead of
+    // catching them, y to 2.10 to shave the sushi sign, z to 2.42.
+    collisionHalf: Object.freeze({ x: 1.35, y: 2.10, z: 2.42 }),
+    // Front bumper ring ~0.66 m above the road (origin sits at 2.363 m).
+    bumperY: -1.70,
 
     // Light mount points, converted from source-space island centroids with
-    // the sidecar's sourceOrigin (0.0002, 35.6687, 1.491) and
-    // sourceScale (0.02658254):
-    //   headlamps  source (+/-23.30, 33.25,  44.94) -> (+/-0.619, -0.064,  1.155)
-    //   rear lens  source (      0,   51.79, -32.52) -> (      0,   0.429, -0.904)
+    // the sidecar's sourceOrigin (0.401, 3.7756, -0.0168) and
+    // sourceScale (0.62644433):
+    //   headlamps  source (+/-1.58, 1.91, 3.75) -> (+/-0.739, -1.169, 2.359)
+    //   rear bar   source (   0,   0.96, -3.94) -> (   0,    -1.764, -2.458)
     lights: {
-      headlights: [[0.619, -0.064, 1.155], [-0.619, -0.064, 1.155]],
-      tail: [0, 0.429, -0.904],
-      heroFill: [0, 1.5, -0.1],
+      headlights: [[0.739, -1.169, 2.359], [-0.739, -1.169, 2.359]],
+      tail: [0, -1.764, -2.458],
+      heroFill: [0, 0.6, 0],
     },
 
-    // Material roles. `Lights` covers both lamp clusters and stays lit; only
-    // the rear lens material reacts to braking, which is what a brake light
-    // actually is.
+    // The Atlas material carries the paint texture — no tints needed.
+    // `Lights` covers both lamp clusters and stays lit; the model
+    // has no separate brake-lens material, so braking only drives the tail
+    // glow point light.
     materials: {
-      glass: /^glass$/i,
-      lamps: /^(Lights|light-glass)$/i,
-      brake: /^light-glass$/i,
+      glass: /^Glass$/i,
+      lamps: /^Lights$/i,
+      brake: /never/i,
       amber: /never/i,
     },
 
-    // The pack's MTL gives paint, trim and interior no maps and a flat white
-    // Kd, so untinted the car renders as a featureless white blob — the yellow
-    // in the source thumbnail is not in the files we have. Because `paint` is
-    // its own material covering only bodywork, a tint is all it needs, and it
-    // doubles as the livery hook if this ever becomes a chooser.
-    tints: [
-      { match: /^paint$/i, color: 0xf2b41c, roughness: 0.38, metalness: 0.10 },
-      { match: /^Trims$/i, color: 0x1b1d21, roughness: 0.62, metalness: 0.05 },
-      { match: /^int_d_rgh$/i, color: 0x24272c, roughness: 0.88, metalness: 0.0 },
-    ],
-
     rig: {
-      // All four wheels measure the same 0.295 m because they ARE the same
-      // wheel: the front pair only read larger while the source model's 10°
-      // posed steer was still baked into them (sidecar `desteerDeg`).
-      wheelRadius: 0.2947,
-      trackFront: 1.4198,
-      trackRear: 1.3787,
-      wheelbase: 2.1873,
-      groundY: -0.9499,
+      wheelRadius: 0.4064,
+      trackFront: 2.0854,
+      trackRear: 2.0854,
+      wheelbase: 2.9521,
+      groundY: -2.3629,
     },
 
     params: {
-      // 850 kg: a real Twizy is 450, a Korean kei-van about 1000. This sits
-      // between, so it is tossable without feeling weightless against props
-      // that mass 1000-1600 kg (src/world/data/props.js).
-      mass: 850,
-      inertiaScale: 1.15,
-      // 8.5 N/kg against the van's 6.8 — the whole point of the second choice.
-      engineForce: 7200,
-      maxSpeed: 24,
-      reverseMaxSpeed: 7,
-      brakeForce: 10200,
-      handbrakeForce: 11500,
-      drag: 0.34,
-      rollingResistance: 85,
-      gripDry: 1.08,
-      gripWet: 0.80,
-      tireStiffness: 9.5,
+      // 1700 kg: a real pocha truck is a 1-ton chassis plus kitchen. Heavier
+      // than the van's 1400 default, so it shoves props around convincingly.
+      mass: 1700,
+      inertiaScale: 1.25,
+      engineForce: 8400,
+      maxSpeed: 21,
+      reverseMaxSpeed: 6,
+      brakeForce: 17500,
+      handbrakeForce: 19000,
+      drag: 0.50,
+      rollingResistance: 150,
+      gripDry: 1.02,
+      gripWet: 0.74,
+      tireStiffness: 8.5,
+      // Sketchbook exposes roll influence on its raycast car. A lower value on
+      // this tall kitchen keeps it upright at delivery pace; only above 90%
+      // of top speed does the physical lever arm fade back in. This leaves
+      // normal city driving forgiving while preserving risky flat-out turns.
+      rollInfluence: 0.55,
+      rollInfluenceAtMax: 1,
+      rollInfluenceSpeedStart: 0.90,
 
-      // Short wheelbase + light nose: more lock and a quicker rack. Keep its
-      // turning advantage after tightening the van's steering envelope.
-      steerLockLow: 0.78,
-      steerLockHigh: 0.15,
-      steerResponse: 6.5,
+      // Long wheelbase (2.95 m) and a heavy nose: less lock than the van,
+      // slower rack.
+      steerLockLow: 0.62,
+      steerLockHigh: 0.12,
+      steerResponse: 5.0,
 
-      // Suspension is authored against the measured hub geometry rather than
-      // guessed (handoff.md 8.9). Corner mass ~212 kg on 16 kN/m is a 1.38 Hz
-      // ride with a 0.65 damping ratio — soft enough to lean, damped enough to
-      // settle. rayLen (rest + travel = 0.22) is deliberately close to the
-      // 0.13 m static compression so the body rides at a believable height;
-      // the remaining gap is taken up visually in vehicle.js.
-      suspensionRest: 0.14,
-      suspensionTravel: 0.08,
-      springK: 16000,
-      damperC: 2400,
+      // Corner mass ~425 kg on 26 kN/m is a 1.24 Hz ride at a 0.65 damping
+      // ratio — soft, befitting a truck this tall.
+      suspensionRest: 0.30,
+      suspensionTravel: 0.14,
+      springK: 26000,
+      damperC: 4200,
 
-      // CoM ~0.55 m above the road (origin sits at 0.950 m). Against the
-      // 1.420 m front track that is a rollover threshold of
-      // track/(2h) = 1.26 g — above the ~1.08 g the tires make, so it leans
-      // hard in a corner without going over, but with far less margin than
-      // the van. On a tall, short, light car that is the intended character.
-      comHeight: -0.40,
+      // CoM ~1.20 m above the road (origin sits at 2.363 m). The truck still
+      // feels tall and can be upset by a hard kerb strike, but routine cornering
+      // no longer balances it on a knife edge.
+      comHeight: -1.16,
+      // The wheel centreline is (-1.2939 + 0.7915) / 2 = -0.2512 m in model
+      // space. Put the CoM on it so left and right turns have equal rollover
+      // margins; the serving awning may skew the visual bbox, not the chassis.
+      comLateral: -0.2512,
 
-      antiRollFront: 2400,
-      antiRollRear: 1300,
-      downforce: 4,
-      uprightTorque: 5500,
-      angularDamping: 1.8,
-      crashBounce: 0.30,
+      antiRollFront: 3200,
+      antiRollRear: 2000,
+      downforce: 5,
+      uprightTorque: 9000,
+      angularDamping: 1.6,
+      crashBounce: 0.25,
+
+      // Chase-camera framing (src/vehicle/camera.js). The defaults frame a ~2 m
+      // body around the CoM; this truck's box stands 4.4 m off the road, so the
+      // stock offset puts the camera inside the cargo bay.
+      cameraDist: 7.5,
+      cameraHeight: 3.6,
+      cameraLookUp: 1.8,
     },
   },
 };
 
-export const DEFAULT_VEHICLE = 'van';
+// The pocha snack truck is the hero vehicle; the van remains selectable via
+// the in-game garage and ?car=van.
+export const DEFAULT_VEHICLE = 'pocha';
 
 /** Resolve a vehicle id to its definition, falling back to the default. */
 export function getVehicle(id) {

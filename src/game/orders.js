@@ -1,4 +1,4 @@
-// Seoul Delivery — order state machine + waypoint markers + persistence.
+// Seoul Snack Attack — order state machine + waypoint markers + persistence.
 // idle → offered → toPickup → waiting(3s) → delivering (timed, quality) → delivered → idle.
 import * as THREE from 'three';
 import { RESTAURANTS, FOOD_TYPES } from './data/restaurants.js';
@@ -21,7 +21,7 @@ const PAYOUT_PENALTY_INTERVAL = 12;
 const PAYOUT_FLOOR = 0.35;
 
 export class Orders {
-  constructor({ scene, city, phys, hud, camera, audio = null }) {
+  constructor({ scene, city, phys, hud, camera, audio = null, player = null }) {
     this.scene = scene;
     this.city = city;
     this.phys = phys;
@@ -31,6 +31,9 @@ export class Orders {
     // to agree with what the player is actually looking at.
     this.camera = camera;
     this.audio = audio;
+    // Optional on-foot/vehicle mode provider. Delivery zone completion stays
+    // vehicle-based, but bearing, route and mini-map follow whoever is active.
+    this.player = player;
 
     this.save = loadSave();
     this.state = 'idle';
@@ -148,7 +151,7 @@ export class Orders {
     if (fwd.lengthSq() < 1e-6) return 0;
     fwd.normalize();
     const right = _right.copy(fwd).cross(_up);
-    const dir = _dir.copy(point).sub(this.phys.position);
+    const dir = _dir.copy(point).sub(this.player?.activePosition || this.phys.position);
     dir.y = 0;
     return Math.atan2(dir.dot(right), dir.dot(fwd));
   }
@@ -206,9 +209,15 @@ export class Orders {
   }
 
   _updateNavigation(dt, target) {
-    const playerPosition = this.phys.meshPosition.clone();
-    const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(this.phys.quaternion);
-    const player = { position: playerPosition, heading: Math.atan2(fwd.x, fwd.z) };
+    const pose = this.player?.playerPose;
+    const playerPosition = pose?.position || this.phys.meshPosition.clone();
+    const fwd = pose
+      ? null
+      : new THREE.Vector3(0, 0, 1).applyQuaternion(this.phys.quaternion);
+    const player = {
+      position: playerPosition,
+      heading: pose?.heading ?? Math.atan2(fwd.x, fwd.z),
+    };
     const projection = this.city.projectToRoad(playerPosition);
     const targetKey = target ? `${target.x.toFixed(1)},${target.z.toFixed(1)}` : null;
     this._routeTimer -= dt;
@@ -303,6 +312,7 @@ export class Orders {
   offerNow(restaurantId = null, { first = false } = {}) {
     if (this.state !== 'idle') return;
     const o = this.order = this._makeOrder(restaurantId);
+    this.foodDisplay.prepareOrder(o);
     this.state = 'offered';
     this.offerDuration = first ? FIRST_OFFER_TIMEOUT : OFFER_TIMEOUT;
     this.idleTimer = this.offerDuration;

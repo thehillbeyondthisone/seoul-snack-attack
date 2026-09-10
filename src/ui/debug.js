@@ -1,9 +1,9 @@
-// Seoul Delivery — debug menu (lil-gui, toggle with backtick, hidden by default).
+// Seoul Snack Attack — debug menu (lil-gui, toggle with backtick, hidden by default).
 import * as THREE from 'three';
 import GUI from 'lil-gui';
 import { VEHICLES, VEHICLE_IDS, DEFAULT_VEHICLE } from '../game/data/vehicles.js';
 
-const SETTINGS_KEY = 'seoul-delivery-debug-settings-v1';
+const SETTINGS_KEY = 'seoul-snack-attack-debug-settings-v1';
 
 function loadSettings() {
   try {
@@ -52,14 +52,14 @@ function migrateMapConvention(settings) {
 export function initDebug({ orders, rain, phys, post, van, cam, city, scene, timeOfDay, vehicleDef, hud }) {
   const settings = migrateMapConvention(loadSettings());
   const persist = (section, source, keys) => () => copySettings(settings, section, source, keys);
-  const gui = new GUI({ title: '서울 배달 디버그 · Debug' });
+  const gui = new GUI({ title: '서울 스낵 어택 디버그 · Debug' });
   gui.hide();
   gui.domElement.style.zIndex = '20000';
   const originalLabels = new WeakMap();
   const originalOptions = new WeakMap();
   let menuEnglishMode = false;
   const translations = new Map([
-    ['서울 배달 디버그', 'Seoul Delivery Debug'], ['무게 kg', 'Mass kg'],
+    ['서울 스낵 어택 디버그', 'Seoul Snack Attack Debug'], ['무게 kg', 'Mass kg'],
     ['엔진 힘 N', 'Engine force N'], ['최고속도 m/s', 'Top speed m/s'],
     ['브레이크 N', 'Brake force N'], ['마른 그립 μ', 'Dry grip μ'],
     ['젖은 그립 μ', 'Wet grip μ'], ['타이어 강성', 'Tire stiffness'],
@@ -202,14 +202,16 @@ export function initDebug({ orders, rain, phys, post, van, cam, city, scene, tim
     });
 
   // Tuning is persisted PER VEHICLE. On a shared key the van's saved mass and
-  // spring rate would be restored straight over the compact's on the next
-  // boot, silently undoing everything in src/game/data/vehicles.js.
-  const vehicleSection = `vehicle:${carId}`;
+  // spring rate would be restored straight over the pocha's on the next
+  // boot, silently undoing everything in src/game/data/vehicles.js. The key
+  // is read live: the garage swaps rigs in place and setVehicleId() moves
+  // both persistence and restore onto the new id.
+  let vehicleSection = `vehicle:${carId}`;
   const vehicleKeys = ['mass', 'engineForce', 'maxSpeed', 'brakeForce', 'gripDry', 'gripWet', 'tireStiffness', 'springK', 'damperC', 'steerLockLow', 'steerLockHigh', 'downforce'];
   restoreSection(settings, vehicleSection, p, vehicleKeys);
-  const saveVehicle = persist(vehicleSection, p, vehicleKeys);
-  // Ranges span both vehicles: the compact runs springK 16000 and damperC
-  // 2400, both under what a van-only slider floor allowed.
+  const saveVehicle = () => copySettings(settings, vehicleSection, p, vehicleKeys);
+  // Ranges span both vehicles: the van's springK 38000 and the pocha's
+  // damperC 4200 would each fall outside a single-vehicle slider range.
   for (const [key, min, max, step, label] of [
     ['mass', 500, 2500, 10, '무게 kg'], ['engineForce', 3000, 20000, 100, '엔진 힘 N'],
     ['maxSpeed', 15, 60, 1, '최고속도 m/s'], ['brakeForce', 5000, 30000, 100, '브레이크 N'],
@@ -373,6 +375,92 @@ export function initDebug({ orders, rain, phys, post, van, cam, city, scene, tim
     mapState = map;
   }
 
+  // ---- Textures ----------------------------------------------------------
+  // Live comparison between the procedural asphalt pool (default) and a
+  // downloaded CC0 ambientCG pack. Source toggle: hard switch. Blend slider:
+  // 0..1 lerp between the two pairs, applied at runtime by re-baking a single
+  // owned texture pair and reassigning the material's normalMap / roughnessMap.
+  // The road shader is unchanged — only the textures it samples are.
+  if (city?.textures?.asphalt) {
+    const asphalt = city.textures.asphalt;
+    const tex = {
+      source: 'proc',     // 'proc' | 'downloaded'
+      blend: 0,           // 0..1
+      status: '절차적 only · Procedural only',
+    };
+    const texKeys = ['source', 'blend'];
+    restoreSection(settings, 'textures', tex, texKeys);
+    const saveTex = () => copySettings(settings, 'textures', tex, texKeys);
+
+    // The downloaded pack may still be loading when the debug menu opens.
+    // Wait on it, then wire the controls. Until then the downloaded option
+    // is disabled and the status reflects "loading" so the user is not
+    // confused by a missing toggle.
+    const refreshStatus = () => {
+      const both = asphalt.downloaded && asphalt.blend > 0 && asphalt.source === 'proc';
+      if (!asphalt.available) {
+        tex.status = asphalt.downloaded == null && asphalt.blend === 0
+          ? '절차적 only · Procedural only'
+          : '절차적 + 다운로드 · Procedural + downloaded';
+      } else if (tex.source === 'downloaded') {
+        tex.status = '다운로드 only · Downloaded only';
+      } else if (tex.blend >= 0.999) {
+        tex.status = '다운로드 only · Downloaded only';
+      } else if (tex.blend <= 0.001) {
+        tex.status = '절차적 only · Procedural only';
+      } else {
+        tex.status = `절차적 ${Math.round((1 - tex.blend) * 100)}% · 다운로드 ${Math.round(tex.blend * 100)}%`;
+      }
+      void both;
+    };
+
+    const apply = () => {
+      asphalt.source = tex.source;
+      asphalt.blend = tex.blend;
+      asphalt.apply();
+      refreshStatus();
+      statusCtrl?.updateDisplay();
+    };
+
+    const gTex = gui.addFolder('텍스처 · Textures');
+    const sourceCtrl = gTex.add(tex, 'source', {
+      '절차적 Procedural': 'proc',
+      '다운로드 Downloaded': 'downloaded',
+    }).name('소스 · Source').onChange(() => { apply(); saveTex(); });
+    const blendCtrl = gTex.add(tex, 'blend', 0, 1, 0.01).name('블렌드 · Blend').onChange(() => { apply(); saveTex(); });
+    const statusCtrl = gTex.add(tex, 'status').name('상태 · Status').listen();
+    statusCtrl.domElement.style.pointerEvents = 'none';
+
+    // Park the current state onto the handle BEFORE awaiting, so that if the
+    // pack has already landed we still re-apply with the user's blend value.
+    asphalt.source = tex.source;
+    asphalt.blend = tex.blend;
+    city.texturesReady?.then((pack) => {
+      // Enable the downloaded option now that the pack exists.
+      if (pack) {
+        sourceCtrl.enable(true);
+        if (tex.source === 'downloaded') apply();
+      } else {
+        // Pack failed to load: force source back to procedural and disable
+        // the downloaded option so the user is not left with a broken toggle.
+        tex.source = 'proc';
+        sourceCtrl.updateDisplay();
+        sourceCtrl.disable(true);
+        apply();
+      }
+      refreshStatus();
+      statusCtrl.updateDisplay();
+    });
+    // Disable the downloaded option while the pack is still loading; leave
+    // the blend slider usable so the user can dial in a partial blend
+    // once it lands. If no pack is configured (handle.downloaded is null at
+    // boot) blend falls back to full procedural via mixAsphaltMaps.
+    if (!asphalt.available) sourceCtrl.disable(true);
+
+    refreshStatus();
+    gTex.close();
+  }
+
   let fpsClock = 0;
   return {
     gui,
@@ -381,6 +469,13 @@ export function initDebug({ orders, rain, phys, post, van, cam, city, scene, tim
     setEnglishMode(active) { localizeMenu(!!active); },
     toggle() { gui._hidden ? gui.show() : gui.hide(); },
     get visible() { return !gui._hidden; },
+
+    /** The garage swaps vehicles live; per-vehicle tuning follows the id. */
+    setVehicleId(id) {
+      if (`vehicle:${id}` === vehicleSection) return;
+      vehicleSection = `vehicle:${id}`;
+      restoreSection(settings, vehicleSection, p, vehicleKeys);
+    },
 
     /** Called once the lazy prop load lands. Mass is the tuning knob here. */
     attachProps(props) {

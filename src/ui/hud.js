@@ -1,4 +1,4 @@
-// Seoul Delivery — DOM HUD: cash, order ticket, toasts, hint bar.
+// Seoul Snack Attack — DOM HUD: cash, order ticket, toasts, hint bar.
 // Korean-primary with English subtitles, dark glassy noir + neon-pink accent.
 
 const CSS = `
