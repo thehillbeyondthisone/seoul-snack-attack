@@ -145,6 +145,10 @@ async function boot() {
         // their UVs — so a phone gets the same city, only softer.
         ? loadExpanse2City(scene, manager, renderer, setLoadingProgress, {
           textureScale: graphicsQuality.mobile ? 0.5 : 1,
+          // M6's road/pavement surface pool scales its bump strength off the
+          // same profile knob the compact city uses, so a phone gets the same
+          // city with softer relief rather than a second set of textures.
+          detailIntensity: graphicsQuality.profile.detailIntensity,
         })
       : loadProcCity(scene, manager, renderer, setLoadingProgress, undefined, {
         // Detail-map bump strength scales with the gfx profile (mobile dials it down).

@@ -349,6 +349,53 @@ loaded. It is now a playable view.
   graphics passes above. Eye height, dome intensity and the needle sweep all
   want a real-GPU look.
 
+## 2026-09-10 — M6a: the Expanse's ground surface
+
+`?world=expanse2` had 21.4 km of flat grey ribbon. It now has a generated PBR
+surface and real road markings, both gated by `npm run surface-check` (30
+assertions, also part of `npm run expanse-check`).
+
+- **`src/world/expanse-surface-art.js`** — eight generated 256-square maps
+  (asphalt, paving, bare land), 2.67 MB with mipmaps. Nothing is loaded from
+  disk; the gate builds the pool twice with no filesystem and no GL context and
+  requires bit-identical output, which is the licence argument made executable.
+- **`src/world/expanse-road-paint.js`** — 7,079 marking quads from the street
+  graph. One material, vertex colours, twelve chunk-culled draw calls.
+- **`ROAD_LIFT` moved** out of `expanse2-city.js` into the paint module, because
+  both have to agree on it exactly.
+- **Four primitives were exported** from `src/world/proc/textures.js` (`fbm`,
+  `normalDataTexture`, `roughDataTexture`, `makeTexture`) rather than copied.
+  The compact city's own pool is untouched, including the bit-pinned weathered
+  facade variant.
+- **`detailIntensity` now reaches expanse2** from the gfx profile, so the mobile
+  build gets softer relief off the same eight textures.
+
+### Design decisions worth not relitigating
+
+- **Albedo is multiplicative.** Both colour maps normalise to a mean of exactly
+  1.0, so this pass adds grain and wear without moving any tone the colour bible
+  or `expanse-facade-check` governs. If you change the fields, keep the mean.
+- **UVs are metre-locked**, not mesh-locked. `SURFACE_TILE` is the single source
+  of truth and the UV writers in `expanse2-city.js` divide by it.
+- **Alleys are deliberately unmarked** (61 of 452 edges). That is not a gap.
+
+### Known gaps
+
+- **No wet-road decals, drain covers or tactile paving.** The yellow guidance
+  strips on a Seoul pavement are a per-location decal, not something a tiling
+  texture can carry; they belong with the kerb detail in a later pass.
+- **Still no props or street furniture in expanse2**, and this pass did not
+  change that on purpose: `public/assets/props/` is the Sketchfab-derived set
+  ATTRIBUTION.md lists as a **release blocker**. Street furniture for the
+  rebuild has to be original geometry or a licensed pack, not that catalog.
+- **The tuning was done on SwiftShader screenshots again.** The first asphalt
+  albedo had metre-scale wear terms at 0.10/0.20 and the ring road looked like a
+  canal at a grazing angle; they are at 0.04/0.10 now. Normal scales (road 0.7,
+  pavement 1.0, bridge 0.7, ground 0.5) and the pavement's tone under the day
+  preset all want a real-GPU look before anyone calls them final.
+- **M6b is untouched**: perf/LOD/mobile, full `npm run check` against the
+  rebuild, and the promotion of `?world=expanse2` over `?world=expanse`.
+
 ## Conventions for new sessions
 
 - Read `README.md` (game docs), `ATTRIBUTION.md` (licensing — check BEFORE adding any asset), and this file first.

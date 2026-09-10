@@ -160,6 +160,27 @@ and `color-bible.html`.
 brand/IP exposure are cleared; the FFVII display should be replaced before any
 public or commercial release even if model redistribution is otherwise allowed.
 
+## Expanse ground surfaces — **ORIGINAL, NO ASSET**
+
+`src/world/expanse-surface-art.js` is the road, pavement and bare-land surface
+pool for `?world=expanse2`, added in M6. It ships **no file at all**: the eight
+maps (asphalt albedo/normal/roughness, paving albedo/normal/roughness, ground
+normal/roughness) are fbm noise and arithmetic over typed arrays, generated in
+the browser at load. Nothing is downloaded, nothing is decoded, and nothing
+enters `public/`.
+
+`tools/bench/expanse-surface-check.mjs` asserts this rather than trusting it:
+the pool is built twice in a process with no filesystem and no GL context and
+the two runs must be bit-identical. A map that started arriving from disk would
+fail that check.
+
+The road markings in `src/world/expanse-road-paint.js` are likewise geometry
+generated from the street graph, coloured from this project's own colour bible
+(`SURFACES.asphaltMark` / `SURFACES.asphaltCenter`). No decal sheet, no atlas.
+
+The four noise primitives are imported from `src/world/proc/textures.js`, which
+is also original to this project.
+
 ## Generated district textures
 
 - `public/assets/district/textures/seoul-facade-weathered.webp` — tileable

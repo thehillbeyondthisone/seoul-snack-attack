@@ -1,7 +1,9 @@
 # Seoul Expanse — city rebuild (M1–M6)
 
 **Updated:** 2026-09-10
-**Status:** M1 through M5 complete and gated. M6 not started.
+**Status:** M1 through M5 complete and gated. M6 in progress — the ground
+surface pass has landed and is gated; perf/LOD/mobile and the promotion
+itself are still open.
 **Live game is unchanged.** `?world=expanse` still runs the 25-node greybox and
 `?world=proc` still runs the compact procedural circuit. The rebuild is now
 drivable at `?world=expanse2`, alongside them, and replaces neither until M6.
@@ -39,10 +41,102 @@ blocks, blocks into lots, and lots into buildings. M1 and M2 are that step.
 | **M3** | Greybox massing behind `?world=expanse2` | `expanse-massing-check` | done |
 | **M4** | Façades, signage atlas, colour bible, lighting | `expanse-facade-check` + visual QA | done |
 | **M5** | Landmarks, shops, delivery loop | `expanse-route-check` | done |
-| **M6** | Perf/LOD/mobile, full `npm run check`, promote | full suite | next |
+| **M6a** | Road and pavement surface: generated PBR, road markings | `expanse-surface-check` | done |
+| **M6b** | Perf/LOD/mobile, full `npm run check`, promote | full suite | next |
 
 Each milestone is reviewed before the next begins, and nothing replaces
 `?world=expanse` until M6.
+
+---
+
+## What M6a produced
+
+The street stopped being a flat grey ribbon. Two layers, both generated, both
+gated by `expanse-surface-check` (30 assertions).
+
+### The surface pool — `src/world/expanse-surface-art.js`
+
+Eight 256-square maps, ~2.7 MB with mipmaps, built from fbm noise at load:
+
+| Surface | Maps | Tile |
+|---|---|---|
+| Asphalt (carriageways, bridge decks) | albedo, normal, roughness | 4 m |
+| Paving (pavement pads and their kerbs) | albedo, normal, roughness | 2 m |
+| Bare land (the 70 m world margin) | normal, roughness | 6 m |
+
+Three decisions worth the words:
+
+**The albedo is a multiplier, not a colour.** Both colour maps are normalised
+to a mean of exactly 1.0, so they add grain and wear to M4's material colours
+without moving a tone the colour bible or `expanse-facade-check` has an opinion
+about. Colour stays where M4 put it. The gate asserts the mean, because a map
+that drifts off 1.0 is a re-tint nobody would see in a diff.
+
+**UVs are locked to metres, not to the mesh.** `u` runs across a carriageway
+and `v` along its arc length, both divided by the tile size, so 4 m of the 22 m
+ring and 4 m of a 5 m alley carry aggregate at the same physical size. Without
+this an alley reads as a close-up photograph of a ring road. Pavement pads take
+a world-space XZ projection so the blocks line up across two pads that meet at
+a corner instead of each pad starting its own course.
+
+**Nothing is loaded.** The whole pool is arithmetic. That is the look — a
+kilometre of sightline wants its own grain rather than the compact city's — and
+it is also the licence: `ATTRIBUTION.md` already carries four unlicensed-asset
+blockers, and this pass adds none. The gate builds the pool twice with no
+filesystem and no GL context and requires the two runs to be bit-identical.
+
+### The markings — `src/world/expanse-road-paint.js`
+
+7,079 quads, 14,158 triangles, twelve draw calls, generated from the same
+street graph M1 produced. One material, colour carried per vertex, riding
+`chunk.detail` (420 m) rather than `chunk.base` — a lane dash at half a
+kilometre is a shimmering pixel.
+
+Korean convention, because it is not the American one: **the centre line is
+yellow**, doubled on anything with four lanes or more; lane dividers are white
+and dashed; and **alleys carry no paint at all**, which is most of what makes
+an alley read as an alley from the cab. 61 of 452 edges are deliberately bare.
+
+Each junction approach is laid out from the junction outwards, in the order a
+driver meets it in reverse: junction box, crossing, stop bar, then lane lines.
+Crossings appear only where two major roads meet (107 junctions of 299), not at
+every tee an arterial makes with a side street. Stop bars cover the approach
+half only — Korea drives on the right.
+
+| Kind | Count |
+|---|---|
+| Solid lines (yellow centre, white edge) | 1,230 |
+| White lane dashes | 1,512 |
+| Stop bars | 612 |
+| Crossing stripes | 3,725 |
+
+`ROAD_LIFT` moved out of `expanse2-city.js` and into this module. The markings
+have to agree with the class-lift ordering exactly — a stop bar drawn at the
+ring's lift underneath an alley's surface is invisible — and a constant two
+modules must agree on cannot be private to one of them.
+
+### What this cost
+
+| | |
+|---|---|
+| Triangles added | 14,158 (markings); the surface pool adds none |
+| Draw calls added | 12, all chunk-culled at 420 m |
+| Materials added | 1 |
+| Texture memory added | 2.67 MB with mipmaps |
+| Collision | untouched — the generators it comes from were not edited |
+| Files shipped | none |
+
+### The bug the gate now catches
+
+The first version of the approach layout put every crossing *behind* its own
+stop bar, further from the junction, and ran lane dashes straight through it.
+Every assertion passed; a top-down screenshot is what caught it. The gate now
+projects longitudinal marks and crossings onto the road direction and fails if
+their footprints meet, so that particular mistake cannot come back quietly.
+
+A second one worth recording: the marking quads were wound the wrong way round
+and rendered nothing at all. From the driver's seat that is indistinguishable
+from a chunk-culling bug, and it cost a debugging pass.
 
 ---
 
@@ -570,6 +664,21 @@ over the river, no air-conditioner sits on a shopfront. *Budget:* desktop and
 mobile triangles, collision unchanged from M3, draw calls, materials, texture
 memory, and determinism.
 
+`expanse-surface-check` — 30 assertions, in three halves. *Licence:* the
+surface pool is a pure function of its seeds and must be bit-identical across
+two runs in a process with no filesystem and no GL context; eight repeating
+256-square maps; albedo maps sRGB and data maps linear; the pool is off entirely
+at detail intensity 0. *Pixels:* both albedos are multiplicative about a mean of
+1.0 with real but bounded contrast; roughness stays inside 0..1; the paving
+grout sits below its block faces in a 32-block running bond; every tile is
+metre-scaled and one paving block is paver-sized. *Paint:* no marking leaves its
+own carriageway, every marking rides its own class lift, the paint lift is
+smaller than the gap between road classes, centre lines are yellow and dashes
+white, alleys carry nothing, no lane line runs through a crossing, lane counts
+are even and rise with width, no lane is narrower than a wide vehicle, crossings
+only appear on ring and arterial approaches. *Budget:* quad count, triangle
+count, texture memory, and the share of the network that is marked.
+
 `expanse-route-check` — 26 assertions, in three halves. *Shops:* every menu
 restaurant is bound exactly once, to a distinct building that is a real shop
 plot carrying an M4 shopfront, standing in the district its roster entry names;
@@ -627,11 +736,12 @@ which asserts 25 nodes / 35 edges.
   station concourse or a market shed; they are masts and drums on roofs that
   were already there. That is the honest cost of not re-settling 1,211 plots,
   and it is the layer to revisit if M6 ever regenerates the massing.
-- **The road surface is still flat paint.** Lane markings, crossings, kerb
-  detail and wet-road decals are the biggest remaining "unfinished" cue at
-  street level, and the one thing a screenshot notices before the facades. It
-  is outside M4's brief — façades, signage, colour, lighting — and outside M5's,
-  which was the loop rather than the surface. It belongs with the road art in M6.
+- ~~**The road surface is still flat paint.**~~ **CLOSED by M6a**: generated
+  asphalt and paving PBR plus lane markings, stop bars and crossings. What is
+  still missing from the surface itself is **wet-road decals and drain covers**,
+  and **tactile paving** — the yellow guidance strips are a per-location decal
+  rather than something a tiling texture can carry, so they want the same
+  treatment as the kerb detail.
 - **No props or street furniture.** `?world=expanse2` still opts out of the prop
   pass rather than drag the compact-world scanner over a kilometre. Bins, poles,
   cables and parked scooters are the layer between M4's facades and M5's shops,

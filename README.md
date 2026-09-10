@@ -223,6 +223,7 @@ npm run check        # full bench suite: tiling, roads, props, audio, touch, gfx
 npm run road-check   # connected road graph, no dead ends/bridges, all routes reachable
 npm run proc-check   # procedural city graph, colour bible, Hangul shop names
 npm run character-check # capsule collision + camera-relative walk smoke test
+npm run surface-check # M6: generated road/pavement pool + road markings (part of expanse-check)
 npm run vehicle-tuning-check # pocha bilateral stability through near-top speed
 npm run probe -- "http://localhost:5173/?stats=1" 30 --size 400,300 --shot out.png
 ```
@@ -298,6 +299,8 @@ src/
   physics/shapes.js     inertia tensors, OBB SAT, support points
   vehicle/van.js        van GLB load/normalize, wheels, lights
   vehicle/physics.js    custom raycast vehicle (three-mesh-bvh), crash events
+  world/expanse-surface-art.js  generated asphalt/paving/ground PBR pool
+  world/expanse-road-paint.js   lane lines, stop bars and crossings from the street graph
   vehicle/camera.js     chase cam
   vehicle/cockpit-camera.js  first-person seat: free look, head sway, truck roll
   vehicle/interior.js   cabin GLB, dome lamp, steering wheel and speedometer

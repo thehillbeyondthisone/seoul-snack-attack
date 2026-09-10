@@ -37,6 +37,8 @@ import { createExpanseFacadeTextures } from './expanse-facade-art.js';
 import { createExpanseSignAtlas } from './expanse-sign-art.js';
 import { buildExpanseFacadeMeshes } from './expanse-facade-mesh.js';
 import { buildExpanseVisualChunks, updateExpanseVisualChunks } from './expanse-chunks.js';
+import { createExpanseSurfaceTextures, SURFACE_TILE } from './expanse-surface-art.js';
+import { generateExpanseRoadPaint, buildExpanseRoadPaint, ROAD_LIFT } from './expanse-road-paint.js';
 import { DISTRICTS as PALETTES } from './data/color-bible.js';
 
 const DOWN = new THREE.Vector3(0, -1, 0);
@@ -48,13 +50,11 @@ const TMP_N = new THREE.Vector3();
 const WORLD_MARGIN = 70;
 
 /**
- * Road paint sits above the drivable ground by class, widest lowest. Two roads
- * always overlap at a junction, and a fixed order is the difference between a
- * legible junction and a sheet of z-fighting.
+ * ROAD_LIFT moved to expanse-road-paint.js in M6. The markings have to agree
+ * with this ordering exactly — a stop bar drawn at the ring's lift underneath
+ * an alley's surface is invisible — and a constant two modules must agree on
+ * cannot be private to one of them.
  */
-const ROAD_LIFT = Object.freeze({
-  ring: 0.02, arterial: 0.035, street: 0.05, alley: 0.065, connector: 0.05,
-});
 
 /** An edge shorter than this is an inherited artefact and paves nothing. */
 const MIN_PAVED_LENGTH = 0.5;
@@ -73,36 +73,71 @@ function polylineLength(points) {
   return total;
 }
 
-/** Flat ribbon along a polyline, `lift` above the points' own elevation. */
-function roadGeometry(points, width, lift = 0) {
+/**
+ * Flat ribbon along a polyline, `lift` above the points' own elevation.
+ *
+ * M6 added the UVs, and they are LOCKED TO METRES rather than to the ribbon:
+ * `u` runs across the carriageway and `v` along its arc length, both divided by
+ * SURFACE_TILE.asphalt. A 22 m ring road and a 5 m alley therefore carry
+ * aggregate at the same physical size, which is what stops an alley reading as
+ * a close-up of a ring road. `v` accumulates across segments so a polyline bend
+ * does not restart the grain.
+ */
+function roadGeometry(points, width, lift = 0, tile = SURFACE_TILE.asphalt) {
   const vertices = [];
+  const uvs = [];
   const half = width * 0.5;
+  const u0 = -half / tile;
+  const u1 = half / tile;
+  let travelled = 0;
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1];
     const b = points[i];
     TMP_A.copy(b).sub(a).setY(0);
     if (TMP_A.lengthSq() < 1e-6) continue;
+    const segment = TMP_A.length();
     TMP_A.normalize();
     TMP_N.set(-TMP_A.z, 0, TMP_A.x).multiplyScalar(half);
     const al = a.clone().add(TMP_N); al.y += lift;
     const ar = a.clone().sub(TMP_N); ar.y += lift;
     const bl = b.clone().add(TMP_N); bl.y += lift;
     const br = b.clone().sub(TMP_N); br.y += lift;
+    const va = travelled / tile;
+    const vb = (travelled + segment) / tile;
+    travelled += segment;
     vertices.push(al.x, al.y, al.z, bl.x, bl.y, bl.z, br.x, br.y, br.z);
+    uvs.push(u0, va, u0, vb, u1, vb);
     vertices.push(al.x, al.y, al.z, br.x, br.y, br.z, ar.x, ar.y, ar.z);
+    uvs.push(u0, va, u1, vb, u1, va);
   }
   if (!vertices.length) return null;
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.computeVertexNormals();
   return geometry;
 }
 
-/** Horizontal quad at `y`, wound so its normal points up. */
-function slab(minX, maxX, minZ, maxZ, y) {
+/**
+ * Horizontal quad at `y`, wound so its normal points up.
+ *
+ * PlaneGeometry's own UVs run 0..1 over the whole quad, which on a 1,140 m
+ * ground slab is one texel every two metres. `tile` rewrites them as a
+ * world-space XZ projection in metres instead; pass 0 to leave them alone, as
+ * the river does, whose material carries no map.
+ */
+function slab(minX, maxX, minZ, maxZ, y, tile = 0) {
   const geometry = new THREE.PlaneGeometry(maxX - minX, maxZ - minZ).toNonIndexed();
   geometry.rotateX(-Math.PI / 2);
   geometry.translate((minX + maxX) * 0.5, y, (minZ + maxZ) * 0.5);
+  if (tile > 0) {
+    const position = geometry.getAttribute('position');
+    const uv = geometry.getAttribute('uv');
+    for (let i = 0; i < position.count; i++) {
+      uv.setXY(i, position.getX(i) / tile, position.getZ(i) / tile);
+    }
+    uv.needsUpdate = true;
+  }
   return geometry;
 }
 
@@ -127,11 +162,12 @@ function groundSlabs(bounds, river) {
   const maxX = bounds.maxX + WORLD_MARGIN;
   const minZ = bounds.minZ - WORLD_MARGIN;
   const maxZ = bounds.maxZ + WORLD_MARGIN;
+  const tile = SURFACE_TILE.ground;
   return [
-    slab(minX, maxX, minZ, river.minZ, 0),
-    slab(minX, maxX, river.maxZ, maxZ, 0),
-    slab(minX, river.minX, river.minZ, river.maxZ, 0),
-    slab(river.maxX, maxX, river.minZ, river.maxZ, 0),
+    slab(minX, maxX, minZ, river.minZ, 0, tile),
+    slab(minX, maxX, river.maxZ, maxZ, 0, tile),
+    slab(minX, river.minX, river.minZ, river.maxZ, 0, tile),
+    slab(river.maxX, maxX, river.minZ, river.maxZ, 0, tile),
   ];
 }
 
@@ -139,13 +175,18 @@ function groundSlabs(bounds, river) {
  * One raised pavement pad: a triangulated top face at kerb height plus a skirt
  * down to the road, which is the kerb the player feels through the wheels.
  */
-function pavementGeometry(polygon, height) {
+function pavementGeometry(polygon, height, tile = SURFACE_TILE.paving) {
   const contour = polygon.map((p) => new THREE.Vector2(p.x, p.z));
   let faces;
   try { faces = THREE.ShapeUtils.triangulateShape(contour, []); } catch { return null; }
   if (!faces?.length) return null;
 
   const vertices = [];
+  // World-space XZ projection for the top face, so the paving blocks line up
+  // across two pads that meet at a corner instead of each pad starting its own
+  // course. The kerb skirt takes perimeter distance across and height up, so a
+  // 12 cm kerb shows 12 cm of block rather than one stretched smear.
+  const uvs = [];
   // A triangle wound counter-clockwise in XZ faces *down* in a Y-up right-handed
   // frame, so each face is emitted in whichever order actually points at the
   // sky rather than trusting the triangulator's winding.
@@ -153,20 +194,31 @@ function pavementGeometry(polygon, height) {
     const [a, b, c] = face.map((index) => contour[index]);
     const ccw = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) > 0;
     const order = ccw ? [a, c, b] : [a, b, c];
-    for (const p of order) vertices.push(p.x, height, p.y);
+    for (const p of order) {
+      vertices.push(p.x, height, p.y);
+      uvs.push(p.x / tile, p.y / tile);
+    }
   }
   // Kerb face. The block generator emits its outlines counter-clockwise in XZ,
   // which puts the block interior on the left of a -> b and the carriageway on
   // the right, so this winding looks out at the road.
+  let perimeter = 0;
   for (let i = 0; i < contour.length; i++) {
     const a = contour[i];
     const b = contour[(i + 1) % contour.length];
+    const ua = perimeter / tile;
+    perimeter += a.distanceTo(b);
+    const ub = perimeter / tile;
+    const vTop = height / tile;
     vertices.push(a.x, 0, a.y, b.x, height, b.y, b.x, 0, b.y);
+    uvs.push(ua, 0, ub, vTop, ub, 0);
     vertices.push(a.x, 0, a.y, a.x, height, a.y, b.x, height, b.y);
+    uvs.push(ua, 0, ua, vTop, ub, vTop);
   }
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.computeVertexNormals();
   return geometry;
 }
@@ -200,6 +252,7 @@ function mergeInto(parent, parts, material, name) {
 
 export async function loadExpanse2City(scene, _manager, renderer = null, onPhase = null, {
   textureScale = 1,
+  detailIntensity = 1,
 } = {}) {
   onPhase?.(4, '서울 익스팬스 재건 계획 생성 중 · Generating the Expanse rebuild plan');
   const layout = generateExpanseLayout();
@@ -232,11 +285,49 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
     return params;
   };
 
-  const groundMat = new THREE.MeshStandardMaterial({ color: 0x1c2028, roughness: 0.96, metalness: 0.02 });
-  const roadMat = new THREE.MeshStandardMaterial({ color: 0x3b444e, roughness: 0.72, metalness: 0.12 });
-  const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x4a5460, roughness: 0.7, metalness: 0.16 });
+  // M6's ground-surface pool. Generated, never loaded — see
+  // expanse-surface-art.js for why that is both the look and the licence.
+  // At detailIntensity 0 this is null and every material below falls back to
+  // M4's flat colours, which is exactly what the `?gfx=` floor wants.
+  const groundSurfaces = createExpanseSurfaceTextures(detailIntensity, { anisotropy });
+
+  // Colours are M4's, untouched: the surface albedo is a multiplier with a mean
+  // of 1.0, so the maps add grain and wear without moving a single tone the
+  // colour bible or expanse-facade-check has an opinion about.
+  const groundMat = new THREE.MeshStandardMaterial({
+    color: 0x1c2028, roughness: 0.96, metalness: 0.02,
+    normalMap: groundSurfaces?.ground.normal ?? null,
+    roughnessMap: groundSurfaces?.ground.rough ?? null,
+  });
+  const roadMat = new THREE.MeshStandardMaterial({
+    color: 0x3b444e, roughness: 0.72, metalness: 0.12,
+    map: groundSurfaces?.asphalt.map ?? null,
+    normalMap: groundSurfaces?.asphalt.normal ?? null,
+    roughnessMap: groundSurfaces?.asphalt.rough ?? null,
+  });
+  const bridgeMat = new THREE.MeshStandardMaterial({
+    color: 0x4a5460, roughness: 0.7, metalness: 0.16,
+    map: groundSurfaces?.asphalt.map ?? null,
+    normalMap: groundSurfaces?.asphalt.normal ?? null,
+    roughnessMap: groundSurfaces?.asphalt.rough ?? null,
+  });
   const riverMat = new THREE.MeshStandardMaterial({ color: 0x1d5a74, roughness: 0.25, metalness: 0.42 });
-  const pavementMat = new THREE.MeshStandardMaterial({ color: 0x565049, roughness: 0.94, metalness: 0.02 });
+  const pavementMat = new THREE.MeshStandardMaterial({
+    color: 0x565049, roughness: 0.94, metalness: 0.02,
+    map: groundSurfaces?.paving.map ?? null,
+    normalMap: groundSurfaces?.paving.normal ?? null,
+    roughnessMap: groundSurfaces?.paving.rough ?? null,
+  });
+  if (groundSurfaces) {
+    // Bump strength per surface, on top of the gfx profile's own scaling. The
+    // pavement is the one the player walks on and the one a kerbside lamp rakes
+    // across, so it carries the most; the bare land past the kerb carries least
+    // because nothing is ever close enough to it to tell.
+    roadMat.normalScale.set(0.7, 0.7);
+    bridgeMat.normalScale.set(0.7, 0.7);
+    pavementMat.normalScale.set(1.0, 1.0);
+    groundMat.normalScale.set(0.5, 0.5);
+  }
 
   onPhase?.(12, '지면과 강 생성 중 · Laying ground and river');
   const collisionParts = [];
@@ -300,6 +391,14 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
     mergeInto(chunkById.get(chunkId).base, parts, pavementMat, `pavement_${chunkId}`);
   }
 
+  onPhase?.(40, '차선 도색 중 · Painting lanes and crossings');
+  // Markings come off the same street graph the carriageways did, so a line
+  // cannot be measured against a road the runtime did not pave. They ride
+  // `chunk.detail` rather than `chunk.base`: a lane dash at half a kilometre is
+  // a shimmering pixel, and turning it off is both cheaper and better looking.
+  const roadPaintPlan = generateExpanseRoadPaint(streets);
+  const roadPaint = buildExpanseRoadPaint(chunkById, chunkGrid, roadPaintPlan);
+
   onPhase?.(46, '건물 매싱 생성 중 · Massing 1,211 buildings');
   // Collision takes the massing whole — closed boxes, no UVs — while the
   // visible city is rebuilt face by face from the same volumes. Facade
@@ -323,7 +422,7 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
   const shops = buildExpansePickups(group, pickups);
   const landmarks = buildExpanseLandmarks(group, landmarkPlan);
 
-  const drawCalls = roadsRoot.children.length + 2 + pavementByChunk.size
+  const drawCalls = roadsRoot.children.length + 2 + pavementByChunk.size + roadPaint.drawCalls
     + facadeMeshes.drawCalls + shops.group.children.length + landmarks.group.children.length;
 
   const bounds = new THREE.Box3(
@@ -504,6 +603,7 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
     expanseData: {
       layout: mapLayout, streets, plan, massing, facades,
       shops: pickups.sites, landmarks: landmarkPlan.landmarks,
+      roadPaint: roadPaintPlan,
     },
     projectToRoad: (position) => roadGraph.project(position),
     findRoute: (start, destination) => roadGraph.findRoute(start, destination),
@@ -530,11 +630,15 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
       blocks: plan.stats.blocks,
       lots: plan.stats.lots,
       pavements: pavementPads,
+      roadMarks: roadPaintPlan.stats.marks,
+      roadMarkTriangles: roadPaint.triangles,
+      roadMarkDrawCalls: roadPaint.drawCalls,
+      surfaceTextures: groundSurfaces ? 8 : 0,
       massingVolumes: massing.stats.volumes,
       massingTriangles: facadeMeshes.triangles,
       collisionTriangles: colliderGeo.attributes.position.count / 3,
       drawCalls,
-      materials: 5 + facadeMeshes.materials.length
+      materials: 6 + facadeMeshes.materials.length
         + shops.emissiveMaterials.length + landmarks.materials.length,
       shopfronts: facades.stats.shopfronts,
       restaurants: pickups.stats.shops,

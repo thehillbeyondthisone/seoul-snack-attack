@@ -15,8 +15,16 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../../core/rng.js';
 
-/** Tileable value-noise fbm, normalised 0..1. Lattice wraps so the texture repeats cleanly. */
-function fbm(size, seed, { octaves = 4, baseCells = 8, gain = 0.5 } = {}) {
+/**
+ * Tileable value-noise fbm, normalised 0..1. Lattice wraps so the texture
+ * repeats cleanly.
+ *
+ * Exported for `src/world/expanse-surface-art.js`, which builds the Expanse's
+ * own road and pavement pool. It needs its own tiles — a kilometre of street
+ * seen from a truck wants a different grain than the compact city's — but it
+ * must not own a second copy of this maths.
+ */
+export function fbm(size, seed, { octaves = 4, baseCells = 8, gain = 0.5 } = {}) {
   const field = new Float32Array(size * size);
   let amplitude = 1;
   let total = 0;
@@ -61,7 +69,7 @@ function fbm(size, seed, { octaves = 4, baseCells = 8, gain = 0.5 } = {}) {
 }
 
 /** Height field → tangent-space normal map (RGBA). Strength in "bump pixels". */
-function normalDataTexture(heights, size, strength) {
+export function normalDataTexture(heights, size, strength) {
   const data = new Uint8Array(size * size * 4);
   const at = (x, y) => heights[((y + size) % size) * size + ((x + size) % size)];
   for (let y = 0; y < size; y++) {
@@ -82,7 +90,7 @@ function normalDataTexture(heights, size, strength) {
 }
 
 /** Roughness field → RGBA grayscale (green channel is what the shader reads). */
-function roughDataTexture(field, size) {
+export function roughDataTexture(field, size) {
   const data = new Uint8Array(size * size * 4);
   for (let i = 0; i < field.length; i++) {
     const v = Math.max(0, Math.min(1, field[i]));
@@ -96,7 +104,11 @@ function roughDataTexture(field, size) {
   return data;
 }
 
-function makeTexture(data, size) {
+/**
+ * RGBA bytes → a repeating, mipmapped DataTexture. Linear colour space: every
+ * caller here feeds it a normal or roughness map, never an albedo.
+ */
+export function makeTexture(data, size) {
   const tex = new THREE.DataTexture(data, size, size);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
