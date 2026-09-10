@@ -41,6 +41,9 @@ check('city-plan launch profile opens the reviewable plan',
   resolveLaunchProfile(['--launch=plan']).path.includes('expanse-city-plan'), true);
 check('rebuild launch profile drives the rebuild, not the live Expanse',
   resolveLaunchProfile(['--launch=expanse2']).path.includes('world=expanse2'), true);
+check('cockpit launch profile boots the rebuild into the first-person cab',
+  resolveLaunchProfile(['--launch=cockpit']).path.includes('world=expanse2')
+    && resolveLaunchProfile(['--launch=cockpit']).path.includes('view=cockpit'), true);
 check('unknown launch profiles safely fall back to Expanse',
   resolveLaunchProfile(['--launch=unknown']).id, 'expanse');
 

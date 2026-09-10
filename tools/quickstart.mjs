@@ -44,10 +44,14 @@ export const LAUNCH_PROFILES = Object.freeze({
   expanse: '/?world=expanse&intro=off',
   'expanse-review': '/?world=expanse&overview=1&intro=off&time=day&rain=off&stats=1',
   'expanse-mobile': '/?world=expanse&gfx=mobile&intro=off&props=off&stats=1',
-  // The rebuild through M4: generated streets, blocks and massing, dressed
-  // with facades, shopfronts and signage. It runs alongside the live Expanse
-  // and does not replace it until M6.
+  // The rebuild through M6a: generated streets, blocks and massing, dressed
+  // with facades, shopfronts and signage, a routed delivery loop, and a
+  // generated PBR road surface with lane markings. It runs alongside the live
+  // Expanse and does not replace it until M6b promotes it.
   expanse2: '/?world=expanse2&intro=off&stats=1',
+  // The same rebuild, booted straight into the pocha's first-person cab. `C`
+  // (or right-stick click) toggles back to the chase camera.
+  cockpit: '/?world=expanse2&view=cockpit&intro=off&stats=1',
   classic: '/?world=proc&intro=off',
   // Not a world: the M1/M2 city plan, regenerated on launch. The rebuild is
   // reviewed as a drawing before any of it is extruded.
@@ -310,7 +314,11 @@ async function main() {
   installIfNeeded();
   buildPlanIfRequested();
   console.log(`Starting Seoul Snack Attack (${launch.id}) on all local network interfaces at port ${PORT}...`);
-  const vite = spawn(process.execPath, [VITE, '--host', '0.0.0.0', '--open', launch.path], {
+  // Not `vite --open`: Vite shells out to the OS opener, and on Windows every
+  // launch-profile URL past `?world=…&` loses its query string to cmd's `&`.
+  // We open the browser ourselves (openBrowser, below) once the server answers,
+  // with the full path intact.
+  const vite = spawn(process.execPath, [VITE, '--host', '0.0.0.0'], {
     stdio: 'inherit',
     windowsHide: false,
   });
@@ -327,6 +335,7 @@ async function main() {
   if (await waitForServer(PORT, vite)) {
     console.log('Ready.');
     printUrls(PORT, launch.path);
+    openBrowser(`http://127.0.0.1:${PORT}${launch.path}`);
   } else if (vite.exitCode === null) {
     console.error(`The server did not respond within ${SERVER_READY_TIMEOUT_MS / 1000}s — leaving it running so you can read its output above.`);
   }

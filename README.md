@@ -17,12 +17,16 @@ npm run preview    # serve the production build locally
 
 ### Windows Quick Start
 
-Double-click [Quick Start.cmd](Quick%20Start.cmd) and choose a launch mode. The
-menu defaults to the current Seoul Expanse build after 15 seconds, and also
-offers a complete-map review, an Expanse mobile/performance test, and the
-classic procedural city. `npm run quickstart` launches Expanse directly;
-advanced terminal use can select `--launch=expanse-review`,
-`--launch=expanse-mobile`, or `--launch=classic`.
+Double-click [Quick Start.cmd](Quick%20Start.cmd) and choose one of three: play
+the current game, play the in-progress rebuild (`?world=expanse2` — now at M6a:
+surfaced streets, bound shops, a routed delivery loop), or the classic
+procedural circuit. It defaults to the current game after 15 seconds.
+
+Everything else is in-game — the `` ` `` (backtick) debug menu has a **도시 ·
+World** switcher and all the graphics/weather/vehicle controls — or via the
+terminal: `npm run quickstart -- --launch=<name>`, where `<name>` is
+`expanse-review`, `expanse-mobile`, `plan`, `expanse2`, or `cockpit` (boots the
+rebuild straight into the pocha's first-person cab; `C` toggles it in any mode).
 It closes only processes listening on port 5273, installs dependencies when
 needed, then starts the game on all local network interfaces and opens it.
 Use `http://<this-computer-LAN-IP>:5273/` from another device on the same LAN.
