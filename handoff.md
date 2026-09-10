@@ -302,6 +302,14 @@ npm run quickstart   # or double-click Quick Start.cmd
    `_work/texture-blend-1-day.png`. Files: `src/world/proc/texture-pack.js`
    (new), edits to `src/world/proc/textures.js`, `mesh.js`, `city.js`,
    `src/ui/debug.js`, and `ATTRIBUTION.md`.
+10. **Progressive model streaming (open):** GLB models should fade/pop in over
+    the first seconds of play rather than all being parsed and uploaded during
+    the loading screen, which is where the load-time hitch comes from. The food
+    GLBs already do this (item under "Done so far" — one per idle slice, warmed
+    offscreen); the pattern needs to reach props and any other deferred model
+    geometry. **Explicitly excluded for now: the pocha interior** — it stays a
+    load-time attach and gets its own deferral when cockpit entry becomes a
+    "submersion" transition, not before.
 
 ## 2026-08-27 — headless Blender food recipes
 

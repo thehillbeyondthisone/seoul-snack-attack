@@ -742,6 +742,13 @@ which asserts 25 nodes / 35 edges.
   and **tactile paving** — the yellow guidance strips are a per-location decal
   rather than something a tiling texture can carry, so they want the same
   treatment as the kerb detail.
+- **The city builds in one blocking pass.** Streets, blocks, massing, facades,
+  signage and the surface pool are all generated during the loading screen, and
+  on a kilometre of city that is the load-time hitch. M6b should stream it in —
+  chunk meshes and props fading/popping in over the first seconds of play,
+  the way the food GLBs already load one per idle slice. The pocha interior is
+  deliberately out of scope here; it keeps its load-time attach until cockpit
+  entry becomes a transition of its own.
 - **No props or street furniture.** `?world=expanse2` still opts out of the prop
   pass rather than drag the compact-world scanner over a kilometre. Bins, poles,
   cables and parked scooters are the layer between M4's facades and M5's shops,
