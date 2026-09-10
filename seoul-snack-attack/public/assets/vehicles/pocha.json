@@ -1,0 +1,77 @@
+{
+  "id": "pocha",
+  "generated": "2026-08-25T00:37:05.086Z",
+  "source": {
+    "dir": "_source-assets/vehicles/sushi-truck",
+    "obj": "737a333f-5c55-45e5-9742-011d97fd47f1.glb"
+  },
+  "forward": "+z",
+  "up": "+y",
+  "leftAxis": "+x",
+  "targetLength": 5,
+  "sourceScale": 0.62644433,
+  "sourceOrigin": [
+    0.401,
+    3.7756,
+    -0.0168
+  ],
+  "body": {
+    "size": [
+      3.1919,
+      4.4381,
+      5
+    ],
+    "half": [
+      1.596,
+      2.219,
+      2.5
+    ]
+  },
+  "wheels": {
+    "fl": {
+      "hub": [
+        0.7915,
+        -1.9565,
+        1.2786
+      ],
+      "radius": 0.4064,
+      "width": 0.3638,
+      "desteerDeg": 0
+    },
+    "fr": {
+      "hub": [
+        -1.2939,
+        -1.9565,
+        1.2786
+      ],
+      "radius": 0.4064,
+      "width": 0.3638,
+      "desteerDeg": 0
+    },
+    "rl": {
+      "hub": [
+        0.7915,
+        -1.9565,
+        -1.6735
+      ],
+      "radius": 0.4064,
+      "width": 0.3638,
+      "desteerDeg": 0
+    },
+    "rr": {
+      "hub": [
+        -1.2939,
+        -1.9565,
+        -1.6735
+      ],
+      "radius": 0.4064,
+      "width": 0.3638,
+      "desteerDeg": 0
+    }
+  },
+  "wheelRadius": 0.4064,
+  "trackFront": 2.0854,
+  "trackRear": 2.0854,
+  "wheelbase": 2.9521,
+  "groundY": -2.3629
+}

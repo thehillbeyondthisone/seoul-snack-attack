@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>서울 스낵 어택 — Colour Bible</title>
+  <style>
+    :root {
+      --bg: #07090f;
+      --ink: #eef4ff;
+      --muted: rgba(238,244,255,.58);
+      --faint: rgba(238,244,255,.32);
+      --edge: rgba(238,244,255,.16);
+      --money: #ffd873;
+      --nav: #3fd2e6;
+      --alarm: #ff4d26;
+      --panel: rgba(10,13,20,.88);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font: 15px/1.5 Inter, 'Segoe UI', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    }
+    body {
+      background:
+        radial-gradient(900px 480px at 0% 0%, rgba(255,77,38,.08), transparent 55%),
+        radial-gradient(800px 420px at 100% 0%, rgba(63,210,230,.07), transparent 50%),
+        var(--bg);
+    }
+    a { color: var(--nav); }
+    header {
+      padding: 48px 28px 24px; max-width: 1180px; margin: 0 auto;
+    }
+    .kicker {
+      letter-spacing: .28em; font-size: 11px; color: var(--faint); font-weight: 700;
+    }
+    h1 { font-size: 42px; margin: 8px 0 6px; letter-spacing: .04em; font-weight: 800; }
+    .lede { max-width: 68ch; color: var(--muted); }
+    main { max-width: 1180px; margin: 0 auto; padding: 0 28px 80px; }
+    section { margin: 36px 0; }
+    h2 {
+      font-size: 13px; letter-spacing: .18em; text-transform: uppercase;
+      color: var(--muted); border-bottom: 1px solid var(--edge); padding-bottom: 8px;
+    }
+    .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+    .swatch {
+      background: var(--panel); border: 1px solid var(--edge); padding: 10px;
+    }
+    .chip { height: 64px; margin-bottom: 8px; }
+    .name { font-weight: 700; font-size: 13px; }
+    .hex { font: 12px ui-monospace, Consolas, monospace; color: var(--muted); }
+    .note { font-size: 12px; color: var(--faint); margin-top: 4px; }
+    .districts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+    .district {
+      border: 1px solid var(--edge); background: var(--panel); padding: 16px;
+    }
+    .district h3 { margin: 0 0 4px; font-size: 20px; }
+    .en { color: var(--muted); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+    .role { color: var(--muted); font-size: 13px; margin: 8px 0 12px; }
+    .strip { display: flex; height: 28px; margin: 6px 0; }
+    .strip span { flex: 1; }
+    .meta { display: flex; gap: 16px; font-size: 12px; color: var(--faint); }
+    .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+    .rule { border: 1px solid var(--edge); padding: 14px; background: var(--panel); }
+    .rule b { color: var(--money); }
+    .rule.nav b { color: var(--nav); }
+    .rule.alarm b { color: var(--alarm); }
+    .pack { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+    .pack figure { margin: 0; border: 1px solid var(--edge); background: #0b0e14; }
+    .pack img { width: 100%; height: 140px; object-fit: cover; display: block; }
+    .pack figcaption { padding: 8px 10px; font-size: 12px; color: var(--muted); }
+    footer { color: var(--faint); font-size: 12px; padding-top: 24px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="kicker">SEOUL SNACK ATTACK · ART DIRECTION</div>
+    <h1>컬러 바이블 · Colour Bible</h1>
+    <p class="lede">
+      Late-night snack city under amber sodium haze — the streets should read delicious.
+      Banana-milk gold is money and the Hotteok Market. Fish-cake broth teal is navigation
+      and the Bingsu Hanfront. Gochujang red-orange is urgency and Tteokbokki Alley.
+      Procedural buildings paint from this document; they do not invent a fourth system colour.
+    </p>
+  </header>
+  <main id="app">Loading bible…</main>
+  <script type="module">
+    import {
+      HUD, STAGE, SURFACES, NEON, PAINT, DISTRICTS, cssHex,
+    } from '/src/world/data/color-bible.js';
+    import { STREET_SHOPS } from '/src/world/data/shop-names.js';
+
+    const swatch = (name, hex, note = '') => `
+      <div class="swatch">
+        <div class="chip" style="background:${cssHex(hex)}"></div>
+        <div class="name">${name}</div>
+        <div class="hex">${cssHex(hex)}</div>
+        ${note ? `<div class="note">${note}</div>` : ''}
+      </div>`;
+
+    const strip = (hexes) =>
+      `<div class="strip">${hexes.map((h) => `<span style="background:${cssHex(h)}"></span>`).join('')}</div>`;
+
+    document.getElementById('app').innerHTML = `
+      <section>
+        <h2>System accents — three jobs</h2>
+        <div class="rules">
+          <div class="rule"><b>GOLD ${cssHex(HUD.money)}</b><br>Banana-milk cream-gold. Money, payout, the Hotteok Market canopy. Never used for damage.</div>
+          <div class="rule nav"><b>CYAN ${cssHex(HUD.nav)}</b><br>Fish-cake broth teal. Navigation, the Bingsu Hanfront, pickup beacons. The compass colour.</div>
+          <div class="rule alarm"><b>TTEOKBOKKI ${cssHex(HUD.alarm)}</b><br>Gochujang gloss red-orange. Urgency, crashes, Tteokbokki Alley neon. The only alarm colour.</div>
+        </div>
+      </section>
+      <section>
+        <h2>Night stage</h2>
+        <div class="row">
+          ${swatch('Fog', STAGE.fog, 'Half-vis ~79 m')}
+          ${swatch('Hemi sky', STAGE.hemiSky)}
+          ${swatch('Hemi ground', STAGE.hemiGround)}
+          ${swatch('Ambient', STAGE.ambient)}
+          ${swatch('Moon / key', STAGE.key)}
+          ${swatch('Backdrop', STAGE.background)}
+        </div>
+      </section>
+      <section>
+        <h2>Surfaces — what you drive on</h2>
+        <div class="row">
+          ${swatch('Wet asphalt', SURFACES.asphalt, 'High env, low roughness when wet')}
+          ${swatch('Lane mark', SURFACES.asphaltMark)}
+          ${swatch('Center line', SURFACES.asphaltCenter, 'Gold — same as money')}
+          ${swatch('Sidewalk', SURFACES.sidewalk, '+10 cm kerb for props')}
+          ${swatch('Kerb', SURFACES.kerb)}
+          ${swatch('Plaza', SURFACES.plaza, 'Driveable shortcut')}
+          ${swatch('Canal', SURFACES.canal, 'No collision — falling resets')}
+          ${swatch('Canal wall', SURFACES.canalWall)}
+          ${swatch('Roof', SURFACES.roof)}
+        </div>
+      </section>
+      <section>
+        <h2>Neon kit</h2>
+        <div class="row">
+          ${Object.entries(NEON).map(([k, v]) => swatch(k, v)).join('')}
+        </div>
+      </section>
+      <section>
+        <h2>Facade paint</h2>
+        <div class="row">
+          ${Object.entries(PAINT).map(([k, v]) => swatch(k, v)).join('')}
+        </div>
+      </section>
+      <section>
+        <h2>Six districts</h2>
+        <div class="districts">
+          ${DISTRICTS.map((d) => `
+            <article class="district">
+              <div class="en">${d.nameEn} · ${d.id}</div>
+              <h3>${d.nameKo}</h3>
+              <p class="role">${d.role}</p>
+              <div class="note">Facades</div>
+              ${strip(d.facades)}
+              <div class="note">Shop grounds</div>
+              ${strip(d.shops)}
+              <div class="note">Neon</div>
+              ${strip(d.neon)}
+              ${strip([d.lamp, d.glow])}
+              <div class="meta">
+                <span>${d.height[0]}–${d.height[1]} m</span>
+                <span>shops ${(d.shopChance * 100).toFixed(0)}%</span>
+                <span>signs ${(d.signChance * 100).toFixed(0)}%</span>
+              </div>
+            </article>`).join('')}
+        </div>
+      </section>
+      <section>
+        <h2>Hangul is the street texture</h2>
+        <p class="lede">No photo shopfronts. Pickup shops wear a HUD-accent neon with the Korean name. Filler shops get vertical blades and lintel strips from this list, tinted with the district's food-street neon.</p>
+        <div class="row">
+          ${STREET_SHOPS.map((n) => `<div class="swatch"><div class="name" style="font-size:22px;padding:12px 0">${n}</div></div>`).join('')}
+        </div>
+      </section>
+      <section>
+        <h2>Driving rules the colour has to serve</h2>
+        <div class="rules">
+          <div class="rule">A district must be readable at 80 km/h from lamp colour alone, before facades resolve.</div>
+          <div class="rule">Pickup shops wear a HUD-accent neon sign with the Korean name. No landmark uses a local-only hue.</div>
+          <div class="rule">Asphalt stays near-black and warm. Colour lives in signs, lamps, and wet reflections — not in the road paint except the banana-milk centerline.</div>
+          <div class="rule">The Hanfront is broth teal, Tteokbokki Alley is gochujang red, the Hotteok Market is gold. If you are lost, follow the flavour.</div>
+        </div>
+      </section>
+      <footer>
+        Source of truth: <code>src/world/data/color-bible.js</code>.
+        Play the procedural city at <a href="/">/</a> (default) or the authored block at <a href="/?world=block">/?world=block</a>.
+      </footer>
+    `;
+  </script>
+</body>
+</html>

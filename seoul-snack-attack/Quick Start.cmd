@@ -9,13 +9,15 @@ echo  [2] Review complete map      Daylight overview with stats
 echo  [3] Test mobile performance  Expanse mobile budget with stats
 echo  [4] Play the new city        Procedural night circuit (current default)
 echo  [5] Review the city plan     Rebuild in progress: streets, blocks, lots
+echo  [6] Drive the rebuild        Rebuild M4: dressed city, not yet the game
 echo.
-choice /C 12345 /N /T 15 /D 1 /M "Choose 1-5 [default: 1 in 15 seconds]: "
+choice /C 123456 /N /T 15 /D 1 /M "Choose 1-6 [default: 1 in 15 seconds]: "
 set "PROFILE=expanse"
 if "%ERRORLEVEL%"=="2" set "PROFILE=expanse-review"
 if "%ERRORLEVEL%"=="3" set "PROFILE=expanse-mobile"
 if "%ERRORLEVEL%"=="4" set "PROFILE=classic"
 if "%ERRORLEVEL%"=="5" set "PROFILE=plan"
+if "%ERRORLEVEL%"=="6" set "PROFILE=expanse2"
 echo.
 node tools\quickstart.mjs --launch=%PROFILE% --restart
 echo.

@@ -39,6 +39,8 @@ check('classic launch profile preserves the procedural world',
   resolveLaunchProfile(['--launch=classic']).path.includes('world=proc'), true);
 check('city-plan launch profile opens the reviewable plan',
   resolveLaunchProfile(['--launch=plan']).path.includes('expanse-city-plan'), true);
+check('rebuild launch profile drives the rebuild, not the live Expanse',
+  resolveLaunchProfile(['--launch=expanse2']).path.includes('world=expanse2'), true);
 check('unknown launch profiles safely fall back to Expanse',
   resolveLaunchProfile(['--launch=unknown']).id, 'expanse');
 

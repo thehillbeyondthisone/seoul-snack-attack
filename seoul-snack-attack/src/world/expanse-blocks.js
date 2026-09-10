@@ -339,12 +339,21 @@ function insetFor(edge) {
   return edge.width * 0.5 + pavement;
 }
 
+/** Offset to the kerb face only: half the carriageway, no pavement. */
+function kerbFor(edge) {
+  return edge.width * 0.5;
+}
+
 /**
  * Offset every boundary segment inward by its own road's half-width plus a
  * sidewalk, then re-intersect. A block facing the ring pulls back 15 m; the
  * same block's alley side pulls back 4.5 m.
+ *
+ * `distanceFor` exists so the same offset can be run to the kerb line instead
+ * of the building line — M3 paves the strip between the two, and a kerb built
+ * from a different routine than the building setback would not line up.
  */
-function insetPolygon(points, uniform = null) {
+function insetPolygon(points, uniform = null, distanceFor = insetFor) {
   const n = points.length;
   const lines = [];
   for (let i = 0; i < n; i++) {
@@ -357,7 +366,7 @@ function insetPolygon(points, uniform = null) {
     // Counter-clockwise winding puts the interior to the left of travel.
     const nx = -dz / len;
     const nz = dx / len;
-    const d = uniform ?? insetFor(a.owner);
+    const d = uniform ?? distanceFor(a.owner);
     lines.push({
       px: a.x + nx * d, pz: a.z + nz * d, dx: dx / len, dz: dz / len, owner: a.owner,
     });
@@ -380,7 +389,7 @@ function insetPolygon(points, uniform = null) {
     const t = ((curr.px - prev.px) * curr.dz - (curr.pz - prev.pz) * curr.dx) / denom;
     const x = prev.px + prev.dx * t;
     const z = prev.pz + prev.dz * t;
-    const limit = Math.max(insetFor(prev.owner), insetFor(curr.owner)) * 3 + 2;
+    const limit = Math.max(distanceFor(prev.owner), distanceFor(curr.owner)) * 3 + 2;
     if (Math.hypot(x - vertex.x, z - vertex.z) > limit) { out.push(fallback()); continue; }
     out.push({ x, z, owner: curr.owner });
   }
@@ -635,8 +644,21 @@ function overlapDepth(a, b) {
  * be worth a rule of its own, and a plot that cannot be settled is dropped —
  * a hole in a terrace is survivable, a building in the road is not.
  */
-function settleLots(lots, streets) {
-  const CELL = 24;
+/** Cell size of the carriageway lookup grid, in metres. */
+const ROAD_CELL = 24;
+
+function distanceToSegment(px, pz, s) {
+  const abx = s.bx - s.ax; const abz = s.bz - s.az;
+  const lenSq = abx * abx + abz * abz;
+  const t = lenSq < 1e-9 ? 0 : Math.max(0, Math.min(1, ((px - s.ax) * abx + (pz - s.az) * abz) / lenSq));
+  return Math.hypot(px - (s.ax + abx * t), pz - (s.az + abz * t));
+}
+
+/**
+ * Bucket every carriageway segment into a coarse grid, so a point can be
+ * tested against the handful of roads near it rather than all 452.
+ */
+function roadIndex(streets) {
   const roads = new Map();
   for (const edge of streets.edges) {
     for (let i = 1; i < edge.points.length; i++) {
@@ -649,8 +671,8 @@ function settleLots(lots, streets) {
       const maxX = Math.max(s.ax, s.bx) + s.half + 4;
       const minZ = Math.min(s.az, s.bz) - s.half - 4;
       const maxZ = Math.max(s.az, s.bz) + s.half + 4;
-      for (let x = Math.floor(minX / CELL); x <= Math.floor(maxX / CELL); x++) {
-        for (let z = Math.floor(minZ / CELL); z <= Math.floor(maxZ / CELL); z++) {
+      for (let x = Math.floor(minX / ROAD_CELL); x <= Math.floor(maxX / ROAD_CELL); x++) {
+        for (let z = Math.floor(minZ / ROAD_CELL); z <= Math.floor(maxZ / ROAD_CELL); z++) {
           const key = `${x}:${z}`;
           if (!roads.has(key)) roads.set(key, []);
           roads.get(key).push(s);
@@ -658,12 +680,105 @@ function settleLots(lots, streets) {
       }
     }
   }
-  const distanceToSegment = (px, pz, s) => {
-    const abx = s.bx - s.ax; const abz = s.bz - s.az;
-    const lenSq = abx * abx + abz * abz;
-    const t = lenSq < 1e-9 ? 0 : Math.max(0, Math.min(1, ((px - s.ax) * abx + (pz - s.az) * abz) / lenSq));
-    return Math.hypot(px - (s.ax + abx * t), pz - (s.az + abz * t));
+  return roads;
+}
+
+const roadsNear = (roads, x, z) =>
+  roads.get(`${Math.floor(x / ROAD_CELL)}:${Math.floor(z / ROAD_CELL)}`) || [];
+
+/**
+ * Push kerb vertices back out of the asphalt.
+ *
+ * `insetPolygon` averages the two offset lines wherever a corner is too shallow
+ * to mitre, which lands a little short of the true corner. At the building line
+ * a sidewalk's worth of slack absorbs that; at the kerb line there is no slack,
+ * so a shallow corner can put the pavement several metres into the road it was
+ * offset from. Nudging the vertex out along the road normal is enough, and it
+ * moves nothing the lots were measured against.
+ */
+function settleKerbs(blocks, streets) {
+  const roads = roadIndex(streets);
+  const intrusionAt = (x, z) => {
+    let deepest = null;
+    let depth = 0;
+    for (const s of roadsNear(roads, x, z)) {
+      const intrusion = s.half - distanceToSegment(x, z, s);
+      if (intrusion > depth) { depth = intrusion; deepest = s; }
+    }
+    return { depth, deepest };
   };
+  let nudged = 0;
+  let pulled = 0;
+  let dropped = 0;
+  let worst = 0;
+  for (const block of blocks) {
+    if (!block.kerb) continue;
+    const before = block.kerb.map((p) => ({ ...p }));
+    for (const vertex of block.kerb) {
+      // Pushing clear of one road can push into the next, so this iterates
+      // rather than nudging once; a shallow corner is surrounded by at most a
+      // few carriageways and settles in two or three passes.
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const { depth, deepest } = intrusionAt(vertex.x, vertex.z);
+        if (!deepest || depth <= 0.05) break;
+        if (attempt === 0) { nudged++; if (depth > worst) worst = depth; }
+        // Away from the carriageway centreline, along the perpendicular through
+        // the closest point on it.
+        const abx = deepest.bx - deepest.ax; const abz = deepest.bz - deepest.az;
+        const lenSq = abx * abx + abz * abz;
+        const t = lenSq < 1e-9 ? 0
+          : Math.max(0, Math.min(1, ((vertex.x - deepest.ax) * abx + (vertex.z - deepest.az) * abz) / lenSq));
+        let nx = vertex.x - (deepest.ax + abx * t);
+        let nz = vertex.z - (deepest.az + abz * t);
+        const length = Math.hypot(nx, nz);
+        if (length < 1e-6) { nx = -abz; nz = abx; }
+        const scale = (depth + 0.06) / (length < 1e-6 ? Math.hypot(abx, abz) : length);
+        vertex.x += nx * scale;
+        vertex.z += nz * scale;
+      }
+
+      // A vertex at a junction corner can be inside two overlapping
+      // carriageways at once, where no nearby point is clear of both. The
+      // pavement genuinely does not exist there, so retreat into the block
+      // until it does and let the pad lose that corner.
+      if (intrusionAt(vertex.x, vertex.z).depth > 0.05) {
+        const toCentre = Math.hypot(block.centre.x - vertex.x, block.centre.z - vertex.z);
+        if (toCentre > 1e-6) {
+          const stepX = (block.centre.x - vertex.x) / toCentre;
+          const stepZ = (block.centre.z - vertex.z) / toCentre;
+          const start = { x: vertex.x, z: vertex.z };
+          let cleared = false;
+          for (let step = 0.5; step <= Math.min(8, toCentre * 0.8); step += 0.5) {
+            const x = start.x + stepX * step;
+            const z = start.z + stepZ * step;
+            if (intrusionAt(x, z).depth > 0.05) continue;
+            vertex.x = x;
+            vertex.z = z;
+            cleared = true;
+            break;
+          }
+          if (cleared) pulled++;
+        }
+      }
+    }
+    // Retreating a corner can fold a tight outline; a pad is worth less than a
+    // pad that renders correctly, so an outline that tangles keeps its original
+    // shape and is then judged on its own merits below.
+    if (selfIntersects(block.kerb)) block.kerb = before;
+    // A sliver wedged between two junctions has corners no amount of nudging
+    // frees. Rather than ship a pavement lying in an arterial, that block goes
+    // without one: it keeps its buildings and loses only its kerb.
+    if (block.kerb.some((v) => intrusionAt(v.x, v.z).depth > 0.05)) {
+      block.kerb = null;
+      dropped++;
+    }
+  }
+  return { nudged, pulled, dropped, worst };
+}
+
+function settleLots(lots, streets) {
+  const CELL = ROAD_CELL;
+  const roads = roadIndex(streets);
   const intrusionOf = (lot) => {
     let worst = 0;
     for (const c of lot.corners) {
@@ -802,6 +917,14 @@ export function generateExpanseBlocks(streets, seed = BLOCKS_SEED) {
     if (!inset || insetArea < MIN_BLOCK_AREA) { rejected.collapsed++; continue; }
     if (selfIntersects(inset)) { rejected.tangled++; continue; }
 
+    // The kerb line is the same offset stopped at the carriageway edge, so the
+    // pavement M3 lays is exactly the strip the lot rules already reserved.
+    let kerb = insetPolygon(simplified, null, kerbFor);
+    if (!kerb || signedArea(kerb) < MIN_BLOCK_AREA || selfIntersects(kerb)) {
+      kerb = insetPolygon(simplified, Math.max(...simplified.map((p) => kerbFor(p.owner))));
+    }
+    if (!kerb || signedArea(kerb) < MIN_BLOCK_AREA || selfIntersects(kerb)) kerb = inset;
+
     const districtId = expanseDistrictAt(centre.x, centre.z).id;
     const inradius = (2 * insetArea) / Math.max(1, perimeterOf(inset));
     const rules = DISTRICT_LOT_RULES[districtId] || DISTRICT_LOT_RULES.market;
@@ -809,6 +932,7 @@ export function generateExpanseBlocks(streets, seed = BLOCKS_SEED) {
       id: `blk_${blocks.length}`,
       polygon: face.polygon,
       outline: simplified.map((p) => ({ x: p.x, z: p.z })),
+      kerb: kerb.map((p) => ({ x: p.x, z: p.z })),
       inset: inset.map((p) => ({ x: p.x, z: p.z })),
       area: face.area,
       insetArea,
@@ -845,6 +969,7 @@ export function generateExpanseBlocks(streets, seed = BLOCKS_SEED) {
     blocks.push(block);
   }
 
+  const kerbs = settleKerbs(blocks, streets);
   const settle = settleLots(lots, streets);
   lots.length = 0;
   lots.push(...settle.lots);
@@ -890,6 +1015,9 @@ export function generateExpanseBlocks(streets, seed = BLOCKS_SEED) {
       weldedNodes: planar.welded,
       crossingsSplit: planar.split,
       settled: { stepped: settle.stepped, trimmed: settle.trimmed, dropped: settle.dropped },
+      kerbs: {
+        nudged: kerbs.nudged, pulled: kerbs.pulled, dropped: kerbs.dropped, worst: kerbs.worst,
+      },
       rejected,
       medianBlockArea: areas.length ? areas[Math.floor(areas.length / 2)] : 0,
       largestBlockArea: areas.length ? areas[areas.length - 1] : 0,

@@ -44,6 +44,10 @@ export const LAUNCH_PROFILES = Object.freeze({
   expanse: '/?world=expanse&intro=off',
   'expanse-review': '/?world=expanse&overview=1&intro=off&time=day&rain=off&stats=1',
   'expanse-mobile': '/?world=expanse&gfx=mobile&intro=off&props=off&stats=1',
+  // The rebuild through M4: generated streets, blocks and massing, dressed
+  // with facades, shopfronts and signage. It runs alongside the live Expanse
+  // and does not replace it until M6.
+  expanse2: '/?world=expanse2&intro=off&stats=1',
   classic: '/?world=proc&intro=off',
   // Not a world: the M1/M2 city plan, regenerated on launch. The rebuild is
   // reviewed as a drawing before any of it is extruded.
