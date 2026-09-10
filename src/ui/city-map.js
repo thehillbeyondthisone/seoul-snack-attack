@@ -14,6 +14,9 @@ export const CITY_MAP_TUNING = Object.freeze({
 const INK = '#eef4ff';
 const NAV = '#4dc8ff';
 const ALARM = '#ff2d78';
+
+/** A landmark carries its beacon colour as a hex number, not a CSS string. */
+const cssColour = (hex) => `#${(hex >>> 0).toString(16).padStart(6, '0')}`;
 const PANEL = '#080b12';
 
 const DISTRICT_LABELS = Object.freeze({
@@ -154,6 +157,7 @@ const CSS = `
 .ssa-city-map__symbol.target { border: 2px solid ${ALARM}; border-radius: 50%; box-shadow: 0 0 7px ${ALARM}; }
 .ssa-city-map__symbol.shop { transform: rotate(45deg); border: 2px solid ${NAV}; background: rgba(77,200,255,.18); }
 .ssa-city-map__symbol.anchor { width: 7px; height: 7px; border: 1px solid rgba(238,244,255,.58); border-radius: 50%; }
+.ssa-city-map__symbol.landmark { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 11px solid rgba(238,244,255,.72); }
 .ssa-city-map__districts { color: rgba(238,244,255,.48); font-size: 9px; line-height: 1.65; letter-spacing: .04em; }
 .ssa-city-map__footer {
   min-height: 35px; display: flex; align-items: center; justify-content: space-between; gap: 15px;
@@ -427,6 +431,7 @@ export class CityMap {
                 '<div><i class="ssa-city-map__symbol target"></i><span>현재 목적지<small>CURRENT TARGET</small></span></div>' +
                 '<div><i class="ssa-city-map__symbol shop"></i><span>야식 매장<small>SNACK SHOP</small></span></div>' +
                 '<div><i class="ssa-city-map__symbol anchor"></i><span>배달 가능 지점<small>DELIVERY ANCHOR</small></span></div>' +
+                '<div><i class="ssa-city-map__symbol landmark"></i><span>랜드마크<small>LANDMARK</small></span></div>' +
               '</div>' +
             '</section>' +
             '<section class="ssa-city-map__section"><h3>서울 구역 · SEOUL DISTRICTS</h3><div class="ssa-city-map__districts" data-districts>—</div></section>' +
@@ -727,6 +732,35 @@ export class CityMap {
     ctx.restore();
   }
 
+  /**
+   * The five Expanse landmarks, drawn under the shops as a fixed frame of
+   * reference. They are what the map is for once the city is a kilometre wide:
+   * a shop pin tells you where to go, a landmark tells you where you are.
+   */
+  _drawLandmarks(ctx, projection) {
+    const landmarks = this.city.expanseData?.landmarks;
+    if (!landmarks?.length) return;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (const landmark of landmarks) {
+      const p = projection.project(landmark);
+      if (!p) continue;
+      const colour = cssColour(landmark.color);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y - 6.5); ctx.lineTo(p.x + 5.5, p.y + 4); ctx.lineTo(p.x - 5.5, p.y + 4);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(5,10,16,.9)'; ctx.fill();
+      ctx.shadowColor = colour; ctx.shadowBlur = 8;
+      ctx.strokeStyle = colour; ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.font = '700 7px Inter, Segoe UI, sans-serif';
+      ctx.fillStyle = 'rgba(238,244,255,.62)';
+      ctx.fillText(landmark.nameEn, p.x, p.y + 6);
+    }
+    ctx.restore();
+  }
+
   _drawRoute(ctx, projection, route) {
     if (!route?.polyline?.length) return;
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -845,6 +879,7 @@ export class CityMap {
     this._drawExpanseMasses(ctx, projection);
     this._drawRoads(ctx, projection, graph);
     this._drawAnchors(ctx, projection);
+    this._drawLandmarks(ctx, projection);
     this._drawRoute(ctx, projection, route);
     this._drawShops(ctx, projection, shops, active);
     this._drawTarget(ctx, projection, active, now);

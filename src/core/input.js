@@ -1,6 +1,7 @@
 // Seoul Snack Attack — unified keyboard + standard gamepad input.
 // Keyboard: WASD/arrows move, Space contextual jump/handbrake, F vehicle,
-// E accept, R reset, ` debug. Xbox mirrors that with both sticks, A and B.
+// E accept, R reset, C camera view, ` debug. Xbox mirrors that with both
+// sticks, A and B.
 
 import { TouchControls } from './touch-controls.js';
 
@@ -17,6 +18,7 @@ const KEY_ACTIONS = {
   reset: ['KeyR'],
   debug: ['Backquote', 'KeyF3'],
   map: ['KeyM'],
+  view: ['KeyC'],
   translate: ['KeyT'],
 };
 
@@ -29,6 +31,7 @@ const PAD_BUTTONS = {
   reset: 3,     // Y
   debug: 8,     // View / Back
   translate: 4, // LB
+  view: 10,     // right stick click
 };
 
 const TRIGGER_THRESHOLD = 0.08;

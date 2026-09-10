@@ -154,6 +154,11 @@ export async function loadVehicle(manager, def) {
   return {
     id: def.id,
     group,
+    // The shell, exposed so the cockpit view can take it out of the frame.
+    // Quaternius' cab is not an empty box — it carries a bulkhead 0.37 m in
+    // front of the seated eye point — so an interior camera has to hide it
+    // rather than rely on backface culling to see past it.
+    body: byName.get('body'),
     wheels,
     wheelRadius,
     headlights,

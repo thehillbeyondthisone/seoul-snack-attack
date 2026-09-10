@@ -31,6 +31,8 @@ import { generateExpanseStreets } from './expanse-streets.js';
 import { generateExpanseBlocks } from './expanse-blocks.js';
 import { generateExpanseMassing } from './expanse-massing.js';
 import { generateExpanseFacades } from './expanse-facades.js';
+import { generateExpansePickups, buildExpansePickups } from './expanse-pickups.js';
+import { generateExpanseLandmarks, buildExpanseLandmarks } from './expanse-landmarks.js';
 import { createExpanseFacadeTextures } from './expanse-facade-art.js';
 import { createExpanseSignAtlas } from './expanse-sign-art.js';
 import { buildExpanseFacadeMeshes } from './expanse-facade-mesh.js';
@@ -205,6 +207,11 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
   const plan = generateExpanseBlocks(streets);
   const massing = generateExpanseMassing(plan, streets);
   const facades = generateExpanseFacades(massing, streets);
+  // M5. Both are pure data at this point — the eight bound storefronts and
+  // the five crowned buildings — so `expanse-route-check` measures exactly
+  // what the runtime is about to build meshes and a delivery loop from.
+  const pickups = generateExpansePickups(massing, facades, streets);
+  const landmarkPlan = generateExpanseLandmarks(massing, layout);
   const river = { ...layout.river };
   // Glancing sightlines down a kilometre of street are the whole point of this
   // map, and a facade sheet without anisotropy smears to grey at 40 m.
@@ -308,8 +315,16 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
   const facadeMeshes = buildExpanseFacadeMeshes({
     chunkById, massing, facades, textures: surfaces, signAtlas, districts: PALETTES,
   });
+  onPhase?.(56, '상점과 랜드마크 배치 중 · Naming shops and raising landmarks');
+  // Neither of these rides the visual chunk grid. Eight restaurants are the
+  // things the player is actively looking for, and five landmarks only do
+  // their job at the far end of a sightline — culling either at 760 m would
+  // delete the one layer that answers "where am I".
+  const shops = buildExpansePickups(group, pickups);
+  const landmarks = buildExpanseLandmarks(group, landmarkPlan);
+
   const drawCalls = roadsRoot.children.length + 2 + pavementByChunk.size
-    + facadeMeshes.drawCalls;
+    + facadeMeshes.drawCalls + shops.group.children.length + landmarks.group.children.length;
 
   const bounds = new THREE.Box3(
     new THREE.Vector3(streets.bounds.minX - WORLD_MARGIN, -8, streets.bounds.minZ - WORLD_MARGIN),
@@ -405,14 +420,21 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
   // Lamps take their colour from the district they stand in. It is the same
   // `glow` hex the facade rule paints with, so a neighbourhood's light and its
   // walls agree — and that agreement is most of why a district reads at 200 m.
-  streetlights.setAnchors(roadGraph.nodes.map((node) => {
-    const palette = expanseDistrictAt(node.position.x, node.position.z);
-    return {
-      position: node.position.clone().add(new THREE.Vector3(2.5, 0, 2.5)),
-      lamp: palette?.lamp ?? 0xffb46a,
-      glow: palette?.glow ?? 0xff9a4a,
-    };
-  }));
+  // Shop doors and landmark beacons come first in the anchor list: the pool is
+  // finite, and a restaurant the player was sent to going dark because a
+  // junction lamp won the nearest-anchor race is the one failure that matters.
+  streetlights.setAnchors([
+    ...shops.streetlightAnchors,
+    ...landmarks.beacons,
+    ...roadGraph.nodes.map((node) => {
+      const palette = expanseDistrictAt(node.position.x, node.position.z);
+      return {
+        position: node.position.clone().add(new THREE.Vector3(2.5, 0, 2.5)),
+        lamp: palette?.lamp ?? 0xffb46a,
+        glow: palette?.glow ?? 0xff9a4a,
+      };
+    }),
+  ]);
 
   const wetMaterials = [roadMat, bridgeMat];
   const roadSnapshots = wetMaterials.map((material) => ({
@@ -474,19 +496,26 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
     bounds, tileBounds: bounds.clone(), districtBounds: bounds.clone(), worldBounds: bounds.clone(),
     roadBox,
     points, localPoints: points,
-    // M5 owns shops and the delivery loop. Until then the order system binds
-    // restaurants to delivery anchors, which is its documented fallback.
-    pickupSites: [],
+    // M5: the order system binds its eight restaurants to these, and the
+    // delivery-anchor fallback is now only a fallback.
+    pickupSites: pickups.sites,
     roadGraph, deliveryAnchors,
     visualChunks: chunkGrid,
-    expanseData: { layout: mapLayout, streets, plan, massing, facades, shops: [] },
+    expanseData: {
+      layout: mapLayout, streets, plan, massing, facades,
+      shops: pickups.sites, landmarks: landmarkPlan.landmarks,
+    },
     projectToRoad: (position) => roadGraph.project(position),
     findRoute: (start, destination) => roadGraph.findRoute(start, destination),
     roadMaterials: wetMaterials,
     // Windows, shop interiors and signage all ride the day/night emissive
     // boost. They are baked at different brightnesses on purpose, so one
     // multiplier lands right on a lit room and on a neon tube at the same time.
-    emissiveMaterials: facadeMeshes.emissiveMaterials,
+    emissiveMaterials: [
+      ...facadeMeshes.emissiveMaterials,
+      ...shops.emissiveMaterials,
+      ...landmarks.emissiveMaterials,
+    ],
     setWetness, update,
     fog: nightRig.fog, nightRig,
     lights: { hemi: nightRig.hemi, amb: nightRig.amb, moon: nightRig.moon, streetlights },
@@ -505,8 +534,11 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
       massingTriangles: facadeMeshes.triangles,
       collisionTriangles: colliderGeo.attributes.position.count / 3,
       drawCalls,
-      materials: 5 + facadeMeshes.materials.length,
+      materials: 5 + facadeMeshes.materials.length
+        + shops.emissiveMaterials.length + landmarks.materials.length,
       shopfronts: facades.stats.shopfronts,
+      restaurants: pickups.stats.shops,
+      landmarks: landmarkPlan.stats.landmarks,
       signs: facades.stats.signs,
       awnings: facades.stats.awnings,
       parapets: facades.stats.parapets,

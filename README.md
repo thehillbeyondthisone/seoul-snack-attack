@@ -43,6 +43,7 @@ A local server is required — `file://` cannot fetch GLB models (CORS). To depl
 | W/A/S/D or arrows | Drive |
 | Mouse | Orbit camera after clicking the game |
 | Space | Handbrake |
+| C | Cockpit / chase camera |
 | F | Exit vehicle |
 | E | Accept order |
 | R | Reset van to road |
@@ -58,6 +59,7 @@ Paired Xbox controllers use the standard browser gamepad mapping:
 | Right stick | Orbit camera |
 | RT / LT | Accelerate / brake and reverse |
 | A | Handbrake |
+| Right stick (click) | Cockpit / chase camera |
 | X | Accept order |
 | Y | Reset van to road |
 | Hold LB | Show the HUD fully in English |
@@ -74,6 +76,15 @@ On foot, movement switches to a Sketchbook-inspired character controller:
 | Space or A | Jump |
 | F or B | Enter a nearby vehicle |
 | R or Y | Reset to a safe road point |
+
+**C sits you in the cab.** The pocha truck ships a modelled interior
+(`public/assets/vehicles/pocha-interior.glb`), so the camera can move to the
+driver's seat: the steering wheel tracks the rack, the speedometer sweeps a
+100 km/h dial, and the head rolls with the truck instead of levelling against
+the horizon. Mouse or right stick looks around the cab and drifts back to the
+road when you let go. Vehicles with no `interior` block in
+`src/game/data/vehicles.js` — the van today — stay on the chase camera and say
+so. `?view=cockpit` starts in the seat.
 
 Click the game while driving or on foot to capture the mouse for camera orbit;
 Escape releases it. Vehicle pickups and drop-offs still require the delivery vehicle
@@ -239,8 +250,10 @@ Handy for screenshots and automated checks:
 - `?world=proc|block|expanse` — procedural night circuit (default), authored repeating block, or the approved kilometre-scale Expanse
 - `?map=1` — open the north-up full-city map at boot for QA
 - `?expanseView=station|market|bridge|westBridge|eastBridge|tunnel|hills|hongdae|hangang|pocha` — static review cameras for Expanse district art passes
+- `?world=expanse2&expanseView=plan|massing*|facade*|shopBoard|landmarkTower` — the rebuild's own review cameras (see `CITY-REBUILD.md`)
 - `?intro=off` — QA/probe hook: skip the release card without persisting the seen flag
 - `?mode=foot` — start beside the current vehicle in on-foot mode
+- `?view=cockpit` — boot into the first-person cab (pocha only; the van has no interior)
 
 Example: `http://localhost:5273/?rain=heavy&offer=1&accept=1&auto=1`
 
@@ -286,6 +299,8 @@ src/
   vehicle/van.js        van GLB load/normalize, wheels, lights
   vehicle/physics.js    custom raycast vehicle (three-mesh-bvh), crash events
   vehicle/camera.js     chase cam
+  vehicle/cockpit-camera.js  first-person seat: free look, head sway, truck roll
+  vehicle/interior.js   cabin GLB, dome lamp, steering wheel and speedometer
   character/controller.js  fixed-step on-foot states + vehicle entry/exit
   character/camera.js   orbit camera, look-ahead and wall pull-in
   character/model.js    original swappable low-poly courier placeholder

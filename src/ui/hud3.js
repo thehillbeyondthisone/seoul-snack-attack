@@ -574,11 +574,12 @@ export const minimapArrowRotation = (heading, flipX = false, flipY = false) => {
 const LEGENDS = {
   keyboard: [
     ['W A S D', '주행'], ['Space', '사이드브레이크'], ['E', '수락'],
-    ['R', '리셋'], ['` / F3', '디버그'], ['M', '전체 지도'],
+    ['C', '시점'], ['R', '리셋'], ['` / F3', '디버그'], ['M', '전체 지도'],
   ],
   gamepad: [
     ['L-Stick', '조향'], ['RT', '가속'], ['LT', '브레이크'],
-    ['A', '사이드브레이크'], ['X', '수락'], ['Y', '리셋'], ['View', '디버그'],
+    ['A', '사이드브레이크'], ['X', '수락'], ['R-Stick', '시점'],
+    ['Y', '리셋'], ['View', '디버그'],
   ],
   touch: [
     ['Left', '가속 · 브레이크'], ['Right', '조향'],
@@ -590,11 +591,12 @@ const won = (n) => `<small>₩</small>${Math.round(n).toLocaleString('ko-KR')}`;
 const ENGLISH_LEGENDS = {
   keyboard: [
     ['W A S D', 'Drive'], ['Space', 'Handbrake'], ['E', 'Accept'],
-    ['R', 'Reset'], ['` / F3', 'Debug'], ['M', 'City map'], ['T', 'English'],
+    ['C', 'View'], ['R', 'Reset'], ['` / F3', 'Debug'], ['M', 'City map'], ['T', 'English'],
   ],
   gamepad: [
     ['L-Stick', 'Steer'], ['RT', 'Accelerate'], ['LT', 'Brake'],
-    ['A', 'Handbrake'], ['X', 'Accept'], ['Y', 'Reset'], ['View', 'Debug'], ['LB', 'English'],
+    ['A', 'Handbrake'], ['X', 'Accept'], ['R-Stick', 'View'],
+    ['Y', 'Reset'], ['View', 'Debug'], ['LB', 'English'],
   ],
   touch: [
     ['Left', 'Throttle / brake'], ['Right', 'Steer'],

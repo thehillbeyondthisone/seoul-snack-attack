@@ -98,6 +98,50 @@ export const VEHICLES = {
       amber: /never/i,
     },
 
+    // ---- Cockpit -----------------------------------------------------------
+    // The first-person cabin (src/vehicle/interior.js). A vehicle without this
+    // block simply has no cockpit view; the van is that case today.
+    //
+    // The asset's origin is the floor-pan underside, centred in XY, and its own
+    // frame is the same one the truck uses (+Z forward, +X body LEFT). So
+    // `offset` is the whole seating problem in three numbers, measured against
+    // pocha.json rather than eyeballed:
+    //
+    //   x  -0.25  puts the cabin box on the WHEEL centreline, which is at
+    //             (-1.2939 + 0.7915) / 2 = -0.2512 and not at x = 0 — the same
+    //             visual-origin skew `comLateral` corrects for in the physics.
+    //   y  -1.72  the road is at groundY = -2.3629, so this is a cab floor
+    //             0.64 m above it and an eye point 1.88 m above it. The
+    //             exterior's own Glass primitive spans -1.384 .. 0.134, so the
+    //             seated eye lands inside the real windscreen opening.
+    //   z  +0.25  slides the 3.4 m cabin forward onto the nose; the windscreen
+    //             ends up at 1.95 against the exterior glass's 2.208.
+    //
+    // Every extent of the cabin stays inside the body half (1.596 x 2.219 x
+    // 2.500) at this offset, so nothing pokes through the paint from outside.
+    interior: {
+      asset: 'assets/vehicles/pocha-interior.glb',
+      offset: [-0.25, -1.72, 0.25],
+      // Interior-local. The recipe fixes the seated eye at (0.55, -0.42, 1.24)
+      // in its build frame; ground_center_group then shifts the set by
+      // (0.055, 0.10) before export, which is where the 0.605 comes from.
+      eye: [0.605, 1.24, 0.32],
+      // Just under dome_lens, which the recipe hangs at ceiling height.
+      dome: [0.055, 1.76, 0.64],
+      // Rim radians per road-wheel radian. steerLockLow is 0.62, so full lock
+      // at a standstill swings the rim 149 degrees — a little under half a turn
+      // each way, which is what a long-wheelbase truck with a slow rack does.
+      steerRatio: 4.2,
+      // The dial face is blank (the recipe draws no ticks), so the runtime owns
+      // the scale. maxSpeed 21 m/s is 76 km/h, which sits at two thirds of a
+      // 100 km/h dial — the needle spends its life on the readable part of the
+      // sweep instead of pinned near zero.
+      speedFullScale: 100,
+      // Degrees, CLOCKWISE from the driver's seat, zero first. A 250-degree
+      // sweep with the rest position at lower-left, like every speedometer.
+      needleSweep: [-125, 125],
+    },
+
     rig: {
       wheelRadius: 0.4064,
       trackFront: 2.0854,

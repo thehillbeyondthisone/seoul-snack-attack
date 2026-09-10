@@ -1,7 +1,7 @@
 # Seoul Expanse — city rebuild (M1–M6)
 
-**Updated:** 2026-09-09
-**Status:** M1, M2, M3 and M4 complete and gated. M5 not started.
+**Updated:** 2026-09-10
+**Status:** M1 through M5 complete and gated. M6 not started.
 **Live game is unchanged.** `?world=expanse` still runs the 25-node greybox and
 `?world=proc` still runs the compact procedural circuit. The rebuild is now
 drivable at `?world=expanse2`, alongside them, and replaces neither until M6.
@@ -38,11 +38,97 @@ blocks, blocks into lots, and lots into buildings. M1 and M2 are that step.
 | **M2** | Blocks and building lots, full city plan | `expanse-blocks-check` | done |
 | **M3** | Greybox massing behind `?world=expanse2` | `expanse-massing-check` | done |
 | **M4** | Façades, signage atlas, colour bible, lighting | `expanse-facade-check` + visual QA | done |
-| **M5** | Landmarks, shops, delivery loop | route + anchor gate | next |
-| **M6** | Perf/LOD/mobile, full `npm run check`, promote | full suite | not started |
+| **M5** | Landmarks, shops, delivery loop | `expanse-route-check` | done |
+| **M6** | Perf/LOD/mobile, full `npm run check`, promote | full suite | next |
 
 Each milestone is reviewed before the next begins, and nothing replaces
 `?world=expanse` until M6.
+
+---
+
+## What M5 produced
+
+The first milestone that is a *loop* rather than a look. `?world=expanse2` no
+longer ships `pickupSites: []`: the eight menu restaurants are bound to eight
+generated storefronts, five authored anchors finally have something standing on
+them, and every delivery leg the game can offer has been routed in Node before
+the browser ever sees it.
+
+| | |
+| --- | ---: |
+| Restaurants bound to real buildings | 8 |
+| Shop plots they were chosen from | 696 |
+| Districts with a named shop | 6 of 6 |
+| Closest two restaurants | 116 m |
+| Landmarks raised | 5 |
+| Delivery anchors surviving the ground test | 17 |
+| Delivery legs proved routable | 308 |
+| Longest route on the map | 1,002 m |
+| Worst detour against the straight line | 2.05x |
+
+### The eight restaurants
+
+Bound by `src/world/expanse-pickups.js` from `LANDMARK_SHOPS` in the colour
+bible, which is the same roster `?world=proc` uses — so a shop is in the same
+neighbourhood in both cities, and the ids still bind 1:1 to the menu.
+
+| Restaurant | District | Plot | Frontage | Street |
+| --- | --- | --- | ---: | --- |
+| Sindang Tteokbokki Alley | market | `bld_744` | 14.0 m | street |
+| Hotteok Road Cart | station | `bld_283` | 26.3 m | arterial |
+| Busan Eomuk Pocha | pocha | `bld_700` | 10.5 m | arterial |
+| Gwangjang Gimbap Truck | station | `bld_427` | 25.6 m | arterial |
+| Hongdae Chimaek Street | hongdae | `bld_267` | 30.4 m | arterial |
+| Seoul Night Convenience | station | `bld_139` | 20.9 m | street |
+| Gilgeori Toast Captain | hills | `bld_52` | 21.0 m | street |
+| Hangang Nodari Pocha | hangang | `bld_565` | 24.1 m | arterial |
+
+Nothing here is hand-placed. Each restaurant takes the best-scoring shop plot
+its district owns — frontage first, then the class of street it fronts, then
+its height — subject to a 110 m separation so eight markers stay legible on one
+mini-map. The selection uses no RNG, which is what lets the gate measure the
+same eight buildings the runtime binds.
+
+The marker the van parks on sits on the carriageway the shop fronts, at the
+same share of the road width the shipped Expanse shops use. It is never more
+than 6.2 m from the shop wall, which puts the whole storefront inside the 9.5 m
+pickup zone `orders.js` draws.
+
+### The five landmarks
+
+`expanse-layout.js` has authored five anchors since the beginning — the
+station, the radio tower, the market hall, the river plaza and the pocha row —
+and nothing had ever been built at them.
+
+**A landmark is a crown on a building that is already there.** It adds no
+footprint and claims no land, because M2 and M3 settled 1,211 plots against the
+pavement and a sixth pass dropping bespoke structures into that would either
+overlap a plot or need the whole city re-settled. Each anchor adopts the
+best-scoring building in its own district within radius, and wears a mast, a
+drum or a lit crown on that building's own roof.
+
+| Landmark | District | Host | Host roof | Peak |
+| --- | --- | --- | ---: | ---: |
+| Bukak Radio Tower | hills | `bld_342` | 20.3 m | 61.9 m |
+| Seoul Station Plaza | station | `bld_560` | 49.1 m | 64.1 m |
+| Market Hall | market | `bld_879` | 23.5 m | 33.4 m |
+| Hangang Plaza | hangang | `bld_499` | 36.3 m | 52.3 m |
+| Pocha Row Arch | pocha | `bld_88` | 20.3 m | 27.5 m |
+
+Hongdae has no authored anchor and does not get an invented one; it is
+anchored by Hongdae Chimaek Street instead, and the gate asserts that every
+district owns a navigational anchor of one kind or the other.
+
+The mini-map draws the landmarks as named triangles under the shop pins, which
+is the point of them: a shop pin tells you where to go, a landmark tells you
+where you are.
+
+### What this cost
+
+Two groups' worth of draw calls, eight canvases and a few hundred triangles.
+Neither layer rides the visual chunk grid — culling the thing the player is
+driving to, or the tower they are steering by, at 760 m would delete the one
+layer that answers "where am I".
 
 ---
 
@@ -230,7 +316,8 @@ npm run streets-check   # M1 gate
 npm run blocks-check    # M2 gate
 npm run massing-check   # M3 gate
 npm run facade-check    # M4 gate
-npm run expanse-check   # every Expanse gate, including all four of the above
+npm run route-check     # M5 gate
+npm run expanse-check   # every Expanse gate, including all five of the above
 ```
 
 `Quick Start.cmd` option **[6] Drive the rebuild** boots `?world=expanse2`.
@@ -245,6 +332,8 @@ Review cameras, all `?world=expanse2&expanseView=<id>&time=day&rain=off`:
 | `facadeShop` | standing at a shopfront: glass, fascia board, awning, blade sign |
 | `facadeRoofs` | the roofscape of the densest chunk — parapets, ledges, tanks |
 | `facadeColour` | three districts at once from 210 m, which is the shot that reviews the colour rule |
+| `shopBoard` | standing outside Hongdae Chimaek Street: the bound storefront, its name board and its blade |
+| `landmarkTower` | the Bukak radio tower across two districts, which asks whether a landmark works at the far end of a sightline |
 
 The district views are not hand-placed: they were picked by scoring every
 street in each district by the massing around it, so they stay pointed at
@@ -390,6 +479,33 @@ chunk each. Which chunk group a family lands in decides when it stops drawing:
 signs are the city's light and stay in the base tier, awnings and banners are
 detail, air-conditioners are micro.
 
+### `src/world/expanse-pickups.js` — the eight restaurants
+
+Binds the menu to the city. Pure scoring over the shop plots M2 cut and M4
+dressed, with no RNG, so the browser and the Node gate agree on which eight
+buildings are restaurants. Three rules the gate enforces:
+
+1. **A pickup is a building, not a coordinate.** Every site names the `bld_*`
+   it was bound to and takes its frontage, facing and district from that
+   building's record.
+2. **The marker stands on the carriageway the shop fronts.** The van has to be
+   able to stop on it, so it sits off the centreline rather than on the
+   pavement where the vehicle cannot reach it.
+3. **The ring is not a high street.** Nothing may stop on the belt road, so
+   plots fronting it are never candidates.
+
+The runtime half hangs a name board, a lintel and a blade on the frontage M4
+already built, and registers a practical over the door. Eight canvases, not
+1,052.
+
+### `src/world/expanse-landmarks.js` — the five things you steer by
+
+Adopts one host building per authored anchor and crowns its roof. The host has
+to be in the district the anchor names — without that constraint the score
+walks, and the radio tower ends up 106 m away over the district line in the
+station quarter. Crowns never oversail the roof they stand on, which is why a
+landmark needs none of the clearance rules the rest of the city obeys.
+
 ### `tools/expanse-plan.mjs` — the review drawing
 
 Renders the network, blocks and lots to SVG at true size, plus a viewer page.
@@ -454,6 +570,22 @@ over the river, no air-conditioner sits on a shopfront. *Budget:* desktop and
 mobile triangles, collision unchanged from M3, draw calls, materials, texture
 memory, and determinism.
 
+`expanse-route-check` — 26 assertions, in three halves. *Shops:* every menu
+restaurant is bound exactly once, to a distinct building that is a real shop
+plot carrying an M4 shopfront, standing in the district its roster entry names;
+every district owns a navigational anchor; no restaurant fronts the ring; every
+pickup marker stands on its own carriageway and inside no building; the pickup
+zone reaches the shop wall; no name blade reaches past its own pavement; the
+eight are spread across the city. *Routes:* the delivery anchors survive the
+ground test and cover every district; all 308 legs the game can offer —
+shop to anchor, anchor to shop, shop to shop and spawn to shop — are routable,
+none is a detour around the whole city, and the longest still fits an arcade
+timer. *Landmarks:* all five anchors raised one, on distinct hosts that are not
+restaurants, in the districts they are named for and near their own anchors;
+every crown sits on its host's roof and inside its footprint; every landmark is
+the high point within 120 m; none leaves the world or stands over the river.
+Plus determinism for both halves.
+
 `expanse-blocks-check` — 14 assertions. Every bounded face recovered (checked
 against Euler's formula), exactly one outer face, density measured as street
 metres per building, plausible footprints, nothing in the river, **zero lot
@@ -483,21 +615,27 @@ which asserts 25 nodes / 35 edges.
 
 ---
 
-## Known gaps, carried into M5
+## Known gaps, carried into M6
 
-- **No shops the loop can use.** `?world=expanse2` still ships
-  `pickupSites: []`, so the order system falls back to delivery anchors — its
-  documented path, and the loop does run end to end on it. M4 gave 1,052 plots
-  a shopfront and a lit board; binding eight of them to the menu's restaurants
-  is M5.
+- **The Market Hall is overtopped from 150 m.** Its gate is that no building
+  within 120 m stands taller than its crown, and it clears that. But the market
+  is a low-rise district — the tallest thing in it is 23.5 m — and a 33.1 m
+  station tower stands 152 m away. The market hall is a local landmark, not a
+  skyline one, and making it one means either a host outside its own district
+  or a taller crown than a market hall should wear.
+- **A landmark is a crown, not a building.** Nothing at the five anchors is a
+  station concourse or a market shed; they are masts and drums on roofs that
+  were already there. That is the honest cost of not re-settling 1,211 plots,
+  and it is the layer to revisit if M6 ever regenerates the massing.
 - **The road surface is still flat paint.** Lane markings, crossings, kerb
   detail and wet-road decals are the biggest remaining "unfinished" cue at
   street level, and the one thing a screenshot notices before the facades. It
-  is outside M4's brief — façades, signage, colour, lighting — and belongs with
-  the road art in M5/M6.
+  is outside M4's brief — façades, signage, colour, lighting — and outside M5's,
+  which was the loop rather than the surface. It belongs with the road art in M6.
 - **No props or street furniture.** `?world=expanse2` still opts out of the prop
   pass rather than drag the compact-world scanner over a kilometre. Bins, poles,
-  cables and parked scooters are the layer between M4's facades and M5's shops.
+  cables and parked scooters are the layer between M4's facades and M5's shops,
+  and the one that is now conspicuously missing between them.
 - **Shopfronts read dark under an awning at night.** Correct for Seoul, and the
   awnings were already lifted to 3.15 m so the glass shows below them, but there
   is no light spilling onto the pavement from a lit shop — that wants a decal or

@@ -22,6 +22,8 @@ import { getVehicle, VEHICLE_IDS, DEFAULT_VEHICLE } from './game/data/vehicles.j
 import { soundtrackTracks } from './game/data/soundtrack.js';
 import { loadSave } from './game/save.js';
 import { ChaseCamera } from './vehicle/camera.js';
+import { CockpitCamera } from './vehicle/cockpit-camera.js';
+import { loadInterior } from './vehicle/interior.js';
 import { PlayerCharacter } from './character/controller.js';
 import { OnFootCamera } from './character/camera.js';
 import { Orders } from './game/orders.js';
@@ -206,6 +208,65 @@ async function boot() {
   const chaseCam = new ChaseCamera(camera, city);
   chaseCam.snapTo(phys);
 
+  // ---- Cockpit view --------------------------------------------------------
+  // The interior is a second GLB parented into the vehicle group, not part of
+  // the truck asset — src/vehicle/interior.js explains why. It loads AFTER the
+  // boot Promise.all rather than inside it: a vehicle that has no cabin (the
+  // van) must still reach the road, and a cockpit that fails to load should
+  // cost the player the C key, not the game.
+  let interior = null;
+  const cockpitCam = new CockpitCamera(camera);
+  let cockpit = false;
+  async function attachInterior(def) {
+    interior?.dispose();
+    interior = null;
+    try {
+      interior = await loadInterior(manager, def);
+    } catch (err) {
+      console.warn(`interior failed to load for ${def.id}, cockpit view disabled:`, err);
+    }
+    if (!interior) {
+      cockpit = false;
+      return;
+    }
+    van.group.add(interior.group);
+    cockpitCam.setEye(interior.eye);
+    interior.setVisible(cockpit);
+    setShellVisible(!cockpit);
+  }
+  // The exterior shell has to go while the camera is inside it. The cab of the
+  // normalised Quaternius truck is not hollow — a raycast from the seated eye
+  // hits `body`'s Atlas primitive at 0.37 m, before the windscreen — so this is
+  // an occlusion problem, not something single-sided materials solve.
+  //
+  // KNOWN COST: an invisible mesh is also absent from the shadow map, so the
+  // truck stops casting its own shadow on the road while you are sitting in it.
+  // The wheels stay, and keep their four contact shadows. Recovering the body
+  // shadow means a layer the main camera skips and the shadow camera does not,
+  // which is more machinery than a first-person view of your own shadow earns.
+  function setShellVisible(on) {
+    if (van.body) van.body.visible = on;
+  }
+  function setCockpit(on) {
+    const wanted = on && !!interior && player.isDriving;
+    if (on && !interior && player.isDriving) {
+      // Silence here reads as a broken key. The van has no cabin asset and may
+      // never get one; say so rather than swallow the press.
+      hud.toast?.('이 차량은 실내가 없습니다', 'This vehicle has no cabin');
+      return;
+    }
+    if (wanted === cockpit) return;
+    cockpit = wanted;
+    interior?.setVisible(cockpit);
+    setShellVisible(!cockpit);
+    if (cockpit) cockpitCam.snapTo();
+    else chaseCam.snapTo(phys);
+    hud.toast?.(
+      cockpit ? '1인칭 시점' : '3인칭 시점',
+      cockpit ? 'Cockpit view' : 'Chase view',
+    );
+  }
+
   // ---- World systems --------------------------------------------------------
   const rain = new Rain(scene);
   rain.bind({ city, physics: phys });
@@ -247,10 +308,17 @@ async function boot() {
     if (mode === 'driving') {
       chaseCam.snapTo(phys);
     } else if (mode === 'onFoot') {
+      // You cannot sit in the cab from the pavement. Stepping out drops the
+      // view rather than leaving a hidden cabin and a camera inside a truck
+      // the player is no longer in.
+      setCockpit(false);
       onFootCam.setHeading(player.heading);
     }
   };
   const orders = new Orders({ scene, city, phys, hud, camera, audio, player });
+  // Deferred until here because setCockpit() reads player.isDriving.
+  await attachInterior(vehicleDef);
+  if (qp.get('view') === 'cockpit') setCockpit(true);
   let onboardingPaused = hud.isOnboardingVisible?.() ?? false;
   let garagePaused = false;
   let mapPaused = false;
@@ -310,7 +378,11 @@ async function boot() {
     vehicleDef = nextDef;
     phys.place(position, heading);
     scene.add(van.group);
-    if (player.isDriving) chaseCam.snapTo(phys);
+    // The cabin belongs to the rig, so it goes with it. attachInterior keeps
+    // the current view if the new vehicle has a cabin; a swap onto one that
+    // does not (the van) clears `cockpit` and drops the player to the chase.
+    await attachInterior(nextDef);
+    if (player.isDriving && !cockpit) chaseCam.snapTo(phys);
     // Props may still be loading (?props=off leaves them null); their loader
     // reads `vehicleDef` on arrival, which now points at the new rig too.
     props?.world.setVehicle({
@@ -356,6 +428,7 @@ async function boot() {
   phys.onCrash = (severity, point) => {
     orderCrash?.(severity, point);
     chaseCam.onCrash(severity);
+    cockpitCam.onCrash(severity);
     audio.event('impact', severity);
   };
 
@@ -539,6 +612,16 @@ async function boot() {
       facadeShop: { camera: [-230.7, 2.3, 91.5], target: [-230.7, 2.6, 76.5] },
       facadeRoofs: { camera: [-242, 58, -114.9], target: [-147, 12, -19.9] },
       facadeColour: { camera: [-91.4, 210, 201.9], target: [-91.4, 8, -88.1] },
+      // M5 review slice.
+      //   shopBoard     — standing outside Hongdae Chimaek Street: the bound
+      //                   storefront, its name board and its blade. This is
+      //                   the same frontage `facadeShop` reviews, which is how
+      //                   M5 is checked against M4 rather than beside it.
+      //   landmarkTower — the Bukak radio tower across two districts, which is
+      //                   the shot that asks whether a landmark is doing its
+      //                   job at the far end of a sightline.
+      shopBoard: { camera: [-230.7, 5.4, 94.5], target: [-230.7, 5.05, 81.5] },
+      landmarkTower: { camera: [-44.5, 45, -53.3], target: [-194.5, 45.3, -203.3] },
     };
     const staged = expanseView && expanseViews[expanseView];
     if (staged) {
@@ -701,17 +784,22 @@ async function boot() {
       else player.resetToRoad();
     }
     if (!mapPaused && input.pressed('debug')) debug.toggle();
+    if (!mapPaused && input.pressed('view')) setCockpit(!cockpit);
 
     // phys.position is the CENTRE OF MASS; meshPosition is the model origin.
     van.group.position.copy(phys.meshPosition);
     van.group.quaternion.copy(phys.quaternion);
     van.update(dt, phys);
     van.setBraking(phys.controls.brake > 0 && phys.forwardSpeed > 0.5);
+    // Cheap while hidden: update() rides the dome lamp to zero and returns
+    // before touching an instrument the player cannot see.
+    interior?.update(dt, phys);
 
     if (!overview && !mapPaused) {
       const lookAxes = input.consumeLookAxes();
-      if (player.isDriving) chaseCam.update(dt, phys, lookAxes);
-      else onFootCam.update(dt, player, lookAxes);
+      if (!player.isDriving) onFootCam.update(dt, player, lookAxes);
+      else if (cockpit) cockpitCam.update(dt, phys, lookAxes);
+      else chaseCam.update(dt, phys, lookAxes);
     }
     player.updateVisual(dt);
     city.update(dt, camera);

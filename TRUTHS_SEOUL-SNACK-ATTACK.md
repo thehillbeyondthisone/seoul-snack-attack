@@ -87,3 +87,24 @@ Portable facts. Not a diary. Copy into the next job.
 - `expanse-layout.js` carries real faults that the new gates surface and report
   separately rather than fix: `west_bridge` crosses the ring at grade, and
   `spine_south` joins two coincident nodes at (0, 250). Both are live.
+- A landmark added to a city whose plots are already settled belongs **on a
+  roof**, not on the ground. Crowning an existing building claims no land, can
+  collide with nothing, and needs none of the clearance rules the rest of the
+  city obeys. Dropping bespoke structures in means re-settling every plot.
+- Score a landmark host inside its own district. Score it citywide and the
+  score walks: the tallest building near an anchor is often over the district
+  line, which puts a named tower in the wrong neighbourhood.
+- Size an emissive detail for the distance it is *read* at, not the distance it
+  is modelled at. A 9 cm band on a 46 m mast is sub-pixel from the far bank,
+  which is exactly where a landmark has to work.
+- A pickup marker goes on the carriageway, not the pavement — the van has to be
+  able to stop on it. Offset it by a share of that road's own width, or a wide
+  arterial puts it in oncoming traffic and an alley puts it in a wall.
+- Prove a delivery loop routes in Node before the browser sees it: build the
+  road graph from the generator output and route every shop/anchor pair. Where
+  a helper wants a ground raycast, hand it the world's real ground as a
+  function (flat quads with the river cut out) rather than skipping what it
+  cannot test.
+- Bind gameplay to a **building id**, not a coordinate. A site that names its
+  `bld_*` and takes frontage, facing and district from that record cannot drift
+  when the generator is retuned; a hand-typed transform silently can.

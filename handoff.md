@@ -1,5 +1,39 @@
 # 서울 스낵 어택 — Seoul Snack Attack — development handoff
 
+## 2026-09-10 — Rebuild M5: shops, landmarks and a delivery loop that routes
+
+- `?world=expanse2` no longer ships `pickupSites: []`. The eight menu
+  restaurants are bound to eight of M4's generated storefronts — chosen by
+  frontage, street class and height with no RNG, one per district and three in
+  the station quarter, exactly as the roster asks — and the order system now
+  picks up from a named building instead of falling back to a delivery anchor.
+  `?world=expanse` and `?world=proc` are untouched; nothing is promoted until
+  M6.
+- The five anchors `expanse-layout.js` has authored since the beginning finally
+  have something standing on them. A landmark is **a crown on a building that
+  is already there**: no footprint, no land claimed, nothing that can collide,
+  because re-settling 1,211 plots to make room for bespoke structures is not a
+  trade M5 was worth. The mini-map draws them as named triangles under the shop
+  pins.
+- New: `src/world/expanse-pickups.js` and `src/world/expanse-landmarks.js`
+  (both pure data plus a thin runtime half), a landmark layer and legend row in
+  `src/ui/city-map.js`, and two review cameras — `shopBoard`, `landmarkTower`.
+  Nothing in M1–M4 moved and all four of their gates still pass unchanged.
+- New gate `npm run route-check` (`expanse-route-check.mjs`), 26 assertions in
+  three halves: the bindings, the routes and the crowns. It routes all 308 legs
+  the game can offer — shop to anchor, anchor to shop, shop to shop and spawn
+  to shop — before the browser sees any of them. Longest route 1,002 m, worst
+  detour 2.05× the straight line.
+- The gate hands `createDeliveryAnchors` a flat-ground function rather than
+  skipping the anchors it cannot raycast in Node. That is the rebuild's real
+  ground: four flat quads at y = 0 with the river cut out of them.
+- Runtime probe: booted clean at day and night, 8 labelled shops, an order
+  offered from Hongdae Chimaek Street with the board legible in both lighting
+  states, and the radio tower reading across two districts. `npm run check`,
+  `npm run map-check`, `npm run expanse-check` and `npm run build` all pass.
+- Carried into M6: road-surface art, props and street furniture, and the Market
+  Hall being a local landmark rather than a skyline one. See `CITY-REBUILD.md`.
+
 ## 2026-09-09 — Rebuild M3: greybox massing, drivable at `?world=expanse2`
 
 - The city rebuild is now something you can drive. `?world=expanse2` boots the
@@ -277,6 +311,43 @@ npm run quickstart   # or double-click Quick Start.cmd
 - SSA-2: `soondae-platter` replaces the luncheon-meat stand-in on 순대 모둠 세트 (ssamjang kept).
 - Commands: `npm run blender`, `npm run blender-check` (also part of `npm run check`). Living process: `tools/blender/README.md`.
 - Preview stills live next to the recipes (`tools/blender/previews/`) so the next asset has a visual baseline.
+
+## 2026-09-10 — the pocha cockpit is wired
+
+`pocha-interior.glb` shipped on 2026-09-10 (commit 585e7cd) as an asset nothing
+loaded. It is now a playable view.
+
+- **`src/vehicle/interior.js`** parents the cabin into the vehicle group at
+  `def.interior.offset` and drives the two instruments worth driving.
+- **`src/vehicle/cockpit-camera.js`** is a separate camera, not a mode inside
+  `ChaseCamera`: it composes the head onto `phys.quaternion` with quaternions
+  rather than `lookAt`, so the truck's roll and pitch reach the player instead of
+  being levelled away.
+- **`C` / right-stick click** toggles it; `?view=cockpit` boots into it.
+- **The exterior shell is hidden while you are inside it.** The assumption that
+  single-sided materials would make it disappear was wrong — a raycast from the
+  seated eye hits `body`'s Atlas primitive at 0.37 m, so Quaternius' cab carries
+  a real bulkhead. `van.body` is exposed by `vehicle.js` for that toggle.
+- **Seating numbers** live in the `interior` block of `src/game/data/vehicles.js`
+  and are derived from `pocha.json`, not eyeballed — the comment there shows the
+  working for all three offsets.
+
+### Known gaps
+
+- **No body shadow in the cockpit.** Hiding `body` takes it out of the shadow
+  map too, so the truck stops casting its own shadow while you sit in it; the
+  four wheel shadows remain. Fixing it means a layer the main camera skips and
+  the shadow camera does not.
+- **`needle_fuel` is parked.** There is no fuel system, and a gauge bound to
+  something that is not fuel is a lie the player reads as one. The node stays
+  addressable.
+- **One extra point light, permanently.** The dome lamp never leaves the scene
+  and rides its intensity to zero instead, because three recompiles every
+  material when the visible light count changes — a lamp that switched on with
+  the view would hitch the frame the player pressed C.
+- **Cockpit values were judged on SwiftShader screenshots**, same caveat as the
+  graphics passes above. Eye height, dome intensity and the needle sweep all
+  want a real-GPU look.
 
 ## Conventions for new sessions
 
