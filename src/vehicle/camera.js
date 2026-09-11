@@ -10,6 +10,28 @@ const PITCH_MIN = -0.22;
 const PITCH_MAX = 0.72;
 const UP = new THREE.Vector3(0, 1, 0);
 
+/**
+ * Chase framings, cycled with V / D-pad up (2026-09-11). Offsets from the rig's
+ * own framing (params.cameraDist / cameraHeight / cameraLookUp) rather than
+ * absolute values, so the pocha's tall-box framing and the van's stay distinct.
+ * `pitch` is added to the rig's natural pitch; `distance` scales its distance.
+ */
+export const CHASE_ANGLES = Object.freeze([
+  { id: 'low', ko: '낮음', en: 'Low', pitch: -0.24, distance: 0.88 },
+  { id: 'medium', ko: '보통', en: 'Medium', pitch: 0, distance: 1 },
+  { id: 'high', ko: '높음', en: 'High', pitch: 0.34, distance: 1.28 },
+]);
+const ANGLE_KEY = 'snack-attack-chase-angle';
+
+function savedAngleIndex() {
+  try {
+    const index = CHASE_ANGLES.findIndex((angle) => angle.id === localStorage.getItem(ANGLE_KEY));
+    return index >= 0 ? index : 1;
+  } catch {
+    return 1;
+  }
+}
+
 export class ChaseCamera {
   constructor(camera, city = null) {
     this.camera = camera;
@@ -21,6 +43,7 @@ export class ChaseCamera {
     this.shake = 0;
     this.orbitYaw = 0;
     this.orbitPitch = 0;
+    this.angleIndex = savedAngleIndex();
     this._initialized = false;
 
     this._fwd = new THREE.Vector3();
@@ -32,6 +55,19 @@ export class ChaseCamera {
 
   onCrash(severity) {
     this.shake = Math.min(1, this.shake + severity * 0.06);
+  }
+
+  get angle() { return CHASE_ANGLES[this.angleIndex]; }
+
+  /**
+   * Step low -> medium -> high -> low and remember it. Clears any mouse pitch
+   * so the preset reads as itself; the damped follow glides between framings.
+   */
+  cycleAngle() {
+    this.angleIndex = (this.angleIndex + 1) % CHASE_ANGLES.length;
+    this.orbitPitch = 0;
+    try { localStorage.setItem(ANGLE_KEY, this.angle.id); } catch { /* storage blocked */ }
+    return this.angle;
   }
 
   snapTo(phys) {
@@ -61,10 +97,13 @@ export class ChaseCamera {
     // (physics.js params.cameraDist / cameraHeight / cameraLookUp) because the
     // fixed values presume a ~2 m tall body around the CoM — the pocha's tall
     // box needs to be framed from further back and higher up.
-    const distance = phys.params.cameraDist ?? FOLLOW_DIST;
+    const rigDistance = phys.params.cameraDist ?? FOLLOW_DIST;
     const lookUp = phys.params.cameraLookUp ?? 1.0;
     const height = phys.params.cameraHeight ?? FOLLOW_HEIGHT;
-    const basePitch = Math.asin(THREE.MathUtils.clamp((height - lookUp) / distance, -0.95, 0.95));
+    const angle = this.angle;
+    const distance = rigDistance * angle.distance;
+    const basePitch = Math.asin(THREE.MathUtils.clamp((height - lookUp) / rigDistance, -0.95, 0.95))
+      + angle.pitch;
     const pitch = THREE.MathUtils.clamp(basePitch + this.orbitPitch, PITCH_MIN, PITCH_MAX);
     const heading = Math.atan2(this._fwd.x, this._fwd.z);
     const orbitHeading = heading + Math.PI + this.orbitYaw;

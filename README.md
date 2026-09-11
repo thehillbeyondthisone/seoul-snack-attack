@@ -48,6 +48,7 @@ A local server is required — `file://` cannot fetch GLB models (CORS). To depl
 | Mouse | Orbit camera after clicking the game |
 | Space | Handbrake |
 | C | Cockpit / chase camera |
+| V | Chase camera angle: low / medium / high |
 | F | Exit vehicle |
 | E | Accept order |
 | R | Reset van to road |
@@ -64,6 +65,7 @@ Paired Xbox controllers use the standard browser gamepad mapping:
 | RT / LT | Accelerate / brake and reverse |
 | A | Handbrake |
 | Right stick (click) | Cockpit / chase camera |
+| D-pad up | Chase camera angle: low / medium / high |
 | X | Accept order |
 | Y | Reset van to road |
 | Hold LB | Show the HUD fully in English |
@@ -259,8 +261,20 @@ Handy for screenshots and automated checks:
 - `?intro=off` — QA/probe hook: skip the release card without persisting the seen flag
 - `?mode=foot` — start beside the current vehicle in on-foot mode
 - `?view=cockpit` — boot into the first-person cab (pocha only; the van has no interior)
+- `?dive=1` — drop straight into the Abyss (`?world=expanse2` only); `?dive=ramp` lines the truck up on the north-bank dive ramp instead
 
 Example: `http://localhost:5273/?rain=heavy&offer=1&accept=1&auto=1`
+
+Drive the pocha off the north-bank ramp at x = 120 with some speed and the Han
+opens a whirlpool: the camera pulls out to show the truck circling it and going
+under, then flies into the cab as you spiral down the Drain, and you come out in
+the Abyss driving a submarine. `W`/`S` are thrust, `A`/`D` the rudder,
+**Shift** (RB) swims down, **Space** (A) climbs — slowly — and hands off the
+truck sinks gently. Rising back up
+through the mouth you came down puts you back on the quay. The cab's second
+dial — parked since it shipped, because there is no fuel system — becomes a
+depth gauge for the duration. `?world=expanse2` only: the ramp is geometry that
+world builds, so there is nothing to drive off anywhere else.
 
 The original Seoul/GTA world specification is in `WORLD-SWARM-BRIEF.md`, with
 headless-Blender outputs under `_source-assets/world/seoul-expanse/`. Those

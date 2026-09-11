@@ -384,7 +384,20 @@ const CSS = `
   #hud3 .minimap .blade .en { font-size: 7px; letter-spacing: .12em; }
 }
 
-/* ---- speed (bottom right) ----------------------------------------------- */
+/* ---- cinematic: clear the screen for a set piece -------------------------
+   Driven by setCinematic(). Fades rather than cuts, so entering the water
+   reads as the HUD being taken away from the player rather than as a frame
+   where several panels vanished. Toasts, the cash rail and the legend survive
+   on purpose — see the method's note. */
+#hud3.cinematic .order,
+#hud3.cinematic .ticket,
+#hud3.cinematic .minimap,
+#hud3.cinematic .speed {
+  opacity: 0 !important;
+  pointer-events: none;
+  transition: opacity .45s ease;
+}
+
 #hud3 .speed {
   position: absolute; right: 20px; bottom: 22px;
   display: flex; align-items: baseline; gap: 6px;
@@ -574,11 +587,11 @@ export const minimapArrowRotation = (heading, flipX = false, flipY = false) => {
 const LEGENDS = {
   keyboard: [
     ['W A S D', '주행'], ['Space', '사이드브레이크'], ['E', '수락'],
-    ['C', '시점'], ['R', '리셋'], ['` / F3', '디버그'], ['M', '전체 지도'],
+    ['C', '시점'], ['V', '카메라 각도'], ['R', '리셋'], ['` / F3', '디버그'], ['M', '전체 지도'],
   ],
   gamepad: [
     ['L-Stick', '조향'], ['RT', '가속'], ['LT', '브레이크'],
-    ['A', '사이드브레이크'], ['X', '수락'], ['R-Stick', '시점'],
+    ['A', '사이드브레이크'], ['X', '수락'], ['R-Stick', '시점'], ['D-Pad ↑', '카메라 각도'],
     ['Y', '리셋'], ['View', '디버그'],
   ],
   touch: [
@@ -591,11 +604,11 @@ const won = (n) => `<small>₩</small>${Math.round(n).toLocaleString('ko-KR')}`;
 const ENGLISH_LEGENDS = {
   keyboard: [
     ['W A S D', 'Drive'], ['Space', 'Handbrake'], ['E', 'Accept'],
-    ['C', 'View'], ['R', 'Reset'], ['` / F3', 'Debug'], ['M', 'City map'], ['T', 'English'],
+    ['C', 'View'], ['V', 'Cam angle'], ['R', 'Reset'], ['` / F3', 'Debug'], ['M', 'City map'], ['T', 'English'],
   ],
   gamepad: [
     ['L-Stick', 'Steer'], ['RT', 'Accelerate'], ['LT', 'Brake'],
-    ['A', 'Handbrake'], ['X', 'Accept'], ['R-Stick', 'View'],
+    ['A', 'Handbrake'], ['X', 'Accept'], ['R-Stick', 'View'], ['D-Pad ↑', 'Cam angle'],
     ['Y', 'Reset'], ['View', 'Debug'], ['LB', 'English'],
   ],
   touch: [
@@ -872,6 +885,19 @@ export class HUD3 {
     this.gameplayMode = mode;
     this.el?.classList.toggle('on-foot', mode === 'onFoot' || mode === 'entering');
     this.setInputMode(this.inputMode);
+  }
+
+  /**
+   * Clear the gameplay chrome for a set piece.
+   *
+   * The abyssal dive (src/game/dive.js) needs the screen. Offering the player a
+   * hotteok delivery and a street-level GPS while they are going down a
+   * plughole reads as the game not having noticed. Toasts and the cash rail
+   * stay: the toast is how the sequence narrates itself, and the money is the
+   * one number that is still true underwater.
+   */
+  setCinematic(on) {
+    this.el?.classList.toggle('cinematic', !!on);
   }
 
   /** Drop the translate chip out of its intro state, once and for good. */

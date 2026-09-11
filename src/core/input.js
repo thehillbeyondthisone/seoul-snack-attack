@@ -1,7 +1,7 @@
 // Seoul Snack Attack — unified keyboard + standard gamepad input.
 // Keyboard: WASD/arrows move, Space contextual jump/handbrake, F vehicle,
-// E accept, R reset, C camera view, ` debug. Xbox mirrors that with both
-// sticks, A and B.
+// E accept, R reset, C camera view, V chase camera angle, ` debug. Xbox mirrors
+// that with both sticks, A and B; D-pad up is the camera angle.
 
 import { TouchControls } from './touch-controls.js';
 
@@ -19,6 +19,7 @@ const KEY_ACTIONS = {
   debug: ['Backquote', 'KeyF3'],
   map: ['KeyM'],
   view: ['KeyC'],
+  camAngle: ['KeyV'],
   translate: ['KeyT'],
 };
 
@@ -32,6 +33,7 @@ const PAD_BUTTONS = {
   debug: 8,     // View / Back
   translate: 4, // LB
   view: 10,     // right stick click
+  camAngle: 12, // D-pad up (left/right steer; see steerAxis)
 };
 
 const TRIGGER_THRESHOLD = 0.08;

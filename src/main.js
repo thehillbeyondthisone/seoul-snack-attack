@@ -24,6 +24,8 @@ import { loadSave } from './game/save.js';
 import { ChaseCamera } from './vehicle/camera.js';
 import { CockpitCamera } from './vehicle/cockpit-camera.js';
 import { loadInterior } from './vehicle/interior.js';
+import { createDiveController } from './game/dive.js';
+import { ABYSS_DEPTH_M } from './world/abyss.js';
 import { PlayerCharacter } from './character/controller.js';
 import { OnFootCamera } from './character/camera.js';
 import { Orders } from './game/orders.js';
@@ -251,12 +253,12 @@ async function boot() {
   function setShellVisible(on) {
     if (van.body) van.body.visible = on;
   }
-  function setCockpit(on) {
+  function setCockpit(on, { quiet = false } = {}) {
     const wanted = on && !!interior && player.isDriving;
     if (on && !interior && player.isDriving) {
       // Silence here reads as a broken key. The van has no cabin asset and may
       // never get one; say so rather than swallow the press.
-      hud.toast?.('이 차량은 실내가 없습니다', 'This vehicle has no cabin');
+      if (!quiet) hud.toast?.('이 차량은 실내가 없습니다', 'This vehicle has no cabin');
       return;
     }
     if (wanted === cockpit) return;
@@ -265,7 +267,7 @@ async function boot() {
     setShellVisible(!cockpit);
     if (cockpit) cockpitCam.snapTo();
     else chaseCam.snapTo(phys);
-    hud.toast?.(
+    if (!quiet) hud.toast?.(
       cockpit ? '1인칭 시점' : '3인칭 시점',
       cockpit ? 'Cockpit view' : 'Chase view',
     );
@@ -323,6 +325,29 @@ async function boot() {
   // Deferred until here because setCockpit() reads player.isDriving.
   await attachInterior(vehicleDef);
   if (qp.get('view') === 'cockpit') setCockpit(true);
+
+  // ---- The abyssal dive -----------------------------------------------------
+  // Only in the rebuild: the ramp is geometry that expanse2-city.js builds into
+  // its collider, so in any other world there is nothing to drive off and the
+  // controller would be watching a trigger volume that stands in open air.
+  const dive = createDiveController({
+    scene, camera, city, phys, van, hud, audio, post,
+    lights: city.lights,
+    // Forwarded getters, same reason as timeOfDay's: the garage swaps rigs live.
+    vehicle: { get headlights() { return van.headlights; } },
+    onRumble: (severity) => { chaseCam.onCrash(severity); cockpitCam.onCrash(severity); },
+    graphicsQuality,
+    enabled: worldId === 'expanse2',
+    // Quiet: the dive stages its own camera moves and tells the player how to
+    // change view once it lands in the cab.
+    setCockpit: (on) => setCockpit(on, { quiet: true }),
+    setShellVisible,
+    isCockpit: () => cockpit,
+  });
+  // `?dive=1` drops straight into the abyss, `?dive=ramp` lines the jump up.
+  // Same shape as the other probe hooks documented in the README.
+  const diveHook = qp.get('dive');
+  if (diveHook) await dive.debugEnter(diveHook === 'ramp' ? 'ramp' : 'abyss');
   let onboardingPaused = hud.isOnboardingVisible?.() ?? false;
   let garagePaused = false;
   let mapPaused = false;
@@ -433,6 +458,16 @@ async function boot() {
     orderCrash?.(severity, point);
     chaseCam.onCrash(severity);
     cockpitCam.onCrash(severity);
+    // The dash hippo's head too: a collision never shows up in latG / longG.
+    interior?.bump(severity);
+    audio.event('impact', severity);
+  };
+  // Hull strikes in the abyss shake and thump, but spill nothing: the delivery
+  // loop is paused down there, so they skip the orders hook on purpose.
+  dive.submarine.onHull = (severity) => {
+    chaseCam.onCrash(severity);
+    cockpitCam.onCrash(severity);
+    interior?.bump(severity);
     audio.event('impact', severity);
   };
 
@@ -534,7 +569,7 @@ async function boot() {
   // the same switch as the menu, so tools/probe.mjs works against an internal
   // dist build and not just the dev server.
   if (debugEnabled) {
-    window.__seoul = { city, district, van, phys, player, onFootCam, orders, input, cityMap, camera, scene, renderer, grid: city.grid, timeOfDay, debug, audio, soundtrack, graphicsQuality, THREE };
+    window.__seoul = { city, district, van, phys, dive, player, onFootCam, orders, input, cityMap, camera, scene, renderer, grid: city.grid, timeOfDay, debug, audio, soundtrack, graphicsQuality, THREE };
   }
 
   // ---- Apply test hooks ---------------------------------------------------
@@ -744,18 +779,21 @@ async function boot() {
       }
     }
 
-    // Controls
-    phys.controls.throttle = player.isDriving ? (autoDrive ? 1 : input.actionValue('throttle')) : 0;
-    phys.controls.brake = player.isDriving ? input.actionValue('brake') : 0;
-    phys.controls.steer = player.isDriving ? input.steerAxis() : 0;
-    phys.controls.handbrake = player.isDriving && input.isDown('handbrake');
+    // Controls. Written to whichever rig is live, so W/A/S/D mean the same
+    // things in the trench that they mean on the ring road — the submarine
+    // reinterprets them as thrust and rudder, and adds ballast on Space/Shift.
+    const drive = dive.physics;
+    drive.controls.throttle = player.isDriving ? (autoDrive ? 1 : input.actionValue('throttle')) : 0;
+    drive.controls.brake = player.isDriving ? input.actionValue('brake') : 0;
+    drive.controls.steer = player.isDriving ? input.steerAxis() : 0;
+    drive.controls.handbrake = player.isDriving && input.isDown('handbrake');
     if (garagePaused || mapPaused || !player.isDriving) {
-      phys.controls.throttle = 0;
-      phys.controls.brake = 0;
-      phys.controls.steer = 0;
+      drive.controls.throttle = 0;
+      drive.controls.brake = 0;
+      drive.controls.steer = 0;
       // The brake input also means reverse at low speed. Use the rear
       // handbrake as a true parking brake while the courier is outside.
-      phys.controls.handbrake = !player.isDriving;
+      drive.controls.handbrake = !player.isDriving;
     }
 
     if (!garagePaused && !mapPaused && input.pressed('interact')) {
@@ -770,9 +808,16 @@ async function boot() {
     let steps = 0;
     const footForward = onFootCam.forward;
     while (acc >= FIXED && steps < 12) {
-      phys.step(FIXED);
+      // While the dive owns the truck it is writing the pose itself — on a
+      // scripted rail down the Drain, or through the submarine integrator — so
+      // the road model must not also be stepping it.
+      if (dive.suspendRoadPhysics) dive.stepFixed(FIXED, input);
+      else phys.step(FIXED);
       player.updateFixed(FIXED, input, footForward);
-      if (props) {
+      // Props are a surface-city system: there is nothing to bump into 200 m
+      // under the Han, and feeding them a submarine's pose would have them
+      // chasing the truck down the hole.
+      if (props && !dive.suspendRoadPhysics) {
         props.world.setVehiclePose(phys.position, phys.quaternion, phys.velocity, phys.angularVelocity);
         props.world.step(FIXED);
         props.world.applyVanReaction(phys);
@@ -781,47 +826,85 @@ async function boot() {
       steps++;
     }
     if (props) props.update();
+    dive.update(dt, input);
+    // The rig whose pose is real this frame: the road model on the surface, the
+    // submarine below it. Everything downstream reads this rather than `phys`.
+    const rig = dive.physics;
 
     // Edge-triggered keys
     if (!mapPaused && input.pressed('reset')) {
-      if (player.isDriving) phys.resetToRoad();
+      // R underwater would hand the truck back to a road model that is not
+      // running and drop it at a carriageway 200 m above. Put it back under the
+      // mouth instead, which is the only "known good" pose the abyss has.
+      if (dive.isSubmerged) dive.resetInAbyss();
+      else if (player.isDriving) phys.resetToRoad();
       else player.resetToRoad();
     }
     if (!mapPaused && input.pressed('debug')) debug.toggle();
-    if (!mapPaused && input.pressed('view')) setCockpit(!cockpit);
+    // Neither view key works during the outside whirlpool shot: the dive owns the
+    // camera and has deliberately put the body shell back on.
+    if (!mapPaused && !dive.ownsCamera && input.pressed('view')) setCockpit(!cockpit);
+    // V / D-pad up cycles the chase framing, low -> medium -> high. From the cab
+    // it drops to the chase at the current angle rather than doing nothing.
+    if (!mapPaused && !dive.ownsCamera && player.isDriving && input.pressed('camAngle')) {
+      if (cockpit) setCockpit(false);
+      else {
+        const angle = chaseCam.cycleAngle();
+        hud.toast?.(`카메라 각도 · ${angle.ko}`, `Camera angle · ${angle.en}`);
+      }
+    }
 
-    // phys.position is the CENTRE OF MASS; meshPosition is the model origin.
-    van.group.position.copy(phys.meshPosition);
-    van.group.quaternion.copy(phys.quaternion);
-    van.update(dt, phys);
-    van.setBraking(phys.controls.brake > 0 && phys.forwardSpeed > 0.5);
+    // rig.position is the CENTRE OF MASS; meshPosition is the model origin.
+    // Both rigs use the same comOffset, so this line is identical either way.
+    van.group.position.copy(rig.meshPosition);
+    van.group.quaternion.copy(rig.quaternion);
+    van.update(dt, rig);
+    van.setBraking(rig.controls.brake > 0 && rig.forwardSpeed > 0.5);
+    // The second dial is a depth gauge underwater and a parked needle above it —
+    // see setDepthMode() in src/vehicle/interior.js.
+    interior?.setDepthMode(dive.isSubmerged ? ABYSS_DEPTH_M : null);
     // Cheap while hidden: update() rides the dome lamp to zero and returns
     // before touching an instrument the player cannot see.
-    interior?.update(dt, phys);
+    interior?.update(dt, rig);
 
     if (!overview && !mapPaused) {
       const lookAxes = input.consumeLookAxes();
-      if (!player.isDriving) onFootCam.update(dt, player, lookAxes);
-      else if (cockpit) cockpitCam.update(dt, phys, lookAxes);
-      else chaseCam.update(dt, phys, lookAxes);
+      // Pull the chase camera in against whichever world the truck is in — the
+      // city's collider is 60 m overhead and knows nothing about the abyss walls.
+      // Scripted stretches (the whirlpool, the Drain, the spit) get no pull-in:
+      // the truck is under the river bed there, and the city collider would
+      // yank the camera into the cab from below.
+      chaseCam.city = dive.isSubmerged && dive.abyss ? dive.abyss
+        : dive.suspendRoadPhysics ? null : city;
+      if (dive.ownsCamera) dive.updateCamera(dt, camera);
+      else if (!player.isDriving && !dive.suspendRoadPhysics) onFootCam.update(dt, player, lookAxes);
+      else if (cockpit) cockpitCam.update(dt, rig, lookAxes);
+      else chaseCam.update(dt, rig, lookAxes);
+      dive.afterCamera(dt, camera);
     }
     player.updateVisual(dt);
-    city.update(dt, camera);
-    rain.update(dt, camera);
-    orders.update(dt, input);
+    // Surface-city systems. The city is hidden while the dive owns the camera,
+    // so its chunk culling and streetlight pool have nothing to decide, and the
+    // delivery loop's navigation would be routing a submarine along a road.
+    if (!dive.suspendRoadPhysics) {
+      city.update(dt, camera);
+      rain.update(dt, camera);
+      orders.update(dt, input);
+    }
     const rainAmount = rain.level === 'heavy' ? 1 : rain.level === 'light' ? 0.48 : 0;
     const skid = Math.min(1, Math.max(
-      phys.controls.handbrake ? 0.75 : 0,
-      phys.speedKmh > 18 ? Math.abs(phys.latG) * 0.9 : 0
+      rig.controls.handbrake ? 0.75 : 0,
+      rig.speedKmh > 18 ? Math.abs(rig.latG) * 0.9 : 0
     ));
     audio.update({
-      speed: player.isDriving && !mapPaused ? phys.forwardSpeed : 0,
-      throttle: player.isDriving && !mapPaused ? phys.controls.throttle : 0,
-      skid: mapPaused ? 0 : skid,
-      rain: rainAmount,
+      speed: player.isDriving && !mapPaused ? rig.forwardSpeed : 0,
+      throttle: player.isDriving && !mapPaused ? rig.controls.throttle : 0,
+      // No tire noise underwater, and no rain under the river.
+      skid: mapPaused || dive.suspendRoadPhysics ? 0 : skid,
+      rain: dive.suspendRoadPhysics ? 0 : rainAmount,
     });
-    hud.setSpeed(player.isDriving ? phys.speedKmh : 0);
-    uiSlice?.update(dt, phys);
+    hud.setSpeed(player.isDriving ? rig.speedKmh : 0);
+    uiSlice?.update(dt, rig);
     debug.update(dt);
 
     post.render(dt);
@@ -830,7 +913,7 @@ async function boot() {
     // renderer.info is reset per render(), so it only means anything AFTER the
     // frame has actually been drawn.
     if (statsEl) {
-      const p = phys.meshPosition;
+      const p = rig.meshPosition;
       const tile = city.grid.indexAt(p.x, p.z);
       const vis = city.tiles.reduce((n, t) => n + (t.root.visible ? 1 : 0), 0);
       const det = city.tiles.reduce((n, t) => n + (t.root.visible && t.detail.visible ? 1 : 0), 0);
@@ -839,12 +922,13 @@ async function boot() {
       statsEl.textContent =
         `van (${p.x.toFixed(1)}, ${p.y.toFixed(2)}, ${p.z.toFixed(1)}) ` +
         `tile ${tile} of ${city.grid.count} (${vis} drawn, ${det} dressed) | ` +
-        `mode ${player.mode} | locomotion ${player.state} | grounded ${player.isDriving ? `${phys.groundedWheels}/4` : player.grounded}\n` +
-        `v ${phys.speedKmh.toFixed(1)} km/h | order ${orders.state}\n` +
+        `mode ${player.mode} | locomotion ${player.state} | grounded ${player.isDriving ? `${rig.groundedWheels}/4` : player.grounded}\n` +
+        `v ${rig.speedKmh.toFixed(1)} km/h | order ${orders.state} | dive ${dive.state}` +
+        (dive.isSubmerged ? ` | depth ${dive.depthM.toFixed(0)} m` : '') + `\n` +
         (chunks ? `chunks ${chunks.visible}/${chunks.total} detail ${chunks.detailed} micro ${chunks.micro} | ` : '') +
         `draws ${r.calls} tris ${(r.triangles / 1000).toFixed(0)}k | ` +
         `props ${props ? props.stats.placed : 0} awake ${props ? props.world.awakeCount : 0} | ` +
-        `dt ${dt.toFixed(4)} steps ${steps} vy ${phys.velocity.y.toFixed(2)} | killY ${city.killY.toFixed(2)}`;
+        `dt ${dt.toFixed(4)} steps ${steps} vy ${rig.velocity.y.toFixed(2)} | killY ${city.killY.toFixed(2)}`;
     }
 
     if (firstFrame) {

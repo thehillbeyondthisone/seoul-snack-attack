@@ -18,6 +18,7 @@
 // player looks straight out through it. Nothing has to be toggled.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createDashHippo } from './dash-hippo.js';
 
 const MOVERS = ['steering_wheel', 'needle_speed', 'needle_fuel'];
 const DEG = Math.PI / 180;
@@ -78,6 +79,16 @@ export async function loadInterior(manager, def) {
   dome.position.fromArray(spec.dome);
   group.add(dome);
 
+  // ---- Dashboard hippo -----------------------------------------------------
+  // Optional per cabin, the way the cabin is optional per vehicle. It is code,
+  // not a node in the GLB, so the recipe never has to know it exists.
+  let hippo = null;
+  if (spec.hippo) {
+    hippo = createDashHippo({ yaw: spec.hippo.yaw });
+    hippo.group.position.fromArray(spec.hippo.position);
+    group.add(hippo.group);
+  }
+
   const wheel = byName.get('steering_wheel');
   const needleSpeed = byName.get('needle_speed');
   const needleFuel = byName.get('needle_fuel');
@@ -89,7 +100,11 @@ export async function loadInterior(manager, def) {
   const [sweepZero, sweepFull] = spec.needleSweep;
   const fullScale = spec.speedFullScale;
   let shownSpeed = 0;
+  let shownDepth = 0;
   let lit = 0;
+  // Metres of depth at full deflection, or null while the truck is a truck.
+  // See setDepthMode below.
+  let depthFullScale = null;
 
   return {
     group,
@@ -102,6 +117,26 @@ export async function loadInterior(manager, def) {
     /** Show or hide the cabin. Hidden is the chase-camera case. */
     setVisible(on) {
       group.visible = on;
+    },
+
+    /**
+     * Bind the second dial to depth, or hand it back.
+     *
+     * `needle_fuel` has been parked since the cab shipped, on the grounds that
+     * a gauge bound to something that is not fuel is a lie the player reads as
+     * one. The abyssal dive (src/game/dive.js) is the case that makes it true:
+     * underwater, the second dial is a depth gauge, reading `phys.depthM` from
+     * the submarine rig. Above water it goes back to being parked, because
+     * there is still no tank.
+     *
+     * @param {number|null} fullScaleM  metres at full deflection, null to park
+     */
+    setDepthMode(fullScaleM) {
+      depthFullScale = Number.isFinite(fullScaleM) && fullScaleM > 0 ? fullScaleM : null;
+      if (depthFullScale === null) {
+        shownDepth = 0;
+        needleFuel.rotation.z = sweepZero * DEG;
+      }
     },
 
     update(dt, phys) {
@@ -126,12 +161,29 @@ export async function loadInterior(manager, def) {
       shownSpeed += (target - shownSpeed) * Math.min(1, dt * 6);
       needleSpeed.rotation.z = THREE.MathUtils.lerp(sweepZero, sweepFull, shownSpeed) * DEG;
 
-      // needle_fuel is left at its shipped pose ON PURPOSE. There is no fuel
-      // system in the game, and a gauge bound to something that is not fuel is
-      // a lie the player reads as one. The node stays addressable for the day
-      // a tank lands; until then it is a parked needle, which is what a parked
-      // needle looks like.
-      void needleFuel;
+      // needle_fuel is parked at its shipped pose unless something has claimed
+      // it. There is still no fuel system, and a gauge bound to something that
+      // is not fuel is a lie the player reads as one — but `setDepthMode()`
+      // binds it to a quantity that IS real while the truck is underwater, and
+      // a depth gauge in a submarine is not a lie. See setDepthMode above.
+      if (depthFullScale !== null) {
+        const depth = Number.isFinite(phys.depthM) ? phys.depthM : 0;
+        const target = THREE.MathUtils.clamp(depth / depthFullScale, 0, 1);
+        // The same needle mass as the speedometer, and slower: a depth gauge
+        // that snapped would read as a readout rather than an instrument.
+        shownDepth += (target - shownDepth) * Math.min(1, dt * 3.5);
+        needleFuel.rotation.z = THREE.MathUtils.lerp(sweepZero, sweepFull, shownDepth) * DEG;
+      }
+
+      hippo?.update(dt, phys);
+    },
+
+    /**
+     * A knock the rig's G telemetry never sees — a crash, a hull strike. Only
+     * the dash hippo cares today; the camera shake has its own hook.
+     */
+    bump(severity) {
+      hippo?.bump(severity);
     },
 
     dispose() {
@@ -142,6 +194,7 @@ export async function loadInterior(manager, def) {
         for (const m of Array.isArray(o.material) ? o.material : [o.material]) m?.dispose();
       });
       dome.dispose?.();
+      hippo?.dispose();
     },
   };
 }

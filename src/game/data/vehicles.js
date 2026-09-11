@@ -140,6 +140,15 @@ export const VEHICLES = {
       // Degrees, CLOCKWISE from the driver's seat, zero first. A 250-degree
       // sweep with the rest position at lower-left, like every speedometer.
       needleSweep: [-125, 125],
+      // The dashboard hippo (src/vehicle/dash-hippo.js), interior-local like
+      // `eye`. The recipe's dash_top face is at z 0.99 spanning y -1.72 .. -1.28;
+      // with the same (0.055, 0.10) shift that is y 0.99 and z 1.18 .. 1.62.
+      // z 1.30 is the driver's half of that, and x 0.18 is 0.43 m inboard of the
+      // wheel: at 22 cm the hippo spans roughly x 0.12 .. 0.25, clear of the
+      // binnacle (0.335 .. 0.935), and the sightline from `eye` passes right of
+      // it. Yaw points the snout at the passenger door, turned about 60 degrees
+      // toward the driver: the photo's three-quarter view, open mouth and all.
+      hippo: { position: [0.18, 0.99, 1.3], yaw: -2.5 },
     },
 
     rig: {

@@ -78,7 +78,24 @@ export class AudioManager {
       this.ambience.gain.value = this.ambienceLevel;
       this.sfx.connect(this.master);
       this.ambience.connect(this.master);
-      this.master.connect(this.ctx.destination);
+      // Underwater muffle: a lowpass the whole mix passes through, wide open on
+      // the surface. See setUnderwater().
+      this.muffle = this.ctx.createBiquadFilter();
+      this.muffle.type = 'lowpass';
+      this.muffle.frequency.value = 20000;
+      this.master.connect(this.muffle).connect(this.ctx.destination);
+
+      // The deep: filtered noise, silent until the dive asks for it.
+      this.deepSource = this.ctx.createBufferSource();
+      this.deepSource.buffer = this._makeNoiseBuffer(3);
+      this.deepSource.loop = true;
+      this.deepFilter = this.ctx.createBiquadFilter();
+      this.deepFilter.type = 'lowpass';
+      this.deepFilter.frequency.value = 120;
+      this.deepGain = this.ctx.createGain();
+      this.deepGain.gain.value = 0.0001;
+      this.deepSource.connect(this.deepFilter).connect(this.deepGain).connect(this.master);
+      this.deepSource.start();
 
       this.engine = this.ctx.createOscillator();
       this.engine.type = 'sawtooth';
@@ -159,6 +176,54 @@ export class AudioManager {
         this._tone({ frequency: 75 + amount * 18, duration: 0.08 + Math.min(amount, 8) * 0.02, type: 'square', volume: Math.min(0.16, 0.035 + amount * 0.012), slide: -40 });
         break;
       }
+      case 'sonar':
+        this._tone({ frequency: 880, duration: 1.4, volume: 0.09, slide: -12 });
+        setTimeout(() => this._tone({ frequency: 880, duration: 1.1, volume: 0.035, slide: -12 }), 420);
+        break;
+      case 'leviathan':
+        // Two detuned groans sliding down — something big exhaling nearby.
+        this._tone({ frequency: 92, duration: 3.2, type: 'sawtooth', volume: 0.12, slide: -38 });
+        this._tone({ frequency: 61, duration: 3.6, volume: 0.2, slide: -22 });
+        break;
+      case 'splash': {
+        if (!this.ctx || this.muted) return;
+        const now = this.ctx.currentTime;
+        const src = this.ctx.createBufferSource();
+        src.buffer = this._makeNoiseBuffer(1);
+        const band = this.ctx.createBiquadFilter();
+        band.type = 'lowpass';
+        band.frequency.setValueAtTime(3200, now);
+        band.frequency.exponentialRampToValueAtTime(260, now + 0.9);
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.55, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.0);
+        src.connect(band).connect(gain).connect(this.sfx);
+        src.start(now);
+        src.stop(now + 1.05);
+        break;
+      }
+      case 'whirlpool': {
+        // The Han opening a plughole: a roar that swells and climbs in pitch
+        // over the ~3 s the truck circles before it goes under.
+        if (!this.ctx || this.muted) return;
+        const now = this.ctx.currentTime;
+        const src = this.ctx.createBufferSource();
+        src.buffer = this._makeNoiseBuffer(4);
+        const band = this.ctx.createBiquadFilter();
+        band.type = 'bandpass';
+        band.Q.value = 0.8;
+        band.frequency.setValueAtTime(220, now);
+        band.frequency.exponentialRampToValueAtTime(900, now + 3.2);
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.5, now + 2.6);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 3.9);
+        src.connect(band).connect(gain).connect(this.sfx);
+        src.start(now);
+        src.stop(now + 4);
+        break;
+      }
       case 'skid': {
         const now = performance.now();
         if (now - this.lastSkid < 120) return;
@@ -185,6 +250,21 @@ export class AudioManager {
     // ambience bus still lets the player turn it down independently.
     this.rainGain.gain.setTargetAtTime(this.muted ? 0.0001 : 0.001 + rain * 0.16, now, 0.15);
     if (skid > 0.35) this.event('skid', skid);
+  }
+
+  /**
+   * 0 on the surface, 1 at the bottom of the Drain. Closes the whole mix down
+   * to a muffled thump and brings up the deep's rumble. Driven continuously by
+   * src/game/dive.js, so it doubles as the descent's audio curve.
+   */
+  setUnderwater(amount) {
+    const k = Math.max(0, Math.min(1, Number(amount) || 0));
+    if (k === this._underwater) return;
+    this._underwater = k;
+    if (!this.ctx || !this.muffle) return;
+    const now = this.ctx.currentTime;
+    this.muffle.frequency.setTargetAtTime(20000 * Math.pow(1100 / 20000, k), now, 0.12);
+    this.deepGain.gain.setTargetAtTime(Math.max(0.0001, k * 0.28), now, 0.3);
   }
 
   toggleMute() {

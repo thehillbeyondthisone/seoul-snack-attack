@@ -357,7 +357,47 @@ npm run quickstart   # or double-click Quick Start.cmd
     offscreen); the pattern needs to reach props and any other deferred model
     geometry. **Explicitly excluded for now: the pocha interior** — it stays a
     load-time attach and gets its own deferral when cockpit entry becomes a
-    "submersion" transition, not before.
+    "submersion" transition, not before. **2026-09-10: that transition now
+    exists** (see "the abyssal dive" below) and the interior deferral is
+    unblocked — the Drain is a ready-made cover for it.
+11. **Full-city map zoom (`M`) — open:** the map (`src/ui/city-map.js`) fits the
+    whole city to the canvas every frame; `linearScale` is the only knob and it
+    is debug-only. Want GTA-V-style wheel / trackpad-pinch zoom with pan, anchored
+    on the cursor (or the pinch centroid). `createMapProjection` already exposes
+    `project` / `unproject`, so the work is an input layer + a pan/zoom offset
+    the projection reads, plus clamping so you cannot lose the city off-screen.
+    Scale bar and bounds box already recompute from `projection.scale`, so they
+    follow for free. **Grouped with 12 as a navigation-polish pass.**
+12. **Minimap zoom scale — setting + speed-driven — open:** `HUD3.setMiniMap`
+    hard-codes `VIEW_M = 110` ("Fixed zoom, so the scale bar is a constant") in
+    `src/ui/hud3.js`. Want (a) a persisted setting for the radar's metres-at-rim,
+    wired into the debug menu next to `setMiniMapFlip`, and (b) a dynamic mode
+    that widens `VIEW_M` as speed rises (more road ahead at 60 km/h, tight at a
+    stop), eased so it does not pump. The scale bar and its `${VIEW_M/2} m` label
+    are drawn from the constant, so they must move to whatever value the frame
+    used. **Grouped with 11.**
+13. **Pickup / dish 3D models sit off-centre — open:** `normalizeModel` in
+    `src/game/food-display.js` centres X/Z but rests the base at local Y=0 (right
+    for the world beacon it hovers on a pole). The two HUD previews —
+    `src/ui/food-preview.js` (offer/ticket canvas) and the `FoodDisplay` marker
+    render — inherit that, so the model sits low in the 62 px disc and spins
+    about its base rather than its middle. Fix: give the previews their own
+    centre-on-bbox-centre (vertical included) or derive `camera.lookAt` / distance
+    from the measured height; re-check the multi-item `spacing` while there. The
+    "loading is a bit better" the user noticed is the food GPU warm-up that
+    already landed.
+14. **`?world=expanse2` (Quick Start [2]) shows no street-name blade — open:**
+    `describeStreet` in `src/world/expanse-street-names.js` keys
+    `EXPANSE_STREET_NAMES` by the 35 **layout** edge ids. `?world=expanse` feeds
+    `layout.edges` straight into `createRoadGraph`, so the ids match and the blade
+    works. `?world=expanse2` builds its graph from `generateExpanseStreets(layout)`
+    (`src/world/expanse2-city.js`), whose edges are re-cut — `e_a__b`, `perim_N`,
+    `${id}__sN`, `r_…`, `t_…` — and only the split segments carry `parentId` back
+    to the layout edge. Fix: fall back to `edge.parentId` (and its chain) in
+    `describeStreet`; decide whether perimeter / roundabout / connector ids get
+    their own names or the blade just stays hidden on them. This is a regression
+    in the mode we are steering players toward and the fix is small — worth doing
+    out of band from 11/12.
 
 ## 2026-08-27 — headless Blender food recipes
 
@@ -457,4 +497,188 @@ assertions, also part of `npm run expanse-check`).
 - Read `README.md` (game docs), `ATTRIBUTION.md` (licensing — check BEFORE adding any asset), and this file first.
 - District ids in the colour bible are FROZEN; display names/palettes are the creative surface.
 - Validate with `npm run check` + `node tools/probe.mjs` (headless Chrome, console + state + screenshot; use small `--size`).
-- Useful QA params: `?car=pocha|van`, `?shop=<id>`, `?offer=1&accept=1`, `?time=night|day`, `?overview=1`, `?stats=1`, `?gfx=mobile|desktop`, `?props=gallery`, `?intro=off`.
+- Useful QA params: `?car=pocha|van`, `?shop=<id>`, `?offer=1&accept=1`, `?time=night|day`, `?overview=1`, `?stats=1`, `?gfx=mobile|desktop`, `?props=gallery`, `?intro=off`, `?dive=1|ramp`.
+
+## 2026-09-10 — the abyssal dive
+
+Drive the pocha off the north-bank ramp at speed and the Han opens a plughole.
+The view snaps to the cab, you spiral down **the Drain** for ~7 s, and arrive in
+**the Abyss** driving a submarine. `?world=expanse2` only — the ramp is geometry
+that world builds into its collider, so there is nothing to drive off elsewhere.
+
+**The load-hiding idea, which is the reason the feature is shaped like this.**
+The abyss has to be built (geometry + a BVH) and that takes an unknown time on
+an unknown machine. Rather than a loading screen, the build hides inside a fall
+down a hole, because a fall down a hole has no duration a player can be wrong
+about. `dive.js` advances a 0..1 `progress` on a timer but clamps it at
+`HOLD_AT` (0.82) until the abyss resolves, while the Drain's scroll rate keeps
+climbing. Held, the sequence reads as "this is getting worse", not "this is
+waiting". The build is kicked off at the top of the ramp, not at the water, so
+the hold usually never engages at all.
+
+### Files
+
+| | |
+|---|---|
+| `src/world/dive-ramp.js` | Ramp geometry **and** the trigger volume, so the structure and the thing watching for it cannot drift apart. Sited at x = 120 on the north quay — the widest gap between the main and east bridges. |
+| `src/world/the-drain.js` | The curtain. Two scrolling canvas-texture shells, a shrinking sky disc, and `pathAt(t)` — the scripted descent. No GLSL: a shader that fails to compile mid-transition has no way back. |
+| `src/world/abyss.js` | The pocket: displaced floor, wall, ceiling with the mouth cut out, five sunken landmarks, drifting motes, its own BVH. All arithmetic, nothing loaded. |
+| `src/vehicle/submarine.js` | A separate integrator, not a mode inside `physics.js`. Exposes the exact read surface `VehiclePhysics` does, which is why `CockpitCamera` works down there unchanged. |
+| `src/game/dive.js` | The state machine, the trigger, and the load gate. |
+
+### Decisions worth keeping
+
+- **The submarine is a second rig, not a flag.** The road model is four
+  suspension raycasts and a friction ellipse that took real tuning; none of it
+  means anything in open water. `main.js` reads `dive.physics` and gets whichever
+  rig is live. `attachFrom(phys)` borrows the wheel layout and `comOffset` so the
+  truck still renders as a truck (wheels hanging at full droop, still spinning)
+  and does not jump at the handover.
+- **`needle_fuel` is no longer parked.** It was left unbound on the grounds that
+  a gauge bound to something that is not fuel is a lie. `interior.setDepthMode()`
+  binds it to depth while submerged, which is a quantity that is actually real.
+  There is still no fuel system; above water it goes back to being parked.
+- **The Drain's axis eases from the entry point to the abyss mouth.** Without
+  that the descent ends directly under wherever the jump happened to land, which
+  for this ramp is 123 m from the centre of a 95 m-radius pocket — outside its
+  own wall. `pathAt(1)` now lands exactly on the arrival point, so the arrival
+  blend is orientation-only.
+- **Pocket size is budgeted against fog, not taste.** The first build was 300 m
+  across and 185 m deep against a fog clearing at ~50 m, so the player arrived in
+  a void with everything outside its own draw distance. `ABYSS.radius` and
+  `UNDERWATER_FOG_DENSITY` are a pair; move one and you must move the other.
+
+### Known gaps
+
+- **Art values: first real-GPU pass done (pass 2, below).** Light intensities,
+  bloom and the new life were checked on an RTX 4060 in the in-app browser.
+  Fog colour/density are unchanged from the SwiftShader tuning and look right.
+- **The hold path has never actually engaged here.** The abyss builds in well
+  under the ~3 s of head start the ramp gives it, so `HOLD_AT` has not been
+  exercised on this machine. It wants testing under a throttled CPU before anyone
+  trusts it.
+- **The return is composed now (pass 2).** The Drain runs in reverse from where
+  you rose, and the Han spits the truck out backwards over the ramp onto the
+  apron. Scripted arc, so it cannot land badly.
+- **Nothing to do down there yet.** No orders, no collectables, no reason to
+  visit twice. The ramen cup is modelled open and big enough to drive into, and
+  there is deliberately nothing inside it.
+- **`interior.js`'s header is now stale** — it still says the exterior shell is
+  not hidden because the materials are single-sided. `main.js` has hidden it via
+  `setShellVisible()` since the cockpit landed (handoff 2026-09-10 records why).
+  Unrelated to the dive; noticed in passing.
+
+### Pass 2 (same day) — fixes from the first playtest
+
+The first playtest (chase view) showed the truck upside down, tumbling, against
+a brown sky with two flat coloured slabs in it. Four separate bugs:
+
+1. **The sub tumbled.** `submarine.js`'s pitch controller had its sign flipped
+   (+X is body LEFT, so a positive rotation about it is nose-DOWN), and the
+   righting torque is zero when inverted. **Attitude is now kinematic**: yaw,
+   pitch and bank are clamped, smoothed angles (pitch <= 0.38, bank <= 0.28 rad)
+   composed each step. Collisions move position/velocity only. The user's rule:
+   the truck always stays upright. A 5-minute random-input fuzz never exceeded
+   25 degrees of tilt.
+2. **The Drain handed over nose-UP.** `pathAt` returned `pitch: -lerp(...)`
+   believing negative was nose-down. It now returns `pitchUp` (positive up):
+   look up the throat at the shrinking sky, then roll nose-down for the
+   break-through. `setAttitude()` hands that pose straight to the sub.
+3. **The floor and wall were invisible.** The floor was wound normal-down and
+   the inward-wound wall used `BackSide`, so both were culled from inside. All
+   shells are `DoubleSide` now, and the floor winding is fixed.
+4. **The surface look leaked in.** The amber sky texture, the city's
+   hemi/ambient/moon rig (on the scene root, so hiding the city did not hide
+   them) and env reflections all stayed on. `dive.js` snapshots and restores
+   them, plus headlights and bloom.
+
+Also new in pass 2:
+
+- **`src/world/abyss-life.js`**: camera-wrapped marine snow (the old lattice
+  snap popped), light shafts in a ring around the mouth (never on the arrival
+  axis — a camera inside stacked additive cones saw only teal), the gochujang
+  Vent in the trench (glow, light, bubble column), instanced jellyfish,
+  six lanternfish schools that scatter from the truck, and **the Bungeo**, a
+  fifty-metre bungeoppang with an anglerfish lure circling the pocket.
+- **Analytic containment** (`abyss.contain`): floor height, wall radius,
+  domed ceiling and the mouth shaft as arithmetic, so the sub cannot tunnel
+  the shell. The BVH probes now only matter for the landmarks.
+- **Landmark skins**: canvas map + emissiveMap (vending machine buttons, bus
+  windows, ramen label, soju label); the face lost its glow and gained eyes.
+- **Break-through arrival**: the abyss is drawn from progress 0.8 while the
+  throat dissolves, so arriving is a reveal, not a cut. It also hides the
+  light-count shader recompile inside the throat.
+- **Audio**: a master lowpass driven by `setUnderwater()`, a deep rumble,
+  sonar pings, a leviathan groan when the Bungeo passes, and a splash.
+- **Headlight beams**: additive cones on each lamp while submerged.
+
+Light values were tuned on the real GPU. The SwiftShader numbers read as a
+bright lagoon: shaft light 0.6, hemi 0.4, vent 260, lure 180, headlights 170,
+bloom 0.9 / 0.7 / threshold 0.9.
+
+## 2026-09-11 — the whirlpool shot, swimming depth, chase camera angles
+
+Three playtest asks.
+
+### 1. "Make it obvious you're being pulled down"
+
+The dive cut to the cab at the splash, so the player only ever saw a dark tube.
+There is now a **`caught`** state (~2.8 s) between `launched` and `descending`:
+
+- **`createWhirlpool()`** (`src/world/the-drain.js`): two flat spiral-foam
+  canvas discs over a black core, on the river surface. Flat on purpose — the
+  river is an opaque slab, so anything modelled below y = 0 would be hidden.
+- **The pool is solved at the splash.** Its centre sits ahead-left of the truck
+  (0.9 rad off the tangent) and is clamped so a 20 m pool stays inside RIVER
+  (z 125..205). The truck circles it on a spiral whose sweep is solved so it
+  leaves at the splash speed and arrives turning at exactly `pathAt(0)`'s rate
+  (`DRAIN_START_SPIN`). `pathAt`'s spin no longer eases in from zero (it starts
+  at 0.75 of the mean rate and still settles at the bottom). The Drain opens on
+  the pool's centre, so `caughtPose(1)` and `pathAt(0)` are the same pose.
+- **Camera.** `dive.ownsCamera` / `dive.updateCamera()` frame an outside shot
+  standing opposite the arc's midpoint; `dive.afterCamera()` (called by
+  main.js after every camera) blends moves — 0.7 s out to the shot, 1.15 s back
+  into the cab. The surface look (city, sky) is kept until the camera crosses
+  the water; the body shell stays on until the flight is 96% in. On landing in
+  the seat a toast says `Press C to change view · V camera angle` (gamepad and
+  Korean variants). C and V are ignored during the outside shot.
+- `setCockpit(on, { quiet })` — the dive's own toggles no longer toast.
+- `chaseCam.city` is null during scripted stretches, so pressing C mid-Drain
+  does not have the city collider yank the camera in from under the river bed.
+- **Return fix:** `open()` takes the spiral's axis, so the ride up now ends ON
+  `SPIT_FROM` instead of a 14 m hop from it.
+- Audio: a `whirlpool` event, a bandpass roar that swells while you circle.
+
+### 2. Swim down, climb slowly, sink hands-off
+
+`submarine.js` now commands vertical speed instead of balancing buoyancy
+against 13 kN of ballast (which made Space and Shift rockets): hands-off
+0.7 m/s down, Shift/RB 4.4 m/s down, Space/A 1.8 m/s up, correction capped at
+12 kN so hull strikes still bounce. Pitch is measured from the idle sink, so
+drifting down stays level and only a deliberate dive or climb tips the nose.
+The mouth's return trigger is now half the climb rate (it was a fixed 1 m/s).
+
+### 3. Chase camera: low / medium / high
+
+`CHASE_ANGLES` in `src/vehicle/camera.js` — pitch offsets and distance scales
+on each rig's own framing, so the pocha and the van keep distinct framings.
+**V** / **D-pad up** cycles (`camAngle` in input.js); the choice persists in
+`localStorage['snack-attack-chase-angle']`. From the cab, V drops to the chase
+at the current angle.
+
+### Verification
+
+- **Headless harness** (Node, stub DOM, the real `dive.js` / `the-drain.js` /
+  `submarine.js`; kept in a session scratchpad, not the repo): it caught a
+  one-frame stall at the whirlpool → Drain handover (~1200 m/s², the last
+  circling step was clamped). Fixed by handing the leftover step time to the
+  Drain; the seam now measures 29–41 m/s², about the circling's own centripetal
+  load (v²/r ≈ 28). Speed across the seam 20.2 → 20.3 m/s; the pool stays in the
+  river for headings 0 / ±0.35 at 10–20 m/s; the look swaps with the camera at
+  y = −0.35; the return gap is 0; sub speeds and pitch are as listed above.
+- **Browser:** the whirlpool was rendered on the river and screenshotted from the
+  outside shot's vantage — it reads as a plughole.
+- **Not verified live:** the full ramp → whirlpool → cab sequence was never
+  watched end to end. The preview ran far below real time, and another chat's
+  dev server kept hot-reloading the page. Watch one real jump before trusting
+  the shot framing or the blend timings.

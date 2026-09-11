@@ -39,6 +39,7 @@ import { buildExpanseFacadeMeshes } from './expanse-facade-mesh.js';
 import { buildExpanseVisualChunks, updateExpanseVisualChunks } from './expanse-chunks.js';
 import { createExpanseSurfaceTextures, SURFACE_TILE } from './expanse-surface-art.js';
 import { generateExpanseRoadPaint, buildExpanseRoadPaint, ROAD_LIFT } from './expanse-road-paint.js';
+import { buildDiveRampGeometry } from './dive-ramp.js';
 import { DISTRICTS as PALETTES } from './data/color-bible.js';
 
 const DOWN = new THREE.Vector3(0, -1, 0);
@@ -343,6 +344,16 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
   );
   water.name = 'expanse2_river';
   group.add(water);
+
+  // The dive ramp on the north quay. Collision AND geometry come from
+  // src/world/dive-ramp.js so the structure and the trigger volume that watches
+  // for it cannot drift apart — see that module's header.
+  const rampParts = buildDiveRampGeometry();
+  for (const part of rampParts) collisionParts.push(toCollision(part));
+  const diveRamp = new THREE.Mesh(mergeGeometries(rampParts, false), bridgeMat);
+  for (const part of rampParts) part.dispose();
+  diveRamp.name = 'expanse2_dive_ramp';
+  group.add(diveRamp);
 
   onPhase?.(22, '도로 포장 중 · Paving 452 roads');
   const roadsRoot = new THREE.Group();
