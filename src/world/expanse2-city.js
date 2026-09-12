@@ -33,7 +33,7 @@ import { generateExpanseMassing } from './expanse-massing.js';
 import { generateExpanseFacades } from './expanse-facades.js';
 import { generateExpansePickups, buildExpansePickups } from './expanse-pickups.js';
 import { generateExpanseLandmarks, buildExpanseLandmarks } from './expanse-landmarks.js';
-import { createExpanseFacadeTextures } from './expanse-facade-art.js';
+import { createExpanseFacadeTexturesAsync } from './expanse-facade-art.js';
 import { createExpanseSignAtlas } from './expanse-sign-art.js';
 import { buildExpanseFacadeMeshes } from './expanse-facade-mesh.js';
 import { buildExpanseVisualChunks, updateExpanseVisualChunks } from './expanse-chunks.js';
@@ -41,6 +41,7 @@ import { createExpanseSurfaceTextures, SURFACE_TILE } from './expanse-surface-ar
 import { generateExpanseRoadPaint, buildExpanseRoadPaint, ROAD_LIFT } from './expanse-road-paint.js';
 import { buildDiveRampGeometry } from './dive-ramp.js';
 import { DISTRICTS as PALETTES } from './data/color-bible.js';
+import { generateStreetDetail, buildStreetDetail, buildShopSpills } from './expanse-street-detail.js';
 
 const DOWN = new THREE.Vector3(0, -1, 0);
 const UP = new THREE.Vector3(0, 1, 0);
@@ -78,38 +79,29 @@ function polylineLength(points) {
  * Flat ribbon along a polyline, `lift` above the points' own elevation.
  *
  * M6 added the UVs, and they are LOCKED TO METRES rather than to the ribbon:
- * `u` runs across the carriageway and `v` along its arc length, both divided by
- * SURFACE_TILE.asphalt. A 22 m ring road and a 5 m alley therefore carry
- * aggregate at the same physical size, which is what stops an alley reading as
- * a close-up of a ring road. `v` accumulates across segments so a polyline bend
- * does not restart the grain.
+ * World X/Z divided by SURFACE_TILE.asphalt gives every road the same grain
+ * size and orientation. Overlapping roads at a junction sample identical
+ * pixels instead of restarting and rotating the normal/roughness maps.
  */
-function roadGeometry(points, width, lift = 0, tile = SURFACE_TILE.asphalt) {
+export function roadGeometry(points, width, lift = 0, tile = SURFACE_TILE.asphalt) {
   const vertices = [];
   const uvs = [];
   const half = width * 0.5;
-  const u0 = -half / tile;
-  const u1 = half / tile;
-  let travelled = 0;
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1];
     const b = points[i];
     TMP_A.copy(b).sub(a).setY(0);
     if (TMP_A.lengthSq() < 1e-6) continue;
-    const segment = TMP_A.length();
     TMP_A.normalize();
     TMP_N.set(-TMP_A.z, 0, TMP_A.x).multiplyScalar(half);
     const al = a.clone().add(TMP_N); al.y += lift;
     const ar = a.clone().sub(TMP_N); ar.y += lift;
     const bl = b.clone().add(TMP_N); bl.y += lift;
     const br = b.clone().sub(TMP_N); br.y += lift;
-    const va = travelled / tile;
-    const vb = (travelled + segment) / tile;
-    travelled += segment;
     vertices.push(al.x, al.y, al.z, bl.x, bl.y, bl.z, br.x, br.y, br.z);
-    uvs.push(u0, va, u0, vb, u1, vb);
+    uvs.push(al.x / tile, al.z / tile, bl.x / tile, bl.z / tile, br.x / tile, br.z / tile);
     vertices.push(al.x, al.y, al.z, br.x, br.y, br.z, ar.x, ar.y, ar.z);
-    uvs.push(u0, va, u1, vb, u1, va);
+    uvs.push(al.x / tile, al.z / tile, br.x / tile, br.z / tile, ar.x / tile, ar.z / tile);
   }
   if (!vertices.length) return null;
   const geometry = new THREE.BufferGeometry();
@@ -255,12 +247,26 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
   textureScale = 1,
   detailIntensity = 1,
 } = {}) {
+  const started = performance.now();
+  const loadingStats = { phases: [], totalMs: 0 };
+  let lastPhase = started;
+  const yieldTask = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const phase = async (percent, label) => {
+    const now = performance.now();
+    loadingStats.phases.push({ label, ms: now - lastPhase });
+    lastPhase = now;
+    onPhase?.(percent, label);
+    await yieldTask();
+  };
   onPhase?.(4, '서울 익스팬스 재건 계획 생성 중 · Generating the Expanse rebuild plan');
   const layout = generateExpanseLayout();
   const streets = generateExpanseStreets(layout);
+  await phase(6, '도시 블록 생성 중 · Cutting city blocks');
   const plan = generateExpanseBlocks(streets);
+  await phase(8, '건물 계획 중 · Planning buildings');
   const massing = generateExpanseMassing(plan, streets);
   const facades = generateExpanseFacades(massing, streets);
+  await phase(10, '상점 계획 중 · Planning shops');
   // M5. Both are pure data at this point — the eight bound storefronts and
   // the five crowned buildings — so `expanse-route-check` measures exactly
   // what the runtime is about to build meshes and a delivery loop from.
@@ -330,7 +336,7 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
     groundMat.normalScale.set(0.5, 0.5);
   }
 
-  onPhase?.(12, '지면과 강 생성 중 · Laying ground and river');
+  await phase(12, '지면과 강 생성 중 · Laying ground and river');
   const collisionParts = [];
   const groundParts = groundSlabs(streets.bounds, river);
   for (const part of groundParts) collisionParts.push(toCollision(part));
@@ -355,7 +361,7 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
   diveRamp.name = 'expanse2_dive_ramp';
   group.add(diveRamp);
 
-  onPhase?.(22, '도로 포장 중 · Paving 452 roads');
+  await phase(22, '도로 포장 중 · Paving 452 roads');
   const roadsRoot = new THREE.Group();
   roadsRoot.name = 'expanse2_roads';
   group.add(roadsRoot);
@@ -384,7 +390,7 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
   mergeInto(roadsRoot, roadParts, roadMat, 'expanse2_carriageways');
   mergeInto(roadsRoot, bridgeParts, bridgeMat, 'expanse2_bridge_decks');
 
-  onPhase?.(34, '보도와 연석 생성 중 · Laying pavements and kerbs');
+  await phase(34, '보도와 연석 생성 중 · Laying pavements and kerbs');
   const chunkGrid = buildExpanseVisualChunks(group, streets.bounds, massing.grid.cols, massing.grid.rows);
   const chunkById = new Map(chunkGrid.chunks.map((chunk) => [chunk.id, chunk]));
 
@@ -402,7 +408,7 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
     mergeInto(chunkById.get(chunkId).base, parts, pavementMat, `pavement_${chunkId}`);
   }
 
-  onPhase?.(40, '차선 도색 중 · Painting lanes and crossings');
+  await phase(40, '차선 도색 중 · Painting lanes and crossings');
   // Markings come off the same street graph the carriageways did, so a line
   // cannot be measured against a road the runtime did not pave. They ride
   // `chunk.detail` rather than `chunk.base`: a lane dash at half a kilometre is
@@ -410,7 +416,7 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
   const roadPaintPlan = generateExpanseRoadPaint(streets);
   const roadPaint = buildExpanseRoadPaint(chunkById, chunkGrid, roadPaintPlan);
 
-  onPhase?.(46, '건물 매싱 생성 중 · Massing 1,211 buildings');
+  await phase(46, '건물 매싱 생성 중 · Massing 1,211 buildings');
   // Collision takes the massing whole — closed boxes, no UVs — while the
   // visible city is rebuilt face by face from the same volumes. Facade
   // furniture is never collidable: a blade sign is not a wall, and putting
@@ -419,18 +425,19 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
     for (const vol of building.volumes) collisionParts.push(collisionBox(vol));
   }
 
-  onPhase?.(52, '외장과 간판 생성 중 · Painting facades and signage');
+  await phase(52, '외장과 간판 생성 중 · Painting facades and signage');
   // `relief` rides detailIntensity for the same reason the ground pool does:
   // it is two extra textures per sheet, and the `?gfx=` floor has to be able to
   // buy that VRAM back. At 0 the facades fall back to M4's flat sheets.
-  const surfaces = createExpanseFacadeTextures(PALETTES, {
+  const surfaces = await createExpanseFacadeTexturesAsync(PALETTES, {
     scale: textureScale, anisotropy, relief: detailIntensity,
-  });
+  }, yieldTask);
   const signAtlas = createExpanseSignAtlas({ scale: textureScale, anisotropy });
   const facadeMeshes = buildExpanseFacadeMeshes({
     chunkById, massing, facades, textures: surfaces, signAtlas, districts: PALETTES,
+    deferDetails: true,
   });
-  onPhase?.(56, '상점과 랜드마크 배치 중 · Naming shops and raising landmarks');
+  await phase(56, '상점과 랜드마크 배치 중 · Naming shops and raising landmarks');
   // Neither of these rides the visual chunk grid. Eight restaurants are the
   // things the player is actively looking for, and five landmarks only do
   // their job at the far end of a sightline — culling either at 760 m would
@@ -451,8 +458,11 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
   roadGraph.districts = layout.districts;
   const topology = validateRoadGraph(roadGraph);
   if (!topology.ok) throw new Error(`Expanse rebuild graph invalid: ${topology.errors.join('; ')}`);
+  const streetDetailPlan = generateStreetDetail(massing, roadGraph, roadPaintPlan, pickups.sites);
+  const streetDetail = buildStreetDetail(chunkGrid, streetDetailPlan);
+  const shopSpills = buildShopSpills(group, pickups.sites);
 
-  onPhase?.(58, '충돌 인덱싱 중 · Indexing collision');
+  await phase(58, '충돌 인덱싱 중 · Indexing collision');
   const colliderGeo = mergeGeometries(collisionParts, false);
   for (const part of collisionParts) part.dispose();
   colliderGeo.computeBoundingBox();
@@ -492,7 +502,7 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
     return !localRaycast(new THREE.Vector3(x, y + 1.6, z), UP, 12);
   }
 
-  onPhase?.(88, '배달 지점 배치 중 · Placing delivery points');
+  await phase(88, '배달 지점 배치 중 · Placing delivery points');
   const deliveryAnchors = createDeliveryAnchors(roadGraph, findGround);
   const points = deliveryAnchors.map((anchor) => anchor.point);
 
@@ -570,6 +580,11 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
     cullDistance, detailDistance, microDistance: detailDistance * 0.56,
   });
   function update(dt, camera) {
+    // Base silhouettes and collision are ready at boot. Build one optional
+    // detail mesh per frame, nearest first, as play begins.
+    if (facadeMeshes.pendingDetails) facadeMeshes.streamNext(camera.position);
+    else streetDetail.streamNext(camera.position);
+    shopSpills.visible = nightRig.params.lampIntensity > 0.01;
     streetlights.update(dt, camera.position);
     chunkStats = updateExpanseVisualChunks(chunkGrid, camera.position, {
       cullDistance,
@@ -603,9 +618,12 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
     }),
   };
 
-  onPhase?.(94, '서울 익스팬스 그레이박스 준비 완료 · Expanse greybox ready');
+  await phase(94, '서울 익스팬스 그레이박스 준비 완료 · Expanse greybox ready');
+  loadingStats.totalMs = performance.now() - started;
   return {
     group, tiles, grid, bvh, colliderGeo, raycast: localRaycast, localRaycast,
+    loadingStats,
+    get streamingPending() { return facadeMeshes.pendingDetails + streetDetail.pending; },
     findGround, findGroundLocal: findGround, clearSkyLocal,
     spawn, safeResetPoints, getSafeReset,
     bounds, tileBounds: bounds.clone(), districtBounds: bounds.clone(), worldBounds: bounds.clone(),
@@ -620,6 +638,7 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
       layout: mapLayout, streets, plan, massing, facades,
       shops: pickups.sites, landmarks: landmarkPlan.landmarks,
       roadPaint: roadPaintPlan,
+      streetDetail: streetDetailPlan,
     },
     projectToRoad: (position) => roadGraph.project(position),
     findRoute: (start, destination) => roadGraph.findRoute(start, destination),
@@ -653,12 +672,13 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
       roadMarks: roadPaintPlan.stats.marks,
       roadMarkTriangles: roadPaint.triangles,
       roadMarkDrawCalls: roadPaint.drawCalls,
+      streetDetails: streetDetail.count,
       surfaceTextures: groundSurfaces ? 8 : 0,
       massingVolumes: massing.stats.volumes,
       massingTriangles: facadeMeshes.triangles,
       collisionTriangles: colliderGeo.attributes.position.count / 3,
-      drawCalls,
-      materials: 6 + facadeMeshes.materials.length
+      drawCalls: drawCalls + streetDetail.drawCalls + 1,
+      materials: 8 + facadeMeshes.materials.length
         + shops.emissiveMaterials.length + landmarks.materials.length,
       shopfronts: facades.stats.shopfronts,
       restaurants: pickups.stats.shops,

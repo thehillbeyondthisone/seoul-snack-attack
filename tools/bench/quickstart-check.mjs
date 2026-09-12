@@ -31,6 +31,8 @@ function check(label, actual, expected) {
 }
 
 check('Quick Start defaults to the playable Expanse', resolveLaunchProfile([]).id, 'expanse');
+check('default launch is the completed rebuild', resolveLaunchProfile([]).path.includes('world=expanse2'), true);
+check('old Expanse remains an explicit comparison', resolveLaunchProfile(['--launch=expanse-legacy']).path.includes('world=expanse&'), true);
 check('map-review launch profile resolves its overview hook',
   resolveLaunchProfile(['--launch=expanse-review']).path.includes('overview=1'), true);
 check('mobile launch profile resolves its graphics hook',

@@ -84,9 +84,26 @@ const SHOULDER_M = 6;
  */
 export function describeStreet(graph, projection) {
   if (!projection?.edgeId) return null;
-  const name = streetNameForEdge(projection.edgeId);
-  if (!name) return null;
   const edge = graph?.edgeById?.get(projection.edgeId);
+  let id = projection.edgeId;
+  let name = null;
+  const seen = new Set();
+  while (id && !seen.has(id)) {
+    seen.add(id);
+    name = streetNameForEdge(id);
+    if (name) break;
+    const parent = graph?.edgeById?.get(id)?.parentId;
+    // Re-cut parents can be absent from the live graph; nested split ids
+    // still retain their original authored road handle.
+    const unsplit = id.replace(/__s\d+$/, '');
+    id = parent || (unsplit !== id ? unsplit : null);
+  }
+  if (!name) {
+    // New generated lanes have no authored street name. Show the district
+    // instead of an internal graph id; legacy worlds still hide the blade.
+    const district = edge?.streetClass && EXPANSE_DISTRICT_NAMES[edge.districtId];
+    return district ? { ...district, onStreet: false } : null;
+  }
   const shoulder = (edge?.width ?? 10) * 0.5 + SHOULDER_M;
   if ((projection.lateralDistance ?? 0) <= shoulder) {
     return { ko: name.ko, en: name.en, onStreet: true };

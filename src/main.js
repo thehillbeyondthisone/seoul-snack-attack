@@ -124,9 +124,9 @@ async function boot() {
   // and promoted only at M6 (see CITY-REBUILD.md). `?world=block` keeps the
   // authored repeating Seoul block available for regression comparison.
   const requestedWorld = qp.get('world');
-  const worldId = ['block', 'expanse', 'expanse2'].includes(requestedWorld)
+  const worldId = ['proc', 'block', 'expanse', 'expanse2'].includes(requestedWorld)
     ? requestedWorld
-    : 'proc';
+    : 'expanse2';
   // Both kilometre-scale worlds need the far plane pushed out or the ring
   // disappears before its next corner.
   const kilometreWorld = worldId === 'expanse' || worldId === 'expanse2';
@@ -749,12 +749,19 @@ async function boot() {
     }
   }
 
-  // Do not call renderer.compileAsync() here. Despite its name, Three.js first
-  // walks the entire scene and synchronously creates every material program
-  // before returning its Promise. On slower GPUs that blocks the main thread
-  // at 99% indefinitely (audio continues because it runs independently).
-  // Starting the render loop lets Three compile only the visible first-frame
-  // programs, with the rest created naturally when they are needed.
+  // M6c GPU profiling found the largest stall in WebGLProgram.onFirstUse.
+  // With KHR_parallel_shader_compile, wait without blocking the loading UI.
+  // Compile against the composer's render target: screen tone mapping creates
+  // a different program and would force a second compile on the first frame.
+  if (worldId === 'expanse2' && renderer.extensions.has('KHR_parallel_shader_compile')) {
+    setLoadingProgress(98, '셰이더 준비 중 · Preparing shaders');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const target = renderer.getRenderTarget();
+    renderer.setRenderTarget(post.enabled ? post.composer.readBuffer : target);
+    try { await renderer.compileAsync(scene, camera); }
+    finally { renderer.setRenderTarget(target); }
+  }
+  // Devices without parallel compilation retain the visible-first-frame path.
   setLoadingProgress(99, '첫 화면 준비 중 · Preparing first frame');
 
   // ---- Backgrounding -------------------------------------------------------

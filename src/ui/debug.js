@@ -117,17 +117,16 @@ export function initDebug({ orders, rain, phys, post, van, cam, city, scene, tim
   // World picker. Like the vehicle picker below, swapping live would mean
   // rebuilding collision, routing and every consumer that captured the city at
   // boot, so this reloads with ?world= instead and preserves the other flags.
-  const worldNow = new URL(location.href).searchParams.get('world') || 'proc';
+  const worldNow = new URL(location.href).searchParams.get('world') || 'expanse2';
   gGame.add({ world: worldNow }, 'world', {
     '절차 회로 · Classic circuit': 'proc',
-    '서울 전역 (현행) · Expanse (current)': 'expanse',
-    '서울 전역 리빌드 · Expanse rebuild': 'expanse2',
+    '서울 전역 (이전) · Previous Expanse': 'expanse',
+    '서울 전역 (현행) · Expanse rebuild (current)': 'expanse2',
     '반복 블록 · Authored block': 'block',
   }).name('도시 · World').onChange((id) => {
     if (id === worldNow) return;
     const url = new URL(location.href);
-    if (id === 'proc') url.searchParams.delete('world');
-    else url.searchParams.set('world', id);
+    url.searchParams.set('world', id);
     location.href = url.toString();
   });
   gGame.close();

@@ -8,6 +8,13 @@ Seoul Delivery — asset sources and licenses.
 
 ## Seoul Snack Attack additions
 
+- `src/world/expanse-street-detail.js` — original generated bins, planters,
+  bollards, drain grates, tactile pads and shop-light gradients. No third-party
+  meshes or textures. Preview: `tools/blender/previews/seoul-street-kit.png`.
+- `tools/blender/recipes/dash_hippo.py` → `public/assets/vehicles/dash-hippo.glb`
+  — original model authored from the user's visual reference; separate animated
+  head and body. Preview: `tools/blender/previews/dash-hippo.png`.
+
 - `src/character/` and `src/world/capsule-collision.js` — original implementation
   authored for this project. The control feel and state-oriented design were
   informed by swift502's MIT-licensed Sketchbook project

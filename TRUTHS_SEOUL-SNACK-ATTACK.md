@@ -2,6 +2,17 @@
 
 Portable facts. Not a diary. Copy into the next job.
 
+- The default world is now `expanse2`. Keep `world=proc` explicitly in URLs;
+  deleting it no longer selects the compact circuit. The old Expanse remains
+  available as a comparison at `world=expanse`.
+- M6c GPU profiling found the major startup stall in shader `onFirstUse`.
+  With KHR parallel compilation, prepare programs against the same render target
+  as the postprocessor or the first frame recompiles a tone-mapping variant.
+  Async compilation still does not upload geometry/textures. Optional detail
+  mesh construction streams separately, with global collision ready at boot.
+- Asphalt uses world X/Z UVs so intersecting roads sample the same normal and
+  roughness pixels. Metre scale alone does not prevent orientation seams.
+
 - Escape/F3/pad View open Settings; backtick opens/closes tuning directly,
   including from Settings. Preserve this user-approved split.
 - The pocha cab shares the exterior atlas's orange `#e3a000`, green `#83b716`

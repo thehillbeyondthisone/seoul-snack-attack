@@ -18,13 +18,13 @@
     "collider": "node tools/build-collider.mjs",
     "bench": "node tools/bench/bench.mjs",
     "drive-feel": "node tools/bench/drive-feel.mjs",
-    "check": "node tools/bench/tiling-check.mjs && node tools/bench/road-graph-check.mjs && node tools/bench/props-check.mjs && node tools/bench/audio-check.mjs && node tools/bench/touch-controls-check.mjs && node tools/bench/graphics-quality-check.mjs && node tools/bench/character-check.mjs && node tools/bench/vehicle-tuning-check.mjs && node tools/bench/order-notes-check.mjs && node tools/bench/quickstart-check.mjs && node tools/bench/encoding-check.mjs && node tools/bench/proc-city-check.mjs && node tools/bench/blender-check.mjs",
+    "check": "npm run check:core && npm run expanse-check",
     "character-check": "node tools/bench/character-check.mjs",
     "vehicle-tuning-check": "node tools/bench/vehicle-tuning-check.mjs",
     "proc-check": "node tools/bench/proc-city-check.mjs",
     "blueprint-check": "node tools/bench/expanse-blueprint-check.mjs",
     "map-check": "node tools/bench/city-map-check.mjs",
-    "expanse-check": "node tools/bench/expanse-blueprint-check.mjs && node tools/bench/expanse-layout-check.mjs && node tools/bench/expanse-props-check.mjs && node tools/bench/expanse-streets-check.mjs && node tools/bench/expanse-blocks-check.mjs && node tools/bench/expanse-massing-check.mjs && node tools/bench/expanse-facade-check.mjs && node tools/bench/expanse-route-check.mjs && node tools/bench/expanse-surface-check.mjs",
+    "expanse-check": "node tools/bench/expanse-blueprint-check.mjs && node tools/bench/expanse-layout-check.mjs && node tools/bench/expanse-props-check.mjs && node tools/bench/expanse-streets-check.mjs && node tools/bench/expanse-blocks-check.mjs && node tools/bench/expanse-massing-check.mjs && node tools/bench/expanse-facade-check.mjs && node tools/bench/expanse-route-check.mjs && node tools/bench/expanse-surface-check.mjs && npm run runtime-check",
     "streets-check": "node tools/bench/expanse-streets-check.mjs",
     "blocks-check": "node tools/bench/expanse-blocks-check.mjs",
     "massing-check": "node tools/bench/expanse-massing-check.mjs",
@@ -35,7 +35,9 @@
     "tiling": "node tools/bench/tiling-check.mjs",
     "road-check": "node tools/bench/road-graph-check.mjs",
     "props-check": "node tools/bench/props-check.mjs",
-    "probe": "node tools/probe.mjs"
+    "probe": "node tools/probe.mjs",
+    "check:core": "node tools/bench/tiling-check.mjs && node tools/bench/road-graph-check.mjs && node tools/bench/props-check.mjs && node tools/bench/audio-check.mjs && node tools/bench/touch-controls-check.mjs && node tools/bench/graphics-quality-check.mjs && node tools/bench/character-check.mjs && node tools/bench/vehicle-tuning-check.mjs && node tools/bench/order-notes-check.mjs && node tools/bench/quickstart-check.mjs && node tools/bench/encoding-check.mjs && node tools/bench/proc-city-check.mjs && node tools/bench/blender-check.mjs",
+    "runtime-check": "node tools/bench/expanse-runtime-check.mjs"
   },
   "dependencies": {
     "lil-gui": "^0.20.0",

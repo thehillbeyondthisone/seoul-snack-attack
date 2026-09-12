@@ -41,13 +41,11 @@ const SERVER_READY_TIMEOUT_MS = 90000;
 const POLL_INTERVAL_MS = 250;
 
 export const LAUNCH_PROFILES = Object.freeze({
-  expanse: '/?world=expanse&intro=off',
-  'expanse-review': '/?world=expanse&overview=1&intro=off&time=day&rain=off&stats=1',
-  'expanse-mobile': '/?world=expanse&gfx=mobile&intro=off&props=off&stats=1',
-  // The rebuild through M6a: generated streets, blocks and massing, dressed
-  // with facades, shopfronts and signage, a routed delivery loop, and a
-  // generated PBR road surface with lane markings. It runs alongside the live
-  // Expanse and does not replace it until M6b promotes it.
+  expanse: '/?world=expanse2&intro=off',
+  'expanse-review': '/?world=expanse2&overview=1&intro=off&time=day&rain=off&stats=1',
+  'expanse-mobile': '/?world=expanse2&gfx=mobile&intro=off&stats=1',
+  'expanse-legacy': '/?world=expanse&intro=off',
+  // M6c makes the rebuild the default while retaining explicit comparison worlds.
   expanse2: '/?world=expanse2&intro=off',
   // The same rebuild, booted straight into the pocha's first-person cab. `C`
   // (or right-stick click) toggles back to the chase camera.

@@ -59,8 +59,8 @@ try {
   if (process.argv.includes('--game')) {
     await send('Emulation.setDeviceMetricsOverride',{width:480,height:320,deviceScaleFactor:1,mobile:false});
     await send('Page.navigate',{url:'http://127.0.0.1:5273/?world=expanse2&view=cockpit&intro=off&rain=off&time=day'});
-    for(let i=0;i<90;i++){if(await evaluate('!!window.__seoul?.dive'))break;await sleep(500)}
-    assert.equal(await evaluate('!!window.__seoul?.dive'),true,'game boots with the new cab');
+    for(let i=0;i<90;i++){if(await evaluate('!!window.__seoul?.dive && !!document.querySelector("#loading.done")'))break;await sleep(500)}
+    assert.equal(await evaluate('!!window.__seoul?.dive && !!document.querySelector("#loading.done")'),true,'game boots with the new cab');
     await send('Input.dispatchKeyEvent',{type:'keyDown',code:'KeyP',key:'p'});
     await sleep(1500);
     await send('Input.dispatchKeyEvent',{type:'keyUp',code:'KeyP',key:'p'});

@@ -2,7 +2,12 @@
 
 A third-person late-night street-snack delivery driving game set in a rainy, neon-lit Seoul district. Crazy Taxi–style timed orders with semi-realistic driving physics, built with Three.js. You are running 야식 (late-night snacks) across the city — tteokbokki, hotteok, eomuk, gimbap, chimaek, bingsu, gilgeori toast and pocha plates — before they go cold, spill, or melt.
 
-The default city is a **procedural night circuit** (~264 × 192 m) built from the colour bible: six coloured neighbourhoods, a wide station boulevard, a market plaza shortcut, a roundabout, tight Hongdae/pocha streets, and a canal with three bridges. Buildings are generated, then labelled with Hangul neon (vertical blades and lintel strips) plus hanging Korean signage. The authored repeating block remains at `?world=block`.
+The default city is the **Expanse rebuild** (`expanse2`): a kilometre of Seoul,
+1,211 buildings, six colour-bible districts, eight delivery restaurants, three
+bridges, surfaced roads, Hangul signage and original street details. Optional
+details stream in over the first seconds of play. The compact procedural night
+circuit remains at `?world=proc`, the earlier Expanse at `?world=expanse`, and the
+authored repeating block at `?world=block`.
 
 This fork is a self-contained subfolder bootstrapped from Seoul Delivery; see `handoff.md` for current status and `ATTRIBUTION.md` for inherited licensing.
 
@@ -18,8 +23,7 @@ npm run preview    # serve the production build locally
 ### Windows Quick Start
 
 Double-click [Quick Start.cmd](Quick%20Start.cmd) and choose one of three: play
-the current game, play the in-progress rebuild (`?world=expanse2` — now at M6a:
-surfaced streets, bound shops, a routed delivery loop), or the classic
+the current rebuild (`?world=expanse2`), the previous Expanse, or the classic
 procedural circuit. It defaults to the current game after 15 seconds.
 
 Everything else is in-game — **Escape** (or F3) opens **설정 · Settings**, and
@@ -88,7 +92,7 @@ On foot, movement switches to a Sketchbook-inspired character controller:
 **C sits you in the cab.** The pocha truck ships a modelled interior
 (`public/assets/vehicles/pocha-interior.glb`), so the camera can move to the
 driver's seat: the steering wheel tracks the rack, the speedometer sweeps a
-100 km/h dial, and the head rolls with the truck instead of levelling against
+150 km/h dial, and the head rolls with the truck instead of levelling against
 the horizon. Mouse or right stick looks around the cab and drifts back to the
 road when you let go. Vehicles with no `interior` block in
 `src/game/data/vehicles.js` — the van today — stay on the chase camera and say
@@ -294,7 +298,7 @@ Handy for screenshots and automated checks:
 - `?props=gallery` — lay every catalog prop out on a labelled grid (curation mode)
 - `?touch=on|off|auto` — override touch-control detection
 - `?gfx=mobile|desktop|auto` — override the graphics profile
-- `?world=proc|block|expanse` — procedural night circuit (default), authored repeating block, or the approved kilometre-scale Expanse
+- `?world=expanse2|proc|block|expanse` — current rebuild (default), compact circuit, authored block, or previous Expanse
 - `?map=1` — open the north-up full-city map at boot for QA
 - `?expanseView=station|market|bridge|westBridge|eastBridge|tunnel|hills|hongdae|hangang|pocha` — static review cameras for Expanse district art passes
 - `?world=expanse2&expanseView=plan|massing*|facade*|shopBoard|landmarkTower` — the rebuild's own review cameras (see `CITY-REBUILD.md`)

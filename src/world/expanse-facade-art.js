@@ -700,7 +700,7 @@ function paintRoof(size, seed) {
  * a pixel size — the meshes bake metres into their UVs — so the city looks the
  * same at any scale, only softer.
  */
-export function createExpanseFacadeTextures(districts, {
+function* facadeTextureSteps(districts, {
   scale = 1, anisotropy = 8, relief = 1,
 } = {}) {
   const wallSize = Math.max(128, Math.round(512 * scale));
@@ -715,10 +715,11 @@ export function createExpanseFacadeTextures(districts, {
 
   const walls = [];
   const shops = [];
-  districts.forEach((district, index) => {
+  for (const [index, district] of districts.entries()) {
     const wallSpec = DISTRICT_WALL[district.id] || DISTRICT_WALL.station;
     const shopSpec = DISTRICT_SHOP[district.id] || DISTRICT_SHOP.station;
     const painted = paintWall(district, wallSpec, wallSize, 0x5ea1 + index * 977);
+    yield;
     const shopPainted = paintShop(district, shopSpec, shopWidth, shopHeight, 0x9c0f + index * 613);
     walls.push({
       map: texture(painted.albedo, 1, 1, { anisotropy }),
@@ -734,7 +735,8 @@ export function createExpanseFacadeTextures(districts, {
       rough: wantRelief ? texture(shopPainted.relief, 1, 1, { srgb: false, anisotropy: 4 }) : null,
       normal: wantRelief ? normalFromRelief(shopPainted.relief, RELIEF_STRENGTH.shop * relief) : null,
     });
-  });
+    yield;
+  }
 
   const roofPainted = paintRoof(roofSize, 0x40f);
 
@@ -761,4 +763,20 @@ export function createExpanseFacadeTextures(districts, {
       this.roofNormal?.dispose();
     },
   };
+}
+
+// Synchronous path for tooling; the browser yields between each facade sheet.
+export function createExpanseFacadeTextures(districts, options) {
+  const steps = facadeTextureSteps(districts, options);
+  let step; do { step = steps.next(); } while (!step.done);
+  return step.value;
+}
+
+export async function createExpanseFacadeTexturesAsync(districts, options, yieldTask) {
+  const steps = facadeTextureSteps(districts, options);
+  for (;;) {
+    const step = steps.next();
+    if (step.done) return step.value;
+    await yieldTask();
+  }
 }

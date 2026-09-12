@@ -276,7 +276,7 @@ function pushParapet(bucket, parapet, facing, rgb) {
 
 /** Nothing in this pass is collidable: the massing already owns the solids. */
 export function buildExpanseFacadeMeshes({
-  chunkById, massing, facades, textures, signAtlas, districts,
+  chunkById, massing, facades, textures, signAtlas, districts, deferDetails = false,
 }) {
   const cells = SIGN_CELLS;
   const wallSheet = textures.metres.wall;
@@ -454,22 +454,37 @@ export function buildExpanseFacadeMeshes({
   let drawCalls = 0;
   const perKind = {};
   let triangles = 0;
+  const pending = [];
   for (const [key, bucket] of buckets) {
-    const geometry = bucket.geometry();
-    if (!geometry) continue;
     const [kind, chunkId, district] = key.split('|');
     const chunk = chunkById.get(chunkId);
-    if (!chunk) { geometry.dispose(); continue; }
-    const material = materialFor(kind, Number(district));
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = `expanse2_${kind}_${chunkId}${district !== undefined ? `_d${district}` : ''}`;
-    chunk[TIER[kind] || 'base'].add(mesh);
+    if (!chunk) continue;
+    const build = () => {
+      const geometry = bucket.geometry();
+      if (!geometry) return;
+      const material = materialFor(kind, Number(district));
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.name = `expanse2_${kind}_${chunkId}${district !== undefined ? `_d${district}` : ''}`;
+      chunk[TIER[kind] || 'base'].add(mesh);
+    };
+    if (deferDetails && TIER[kind] !== 'base') pending.push({ chunk, build });
+    else build();
     drawCalls++;
     triangles += bucket.triangles;
     perKind[kind] = (perKind[kind] || 0) + bucket.triangles;
   }
 
   return {
+    get pendingDetails() { return pending.length; },
+    streamNext(position) {
+      if (!pending.length) return;
+      let nearest = 0;
+      for (let i = 1; i < pending.length; i++) {
+        if (pending[i].chunk.center.distanceToSquared(position)
+          < pending[nearest].chunk.center.distanceToSquared(position)) nearest = i;
+      }
+      pending.splice(nearest, 1)[0].build();
+    },
     drawCalls,
     triangles,
     perKind,

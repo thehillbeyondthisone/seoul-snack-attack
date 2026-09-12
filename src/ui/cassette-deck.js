@@ -808,7 +808,7 @@ export class CassetteDeck {
     camera.position.set(0, 0.035, 0.19);
     camera.lookAt(0, 0, 0);
 
-    this._loadTapeAsset().then((gltf) => {
+    this._loadTapeAsset().then(async (gltf) => {
       if (this._disposed || !this._launcherRenderer) return;
       const source = gltf.scene.getObjectByName('CassetteTape_Main_low_02_2')
         || gltf.scene.getObjectByName('CassetteTape_Main_low_01_2');
@@ -817,6 +817,8 @@ export class CassetteDeck {
       tape.position.set(0, 0, 0);
       tape.rotation.set(-0.12, -0.28, -0.08);
       scene.add(tape);
+      if (renderer.extensions.has('KHR_parallel_shader_compile')) await renderer.compileAsync(scene, camera);
+      if (this._disposed || this._launcherRenderer !== renderer) return;
       renderer.render(scene, camera);
     }).catch((error) => {
       console.warn('cassette launcher: model failed to load, using CSS fallback:', error);

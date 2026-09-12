@@ -1,5 +1,34 @@
 # 서울 스낵 어택 — Seoul Snack Attack — development handoff
 
+## 2026-09-12 — M6c implementation and default-world promotion
+
+Checkpoint `c74e9ef` committed the accepted cab/music/settings/handling pass.
+M6c then measured actual RTX 4060 rendering, batched generation and facade-sheet
+painting, streamed 48 optional facade meshes and 12 original street-detail
+batches, and used parallel shader preparation where supported. The dominant
+startup stall was shader first use, proven by CPU profiling. Final daytime
+median/p95 remained 16.7/16.8 ms; largest observed tasks fell from 3,525/2,214 ms
+to 906/510 ms for desktop/mobile profiles. Both ran on the desktop GPU.
+
+World-aligned road UVs fix roughness/normal-map seams between overlapping
+ribbons. Split roads inherit their street names; new lanes show districts.
+757 original street-detail placements add 27,240 triangles and eight night shop
+light pools. The kit's preview is `tools/blender/previews/seoul-street-kit.png`.
+All visual geometry comes from original code; collision/lot layout is unchanged.
+
+The rebuild is now the default world and launcher [1]. Previous Expanse remains
+available at `?world=expanse` / [2], classic at `?world=proc` / [3]. The tuning
+switcher explicitly writes `world=proc` now that removing the parameter means
+the rebuild. No merge to main or deployment was performed.
+
+The combined `npm run check` passed, as did native-config production build,
+real keyboard driving/default-world/stream-completion checks and classic-world
+switching. Day furniture and night shop-light screenshots were inspected.
+`M6C-VALIDATION.md` records measurements and reproducible browser commands.
+`NEXT-AGENT.md` was rewritten to remove the stale pre-commit inventory.
+Physical-phone testing, longer routes, courtyard/landmark art and an exact
+match to the user's saved screenshot location remain open.
+
 ## 2026-09-12 — Cassette access accepted for checkpoint, M6c next
 
 P, the HUD cassette button, and Settings > Music > Tape deck open the player.

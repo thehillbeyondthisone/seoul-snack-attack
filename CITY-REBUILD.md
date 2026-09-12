@@ -1,12 +1,11 @@
 # Seoul Expanse — city rebuild (M1–M6)
 
-**Updated:** 2026-09-10
-**Status:** M1 through M5 complete and gated. M6 in progress — the ground
-surface pass (M6a) and the facade relief pass (M6b) have landed and are gated;
-perf/LOD/mobile and the promotion itself are still open.
-**Live game is unchanged.** `?world=expanse` still runs the 25-node greybox and
-`?world=proc` still runs the compact procedural circuit. The rebuild is now
-drivable at `?world=expanse2`, alongside them, and replaces neither until M6.
+**Updated:** 2026-09-12
+**Status:** M1–M6c implementation landed. The rebuild is the default world and
+Quick Start [1]. The previous city remains at `?world=expanse`; the compact
+circuit remains at `?world=proc`. M6c adds batched generation, progressive detail,
+parallel shader preparation, continuous road UVs and original street detail.
+See `M6C-VALIDATION.md` for actual GPU measurements and remaining device/art QA.
 
 ---
 
@@ -43,10 +42,29 @@ blocks, blocks into lots, and lots into buildings. M1 and M2 are that step.
 | **M5** | Landmarks, shops, delivery loop | `expanse-route-check` | done |
 | **M6a** | Road and pavement surface: generated PBR, road markings | `expanse-surface-check` | done |
 | **M6b** | Facade and roof relief: normal + roughness maps | `expanse-facade-check` | done |
-| **M6c** | Perf/LOD/mobile, full `npm run check`, promote | full suite | next |
+| **M6c** | Perf/LOD/mobile, full `npm run check`, promote | full suite | implemented; real-phone QA remains |
 
-Each milestone is reviewed before the next begins, and nothing replaces
-`?world=expanse` until M6.
+The user approved proceeding into M6c on September 12. The old Expanse remains
+available explicitly; promotion changes the default, not that comparison world.
+
+## M6c outcome
+
+- CPU generation yields between phases and facade sheets. The base city and
+  global collision are ready at boot; 48 facade-detail meshes and 12 street-kit
+  batches build progressively, nearest first.
+- RTX 4060 profiling located the largest stall in first-use shader compilation.
+  Where `KHR_parallel_shader_compile` exists, shaders compile while the loading
+  UI remains responsive, against the composer's actual render target. Devices
+  without the extension retain the visible-first-frame fallback.
+- World-aligned asphalt UVs remove orientation/phase changes at road overlaps.
+  Split roads inherit their authored names; generated lanes display districts.
+- 757 original street details add 27,240 triangles. Bins, planters and bollards
+  stand clear of carriageways; crossing pads and drains use generated road data.
+  Eight shop-light pools appear at night. Preview: `tools/blender/previews/seoul-street-kit.png`.
+- `npm run check` now includes both world suites and the new runtime gate.
+- Historical gaps below remain relevant for density, landmark silhouettes,
+  manually matching the user's screenshot location, and physical phone testing.
+  M6c did not regenerate lots or change the frozen road-layout contract.
 
 ---
 
