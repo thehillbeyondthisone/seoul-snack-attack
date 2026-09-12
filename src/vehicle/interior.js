@@ -53,7 +53,7 @@ export async function loadInterior(manager, def) {
   }
 
   // The cabin is enclosed and the camera sits 0.7 m from most of it, so
-  // shadow-mapping it buys nothing a 3 k-triangle box can show.
+  // self-shadow mapping is avoided; the dome and PBR environment light it.
   gltf.scene.traverse((o) => {
     if (!o.isMesh) return;
     o.castShadow = false;
@@ -80,11 +80,11 @@ export async function loadInterior(manager, def) {
   group.add(dome);
 
   // ---- Dashboard hippo -----------------------------------------------------
-  // Optional per cabin, the way the cabin is optional per vehicle. It is code,
-  // not a node in the GLB, so the recipe never has to know it exists.
+  // Separate Blender casting, with a preserved head pivot for the spring.
   let hippo = null;
   if (spec.hippo) {
-    hippo = createDashHippo({ yaw: spec.hippo.yaw });
+    const toy = await loader.loadAsync(spec.hippo.asset);
+    hippo = createDashHippo({ model: toy.scene, yaw: spec.hippo.yaw });
     hippo.group.position.fromArray(spec.hippo.position);
     group.add(hippo.group);
   }
@@ -154,8 +154,8 @@ export async function loadInterior(manager, def) {
       wheel.quaternion.copy(wheelRest);
       wheel.rotateY(-phys.steerAngle * spec.steerRatio);
 
-      // Speedometer. The dial face is blank (the recipe draws no ticks), so
-      // the sweep is defined here and nowhere else. Needles have mass: the
+      // Speedometer. The recipe marks a 0–150 dial over this 250-degree sweep.
+      // Keep the recipe's markings and vehicle metadata in sync. Needles have mass: the
       // reading lags the physics rather than snapping to it.
       const target = THREE.MathUtils.clamp(Math.abs(phys.speedKmh) / fullScale, 0, 1);
       shownSpeed += (target - shownSpeed) * Math.min(1, dt * 6);

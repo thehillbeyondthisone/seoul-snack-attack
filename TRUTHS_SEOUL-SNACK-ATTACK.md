@@ -2,8 +2,21 @@
 
 Portable facts. Not a diary. Copy into the next job.
 
+- Escape/F3/pad View open Settings; backtick opens/closes tuning directly,
+  including from Settings. Preserve this user-approved split.
+- The pocha cab shares the exterior atlas's orange `#e3a000`, green `#83b716`
+  and trim `#3d3d3d`, recorded as `POCHA` in the colour bible and mirrored in
+  Blender's `BIBLE`. Use `principled(..., srgb=True)` for these sampled paint
+  hexes so exported linear factors match the sRGB atlas. The hippo enamel is
+  the bible's strawberry pink `#ff85b5`, also authored as sRGB.
+
 - Headless Blender 5.2 LTS: `--background --factory-startup --python`. Override with `BLENDER`.
+- Pass `--python-exit-code 1` before `--python`: Blender otherwise reports
+  success after Python exceptions and can leave an old preview beside a new GLB.
 - Every custom model ships `tools/blender/previews/<id>.png`. No PNG = unfinished. Show the PNG when reporting the model.
+- The cab's hippo is a separate Blender GLB with a `hippo_head` pivot. Keep the
+  node transform and animation in `dash-hippo.js`; do not merge the head into
+  the fixed body. The cab preview attaches the toy only after exporting the cab.
 - Add new snacks as new dishes. Do not remap an existing dish to prove a mesh.
 - Food GLBs: metres, origin at ground-centre, Principled BSDF only (`Base Color` / Roughness / Metallic / Specular IOR Level). Colour-bible hexes; a fourth hue is local snack colour, never a new HUD accent.
 - Runtime `food-display.js` normalises largest dimension to 1 m. Silhouette and colour beat millimetres.

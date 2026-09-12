@@ -33,11 +33,11 @@ const BIBLE = {
 
 // J-card colourway per tape, drawn from the bible's NEON kit (local neon is
 // allowed on objects; these are labels, not system accents).
-const SKINS = ['#3fd2e6', '#ffd873', '#ff85b5', '#5fd068', '#ff9a3d', '#b46cff', '#ffedd0', '#ff4d26', '#e9dcab'];
+const SKINS = ['#3fd2e6', '#ffd873', '#ff85b5', '#5fd068', '#ff9a3d', '#b46cff', '#e9dcab', '#6cc9b9', '#d34b67', '#ff4d26', '#b0caff'];
 
 // Hangul mixtape labels, one per track — the J-card scribble next to the
 // English title. Deck-local flavour; the data file stays pure.
-const FLAVOUR_KO = ['부대찌개 비트', '드랍 잇 레드', '레드 리믹스', '칼로리 폭탄', '크라운 스텝', '지글', '초음속 불꽃', '래피드 파이어', '카운트다운'];
+const FLAVOUR_KO = ['부대찌개 비트', '드랍 잇 레드', '레드 리믹스', '칼로리 폭탄', '크라운 스텝', '지글', '카운트다운'];
 
 // Fixed view size. The renderer is fixed-size (food-preview rule): a CSS box
 // of a different size letterboxes the canvas, so the window is built around it.
@@ -85,23 +85,23 @@ const CSS = `
 }
 .cassette-deck.show .deck-scrim { opacity: 1; pointer-events: auto; }
 .cassette-deck .deck-stage {
-  position: absolute; inset: 0; display: grid; place-items: center;
+  position: absolute; inset: 0;
   perspective: 1100px; pointer-events: none; padding: 16px;
 }
 
 /* The deck door. Closed = hinged down and away; open swings it up flat. */
 .cassette-deck .deck-unit {
-  position: relative;
-  width: min(600px, 100%);
+  position: absolute; left: 50%; top: 50%;
+  width: min(760px, calc(100% - 32px));
   border-radius: 12px;
   padding: 0 0 4px;
-  transform: rotateX(-74deg) translateY(24%);
-  transform-origin: 50% 100%;
+  transform: translate(-50%, -50%) rotateX(-74deg) scale(var(--deck-fit, 1));
+  transform-origin: 50% 50%;
   opacity: 0;
   transition: transform 0.44s cubic-bezier(0.2, 0.85, 0.25, 1.03), opacity 0.28s ease;
 }
 .cassette-deck.show .deck-unit {
-  transform: rotateX(0deg) translateY(0);
+  transform: translate(-50%, -50%) rotateX(0deg) scale(var(--deck-fit, 1));
   opacity: 1; pointer-events: auto;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -283,11 +283,11 @@ const CSS = `
 
 /* ---- tape rack ----------------------------------------------------------- */
 .cassette-deck .deck-rack {
-  display: flex; gap: 8px; margin: 11px 18px 0; padding: 2px 2px 5px;
-  overflow-x: auto; scrollbar-width: thin; scrollbar-color: rgba(255,242,224,0.2) transparent;
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 7px; margin: 11px 18px 0; padding: 2px;
 }
 .cassette-deck .tape-card {
-  flex: 0 0 auto; width: 88px; padding: 6px 7px 6px; cursor: pointer;
+  min-width: 0; width: 100%; padding: 6px; cursor: pointer;
   color: inherit; font: inherit; text-align: left;
   background: rgba(255,242,224,0.045);
   border: 1px solid rgba(255,242,224,0.14); border-radius: 4px;
@@ -315,15 +315,21 @@ const CSS = `
 .cassette-deck .tape-card .tc-hub.r { right: 24px; }
 .cassette-deck .tape-card .tc-title {
   display: block; margin-top: 5px;
-  font-size: 8.5px; font-weight: 600; letter-spacing: 0.03em; color: var(--muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-height: 24px; line-height: 1.2;
+  font-size: 9px; font-weight: 600; color: var(--ink);
+  white-space: normal; overflow-wrap: anywhere;
 }
 .cassette-deck .tape-card.current {
   border-color: var(--skin);
   box-shadow: 0 0 13px color-mix(in srgb, var(--skin) 30%, transparent), inset 0 0 10px color-mix(in srgb, var(--skin) 10%, transparent);
 }
 .cassette-deck .tape-card.current .tc-title { color: var(--ink); }
-.cassette-deck .tape-card.locked { opacity: 0.42; cursor: default; filter: grayscale(0.6); }
+.cassette-deck .tape-card.locked { cursor: default; background: rgba(0,0,0,.16); }
+.cassette-deck .tape-card.locked .tc-body { opacity: .5; filter: grayscale(.5); }
+.cassette-deck .tc-status { display: block; font-size: 8px; color: var(--muted); margin-top: 3px; }
+.cassette-deck .tape-card:focus-visible { outline: 2px solid var(--nav); outline-offset: 2px; }
+.cassette-deck .rack-note { padding: 9px 4px; align-self: center; font-size: 10px; color: var(--muted); line-height: 1.5; }
+.cassette-deck .rack-note b { display: block; color: var(--nav); font-size: 11px; }
 
 /* ---- transport ----------------------------------------------------------- */
 .cassette-deck .deck-transport {
@@ -366,9 +372,45 @@ const CSS = `
 }
 
 @media (max-width: 560px) {
+  .cassette-deck .deck-unit { width: calc(100% - 12px); }
+  .cassette-deck .deck-stage { padding: 6px; }
+  .cassette-deck .deck-rack { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; margin: 6px 10px 0; }
+  .cassette-deck .deck-window { height: 96px; width: 182px; }
+  .cassette-deck .deck-view, .cassette-deck .deck-spools { width: 300px; height: 158px; transform: scale(.6); transform-origin: top left; }
+  .cassette-deck .deck-head { padding: 9px 12px; gap: 6px; }
+  .cassette-deck .deck-brand b { font-size: 11px; }
+  .cassette-deck .deck-brand .en { font-size: 7px; }
+  .cassette-deck .deck-np { padding: 6px 12px 0; }
+  .cassette-deck .np-title b { font-size: 12px; }
+  .cassette-deck .np-title span { font-size: 9px; }
+  .cassette-deck .tape-card { padding: 4px; }
+  .cassette-deck .tape-card .tc-body { height: 27px; }
+  .cassette-deck .tape-card .tc-hub { top: 12px; }
+  .cassette-deck .tape-card .tc-label { inset: 4px 5px 8px; }
+  .cassette-deck .tc-status { font-size: 7px; }
+  .cassette-deck .deck-transport { margin: 7px 10px 0; }
+  .cassette-deck .deck-mix { margin: 7px 10px; padding-top: 6px; gap: 5px 10px; }
   .cassette-deck .deck-mix { grid-template-columns: repeat(2, 1fr); }
   .cassette-deck .t-mute, .cassette-deck .t-reset { grid-column: span 1; }
   .cassette-deck .np-vu { display: none; }
+}
+@media (max-height: 670px) and (min-width: 561px) {
+  .cassette-deck .deck-window { height: 96px; width: 182px; }
+  .cassette-deck .deck-view, .cassette-deck .deck-spools { width: 300px; height: 158px; transform: scale(.6); transform-origin: top left; }
+  .cassette-deck .deck-head { padding-block: 7px; }
+  .cassette-deck .deck-mix { margin-block: 7px; padding-top: 7px; }
+}
+@media (max-height: 740px) and (max-width: 560px) {
+  .cassette-deck .deck-window { height: 65px; width: 122px; }
+  .cassette-deck .deck-view, .cassette-deck .deck-spools { transform: scale(.4); }
+  .cassette-deck .deck-slot { margin-top: 5px; }
+  .cassette-deck .tc-status { margin-top: 0; }
+  .cassette-deck .tape-card .tc-title { min-height: 22px; margin-top: 3px; }
+}
+@media (max-height: 540px) and (max-width: 560px) {
+  .cassette-deck .deck-window, .cassette-deck .deck-slot { display: none; }
+  .cassette-deck .tape-card .tc-body { height: 20px; }
+  .cassette-deck .tape-card .tc-hub { top: 8px; }
 }
 `;
 
@@ -379,11 +421,13 @@ export class CassetteDeck {
    * @param {object}   options.audio       shared AudioManager (mix levels + master mute)
    * @param {object}   options.hud         HUD3, for bilingual labels + toasts
    * @param {HTMLElement} options.container element the deck mounts into (the #hud3 root)
+   * @param {HTMLElement} options.launcher  persistent HUD cassette button
    */
-  constructor({ soundtrack, audio, hud, container }) {
+  constructor({ soundtrack, audio, hud, container, launcher = null }) {
     this.soundtrack = soundtrack;
     this.audio = audio;
     this.hud = hud;
+    this.launcher = launcher;
     this.available = true;
 
     if (!document.getElementById('cassette-deck-style')) {
@@ -441,6 +485,12 @@ export class CassetteDeck {
     `;
     container.appendChild(el);
     this.el = el;
+    // Keep the complete faceplate in view on short landscape windows too.
+    // offsetHeight is untransformed, so this does not feed back into the observer.
+    const unit = el.querySelector('.deck-unit');
+    this._fit = () => el.style.setProperty('--deck-fit', Math.min(1, Math.max(1, container.clientHeight - 12) / unit.offsetHeight));
+    this._resize = new ResizeObserver(this._fit);
+    this._resize.observe(unit); this._resize.observe(container);
     // QA hook for headless probes: the live instance without a global.
     el.__deck = this;
 
@@ -478,13 +528,14 @@ export class CassetteDeck {
 
     // Playback state lives in Soundtrack; mirror it on play/pause so the deck
     // stays honest even when the M key or an order event changes it.
-    this._onAudioPlay = () => this.refresh();
-    this._onAudioPause = () => this.refresh();
-    soundtrack.audio.addEventListener('play', this._onAudioPlay);
-    soundtrack.audio.addEventListener('pause', this._onAudioPause);
+    this._unsubscribe = soundtrack.subscribe(() => this.refresh());
 
     this._onKey = (event) => {
-      if (event.key === 'Escape' && this.isOpen()) this.close();
+      if (event.key === 'Escape' && this.isOpen()) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.close();
+      }
     };
     document.addEventListener('keydown', this._onKey);
 
@@ -501,7 +552,6 @@ export class CassetteDeck {
       this._wake();
       // Master mute covers music too; keyboard M is reserved for the city map.
       const muted = this.audio.toggleMute();
-      this.soundtrack.audio.muted = muted;
       this.hud?.setAudioStatus?.(muted ? 'muted' : 'on');
       this.refresh();
     });
@@ -532,11 +582,14 @@ export class CassetteDeck {
     this._raf = 0;
     this._renderer = null;
     this._loadPromise = null;
+    this._assetPromise = null;
+    this._launcherRenderer = null;
     this._shownTape = null;
     this._tween = null;
     this._insertTimers = [];
     this._disposed = false;
     this.refresh();
+    this._ensureLauncher();
   }
 
   // ---- open / close -------------------------------------------------------
@@ -545,9 +598,14 @@ export class CassetteDeck {
 
   open() {
     if (this.isOpen()) return;
+    this._previousFocus = document.activeElement;
+    document.exitPointerLock?.();
     this.el.classList.add('show');
     this.el.setAttribute('aria-hidden', 'false');
+    this.onToggle?.(true);
+    this.$.eject.focus({ preventScroll: true });
     this.refresh();
+    this._fit();
     this._ensureView().then(() => {
       if (!this.isOpen()) return;
       this.showTape(this.soundtrack.index);
@@ -560,6 +618,8 @@ export class CassetteDeck {
     if (!this.isOpen()) return;
     this.el.classList.remove('show');
     this.el.setAttribute('aria-hidden', 'true');
+    this.onToggle?.(false);
+    if (this._previousFocus?.isConnected) this._previousFocus.focus({ preventScroll: true });
     // Let the door-shut transition play before stopping the loop.
     setTimeout(() => { if (!this.isOpen()) this._stopLoop(); }, 460);
   }
@@ -568,26 +628,25 @@ export class CassetteDeck {
 
   // ---- tape selection -----------------------------------------------------
 
-  /** Bonus tracks may arrive with `locked: true` (data hook — no unlock logic yet). */
-  _isLocked(i) { return !!this.soundtrack.tracks[i]?.locked; }
+  _isLocked(i) { return this.soundtrack.isLocked(i); }
 
   _skin(i) { return SKINS[i % SKINS.length]; }
 
-  _flavour(i) { return FLAVOUR_KO[i % FLAVOUR_KO.length] || ''; }
+  _flavour(i) { return this.soundtrack.tracks[i]?.ko || FLAVOUR_KO[i] || ''; }
 
   _wake() {
     this.audio.wake?.();
-    this.soundtrack.wake?.();
   }
 
   /** Select a tape from the rack. Same tape toggles play; a new one inserts. */
   _select(i) {
     if (this._isLocked(i)) {
-      this.hud?.toast?.('아직 개봉하지 않은 테이프', 'Tape locked');
+      const n = this.soundtrack.tracks[i].unlockDeliveries;
+      this.hud?.toast?.(`배달 ${n}회 완료 시 해금`, `Complete ${n} deliveries to unlock`);
       return;
     }
     this._wake();
-    if (i === this.soundtrack.index) {
+    if (i === this.soundtrack.index && !this.soundtrack.cueActive) {
       if (this.soundtrack.paused) this.soundtrack.resume(); else this.soundtrack.pause();
       this.refresh();
       return;
@@ -597,12 +656,8 @@ export class CassetteDeck {
 
   /** PREV/NEXT swap tapes with a directional slide. */
   _swap(dir) {
-    const tracks = this.soundtrack.tracks.length;
-    const target = (this.soundtrack.index + dir + tracks) % tracks;
-    if (this._isLocked(target)) {
-      this.hud?.toast?.('아직 개봉하지 않은 테이프', 'Tape locked');
-      return;
-    }
+    const target = this.soundtrack.findPlayable(dir);
+    if (target < 0) return;
     this._wake();
     this._insert(target, dir);
   }
@@ -637,7 +692,7 @@ export class CassetteDeck {
   _setMixInputs() {
     const levels = {
       master: this.audio.masterLevel,
-      music: this.soundtrack.audio.volume,
+      music: this.soundtrack.volume,
       sfx: this.audio.sfxLevel,
       ambience: this.audio.ambienceLevel,
     };
@@ -651,14 +706,14 @@ export class CassetteDeck {
   refresh() {
     const st = this.soundtrack;
     const i = st.index;
-    const track = st.tracks[i];
+    const track = st.currentTrack;
     if (track) {
-      this.$.titleKo.textContent = this._flavour(i) || track.title;
+      this.$.titleKo.textContent = (st.cueActive ? track.ko : this._flavour(i)) || track.title;
       this.$.titleEn.textContent = this.hud?.englishMode ? '' : track.title;
       if (this.hud?.englishMode) this.$.titleKo.textContent = track.title;
     }
     const n = st.tracks.length;
-    this.$.counter.textContent = `${String(i + 1).padStart(2, '0')} / ${String(n).padStart(2, '0')}`;
+    this.$.counter.textContent = st.cueActive ? 'DIVE' : `${String(i + 1).padStart(2, '0')} / ${String(n).padStart(2, '0')}`;
     const playing = !st.paused;
     this.el.classList.toggle('playing', playing && !this.audio.muted);
     this.el.classList.toggle('paused', !playing && !this.audio.muted);
@@ -680,6 +735,9 @@ export class CassetteDeck {
 
   _buildRack() {
     const st = this.soundtrack;
+    const key = `${st.index}:${st.cueActive}:${st.deliveries}:${this.hud?.englishMode}`;
+    if (key === this._rackKey) return;
+    this._rackKey = key;
     const rack = this.$.rack;
     rack.replaceChildren();
     st.tracks.forEach((track, i) => {
@@ -687,18 +745,87 @@ export class CassetteDeck {
       card.type = 'button';
       card.className = 'tape-card';
       card.style.setProperty('--skin', this._skin(i));
-      if (i === st.index) card.classList.add('current');
+      if (i === st.index && !st.cueActive) card.classList.add('current');
       if (this._isLocked(i)) card.classList.add('locked');
+      card.setAttribute('aria-disabled', String(this._isLocked(i)));
+      card.setAttribute('aria-pressed', String(i === st.index && !st.cueActive));
       card.innerHTML = `
         <span class="tc-body"><span class="tc-label"></span><span class="tc-hub l"></span><span class="tc-hub r"></span></span>
-        <span class="tc-title"></span>`;
+        <span class="tc-title"></span><span class="tc-status"></span>`;
       card.querySelector('.tc-title').textContent = track.title;
+      const status = this._isLocked(i)
+        ? (this.hud?.englishMode ? `LOCKED · ${st.deliveries}/${track.unlockDeliveries} deliveries` : `잠김 · 배달 ${st.deliveries}/${track.unlockDeliveries}`)
+        : (this.hud?.englishMode ? 'READY TO PLAY' : '재생 가능');
+      card.querySelector('.tc-status').textContent = status;
+      card.setAttribute('aria-label', `${track.title} · ${status}`);
       card.addEventListener('click', () => this._select(i));
       rack.appendChild(card);
     });
+    const note = document.createElement('div'); note.className = 'rack-note';
+    note.innerHTML = this.hud?.englishMode
+      ? '<b>11 TAPES / THE COLLECTION</b>Deliver snacks. Unlock the next tape.'
+      : '<b>11 TAPES / THE COLLECTION</b>배달을 완료하고 테이프를 모으세요.';
+    rack.appendChild(note);
   }
 
   // ---- three.js view (lazy, open-only) ------------------------------------
+
+  _loadTapeAsset() {
+    if (!this._assetPromise) {
+      const loader = new GLTFLoader();
+      loader.setMeshoptDecoder(MeshoptDecoder);
+      this._assetPromise = loader.loadAsync(`${import.meta.env.BASE_URL}assets/ui/cassette.glb`);
+    }
+    return this._assetPromise;
+  }
+
+  /** Render the actual cassette model once into the always-visible HUD button. */
+  _ensureLauncher() {
+    const host = this.launcher?.querySelector('.cassette-launcher-view');
+    if (!host) return;
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    } catch (error) {
+      console.warn('cassette launcher: WebGL unavailable, using CSS fallback:', error);
+      return;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setSize(122, 72);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    host.appendChild(renderer.domElement);
+    this._launcherRenderer = renderer;
+
+    const scene = new THREE.Scene();
+    const key = new THREE.DirectionalLight(0xffd9a0, 2.4);
+    key.position.set(0.7, 0.8, 1);
+    scene.add(key);
+    const rim = new THREE.DirectionalLight(BIBLE.nav, 1.8);
+    rim.position.set(-0.8, 0.3, -0.5);
+    scene.add(rim, new THREE.AmbientLight(0x3a291d, 1.15));
+    const camera = new THREE.PerspectiveCamera(30, 122 / 72, 0.01, 2);
+    camera.position.set(0, 0.035, 0.19);
+    camera.lookAt(0, 0, 0);
+
+    this._loadTapeAsset().then((gltf) => {
+      if (this._disposed || !this._launcherRenderer) return;
+      const source = gltf.scene.getObjectByName('CassetteTape_Main_low_02_2')
+        || gltf.scene.getObjectByName('CassetteTape_Main_low_01_2');
+      if (!source) throw new Error('cassette mesh missing from GLB');
+      const tape = source.clone(true);
+      tape.position.set(0, 0, 0);
+      tape.rotation.set(-0.12, -0.28, -0.08);
+      scene.add(tape);
+      renderer.render(scene, camera);
+    }).catch((error) => {
+      console.warn('cassette launcher: model failed to load, using CSS fallback:', error);
+      renderer.dispose();
+      renderer.forceContextLoss?.();
+      renderer.domElement.remove();
+      if (this._launcherRenderer === renderer) this._launcherRenderer = null;
+    });
+  }
 
   _ensureView() {
     if (this._loadPromise) return this._loadPromise;
@@ -745,10 +872,7 @@ export class CassetteDeck {
       this._tapeRoot = new THREE.Group();
       this._scene.add(this._tapeRoot);
 
-      const url = `${import.meta.env.BASE_URL}assets/ui/cassette.glb`;
-      const loader = new GLTFLoader();
-      loader.setMeshoptDecoder(MeshoptDecoder);
-      const gltf = await loader.loadAsync(url);
+      const gltf = await this._loadTapeAsset();
       if (this._disposed) return; // torn down while loading
       // The GLB holds two shell variants side by side; show one at a time and
       // alternate by track index so the tapes read apart. GLTFLoader makes the
@@ -758,7 +882,7 @@ export class CassetteDeck {
       gltf.scene.traverse((node) => byName.set(node.name, node));
       const makeTape = (sourceName) => {
         const group = new THREE.Group();
-        const source = byName.get(sourceName);
+        const source = byName.get(sourceName)?.clone(true);
         if (source) {
           source.position.set(0, 0, 0);
           group.add(source);
@@ -855,14 +979,20 @@ export class CassetteDeck {
   dispose() {
     this._disposed = true;
     this._insertTimers.forEach(clearTimeout);
-    this.soundtrack.audio.removeEventListener('play', this._onAudioPlay);
-    this.soundtrack.audio.removeEventListener('pause', this._onAudioPause);
+    this._unsubscribe?.();
+    this._resize?.disconnect();
     document.removeEventListener('keydown', this._onKey);
     this._stopLoop();
     if (this._renderer) {
       this._renderer.dispose();
       this._renderer.forceContextLoss?.();
       this._renderer = null;
+    }
+    if (this._launcherRenderer) {
+      this._launcherRenderer.dispose();
+      this._launcherRenderer.forceContextLoss?.();
+      this._launcherRenderer.domElement.remove();
+      this._launcherRenderer = null;
     }
     this.el.remove();
   }

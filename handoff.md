@@ -1,5 +1,95 @@
 # 서울 스낵 어택 — Seoul Snack Attack — development handoff
 
+## 2026-09-12 — Cassette access accepted for checkpoint, M6c next
+
+P, the HUD cassette button, and Settings > Music > Tape deck open the player.
+Opening releases pointer lock and pauses driving/orders while songs continue;
+Escape closes it. All seven initially available songs remain directly selectable,
+and delivery locks are preserved. `cassette-browser-check.mjs --game` verifies
+all three entry points, seven selections, locked selection rejection and parked
+physics, alongside its existing nine-viewport and audio-crossfade checks.
+`npm run check`, `npm run expanse-check`, the browser check and the production
+build (`--configLoader native`) passed before the user-requested checkpoint.
+Local assistant configuration and generated Python caches are excluded from it.
+
+## 2026-09-12 — User review: direct tuning and matching cab paint
+
+Escape settings are accepted; backtick now opens/closes tuning directly and
+switches from Settings without stacking panels. F3 and pad View retain settings
+behavior. README and the in-menu controls reference agree.
+
+The cab shell is the exterior atlas's orange, with green dash/door cards/galley
+fronts and charcoal trim. `POCHA` in the colour bible records the sampled sRGB
+palette, mirrored in Blender's `BIBLE`; the optional `srgb` material argument
+converts to linear without changing existing recipes. Hippo enamel now uses the
+bible's strawberry pink. Both GLBs and all five PNG previews were regenerated
+and visually inspected; geometry and animated nodes are unchanged.
+
+`NEXT-AGENT.md` remains the next-stage handoff. Its latest-review note explicitly
+tracks screenshot 3's hard surface boundaries, bare areas, repeated facades and
+distant washout for M6c diagnosis; these are observations, not proven causes.
+
+Validation: Blender rebuild, `blender-check`, `proc-check`, touch-controls check,
+and `npm run build -- --configLoader native` passed.
+The real-game headless Chrome check (`_work/menu-color-check.mjs`) also passed:
+direct tuning/toggle, Escape, Settings-to-tuning, F3, and exact loaded sRGB
+material colours. Screenshot: `_work/cab-colors-in-game.png`. Chrome required
+running outside the sandbox after its initial DevTools connection timed out.
+
+## 2026-09-12 — Blender cab, hippo and delivery tape collection
+
+The cab now has a darker teal dash, copper shell, rounded edges, marked
+0–150 km/h instruments, cassette stereo, stitched brown seats, cabinet doors,
+tiles, an open sink and working-kitchen clutter. The wheel is lowered to keep
+the dials visible. `pocha-interior.glb` is 19,200 triangles / ~896 KB, within
+its existing 30,000-triangle gate. All four Blender preview angles are refreshed.
+
+The user's lilac roadside hippo reference is now a Blender-authored dashboard
+souvenir (`dash_hippo.py`, `dash-hippo.glb`, `previews/dash-hippo.png`), with a
+wide white mouth and two lower tusks. Its head is a separate node; the existing
+G-force/crash spring in `dash-hippo.js` animates that node. The toy has 21,140
+triangles / ~555 KB. The cab's preview attaches the toy after exporting the cab,
+matching the runtime's separate attachment. No exterior or physics asset changed.
+
+The user confirmed **11 rack tapes plus Dive as a separate ramp-only song**.
+Imported the new songs from Downloads and renamed the old Rapid Fire (Cover)
+and Supersonic Fire files to `rapid-fire.mp3` and `supersonic.mp3`. Seven tapes
+start available. Delivery milestones are in `data/soundtrack.js`: Abyssal Ramen
+Submarine at **3**, Blade of Hatred at **6**, Rapid-fire at **9**, Supersonic at
+**12**. These were announced as tunable defaults; the user specified delivery
+unlocks but did not choose counts. The existing saved delivery count unlocks
+them on reload. Save reset relocks them. Next/Prev/ended skip locked tapes.
+
+The deck keeps every tape and its requirement visible in a wrapping grid,
+including short/mobile windows; titles wrap. Transport and mix fit too.
+`Soundtrack` owns two media elements and an equal-power 1.6-second crossfade.
+`dive.js` starts Dive only at `armed → launched`, never on approach. The
+selected cassette pauses at the end of its fade and resumes when Dive ends;
+inserting another tape overrides the cue. Music remains full-band underwater.
+Both lanes honor pause/resume, master, music level and mute. The master slider
+now actually scales MP3 volume; it previously only affected procedural audio.
+
+Validation:
+
+- `npm run blender -- dash-hippo pocha-interior`; PNGs visually inspected.
+- `npm run check`: complete suite passed, including expanded audio checks for
+  milestones, skip/selection/reload locks, overlap, pause/mute, repeat jumps,
+  user override, rapid pause/resume and missing-cue recovery.
+- `npm run build -- --configLoader native`: passed. Native config loading
+  avoids this sandbox's esbuild parent-directory permission error.
+- `node tools/bench/cassette-browser-check.mjs --game`: passed. All 11 tapes,
+  full titles, transport and mixer fit nine viewports (320×568 through
+  1280×800); two real MP3s advanced concurrently during the fade. The real game
+  loaded all animated cab/toy nodes without exceptions, and its actual dive
+  controller fired the cue once at launch and zero times while approaching.
+  This last check placed the real physics rig at the approach/lip and stepped
+  it; it does **not** claim a manually watched end-to-end jump.
+
+Screenshots are in `_work/cassette-qa/`; model deliverables remain under
+`tools/blender/previews/`. The runner now uses `--python-exit-code 1` so Python
+exceptions cannot pass using an old preview. Existing unrelated working-tree
+changes were retained.
+
 ## 2026-09-10 — M6b: the facades stop being a flat print
 
 Every window in `?world=expanse2` was a rectangle painted on an albedo. No

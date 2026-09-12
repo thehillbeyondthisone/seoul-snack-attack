@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cassette deck layout check</title>
+<style>body{margin:0;background:#172323;font-family:Arial,sans-serif}#review{position:absolute;inset:0}</style>
+<div id="review"></div>
+<script type="module">
+import { Soundtrack } from '/src/core/soundtrack.js';
+import { AudioManager } from '/src/core/audio.js';
+import { soundtrackTracks, diveTrack } from '/src/game/data/soundtrack.js';
+import { CassetteDeck } from '/src/ui/cassette-deck.js';
+const st = new Soundtrack(soundtrackTracks(), {diveTrack:diveTrack()}); st.pause();
+const audio = new AudioManager({music:st});
+const hud={englishMode:true,_localized:new Set(),_setLocalized(node,ko,en){node.textContent=en},toast(){}};
+const deck = new CassetteDeck({soundtrack:st,audio,hud,container:document.querySelector('#review')});
+deck.open();
+window.review={st,audio,deck};
+let last=performance.now();
+function tick(now){st.update((now-last)/1000);last=now;requestAnimationFrame(tick)}
+requestAnimationFrame(tick);
+</script></html>

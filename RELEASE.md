@@ -27,7 +27,10 @@ browser session:
 - first interaction enables audio and `M` toggles all audio;
 - keyboard and standard gamepad controls work;
 - a complete order persists cash, delivery count, and rating after reload;
-- no debug menu or debug query behavior is exposed in production;
+- the settings menu opens on backtick / F3 / pad View and its developer rows are
+  OFF on a clean profile — no performance overlay, no tuning tree on screen
+  (`?debug=off` removes the tuning row entirely for a build handed outside the
+  team; see the note above initDebug in src/main.js);
 - HTTPS and relative asset paths work on the SiteGround URL.
 
 ## Car stereo tracks

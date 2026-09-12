@@ -101,6 +101,12 @@ def box(name, x0, x1, y0, y1, z0, z1, mat):
         scale=(abs(x1 - x0), abs(y1 - y0), abs(z1 - z0)),
     )
     assign(obj, mat)
+    # Machined radii catch the cab light; large unbroken cubes read as greybox.
+    bevel = obj.modifiers.new('edge_radius', 'BEVEL')
+    bevel.width = min(0.012, min(obj.dimensions) * 0.18)
+    bevel.segments = 2 if name in ['dash_top', 'dash_body', 'binnacle_roof'] else 1
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.modifier_apply(modifier=bevel.name)
     return obj
 
 
@@ -159,18 +165,17 @@ def needle(name, x, z, length, mat, angle_deg):
 
 
 def build():
-    # ---- materials. Bible hexes for anything the HUD also speaks; local hues
-    # for upholstery and steel, which the bible has no opinion about.
-    shell = principled("cab_shell", 0xC0762F, roughness=0.62, specular=0.35)
-    dash = principled("cab_dash", BIBLE["key"], roughness=0.58, specular=0.3)
-    trim = principled("cab_trim", 0x2B2724, roughness=0.55, specular=0.3)
+    # Local POCHA bible colours match the exterior atlas, converted from sRGB
+    # to Blender/glTF linear factors so the cab doesn't wash out to pastel.
+    shell = principled("cab_shell", BIBLE["pocha_orange"], roughness=0.48, specular=0.35, srgb=True)
+    dash = principled("cab_dash", BIBLE["pocha_green"], roughness=0.64, specular=0.3, srgb=True)
+    trim = principled("cab_trim", BIBLE["pocha_trim"], roughness=0.55, specular=0.3, srgb=True)
     rubber = principled("cab_rubber", 0x14120F, roughness=0.88, specular=0.2)
-    seat_mat = principled("seat_fabric", 0x6E6659, roughness=0.88, specular=0.15)
+    seat_mat = principled("seat_fabric", 0x32190D, roughness=0.74, specular=0.25)
     steel = principled("galley_steel", 0x9E9A90, roughness=0.34, metallic=0.40, specular=0.6)
     chrome = principled("cab_chrome", 0xBFC2C4, roughness=0.22, metallic=0.85, specular=0.7)
     face_mat = principled(
-        "gauge_face", 0x22201D, roughness=0.42, specular=0.35,
-        emission_hex=BIBLE["money"], emission_strength=0.35,
+        "gauge_face", 0x101B1C, roughness=0.6, specular=0.25,
     )
     needle_mat = principled(
         "gauge_needle", BIBLE["alarm"], roughness=0.5,
@@ -205,10 +210,26 @@ def build():
     ]
 
     parts = []
+    ivory = principled('cab_ivory', 0xD8CDB8, roughness=.7)
+    tick_mat = principled('instrument_ink',0xD8E8D0,roughness=.5,
+                          emission_hex=0xB6E4CA, emission_strength=.65)
+    amber = principled('stereo_amber',0xF9B849,roughness=.4,
+                       emission_hex=0xF9B849, emission_strength=.7)
+    red = principled('cab_safety_red',0xC63E32,roughness=.45)
+
+    def lettering(name, text, loc, size, mat, rotation=(math.pi/2,0,math.pi)):
+        # Text is converted to triangles; no font dependency in the game.
+        data=bpy.data.curves.new(name,'FONT'); data.body=text; data.size=size
+        data.align_x='CENTER'; data.align_y='CENTER'; data.resolution_u=3
+        ob=bpy.data.objects.new(name,data); bpy.context.collection.objects.link(ob)
+        ob.location=loc; ob.rotation_euler=rotation
+        bpy.ops.object.select_all(action='DESELECT'); ob.select_set(True)
+        bpy.context.view_layer.objects.active=ob; bpy.ops.object.convert(target='MESH')
+        assign(ob,mat); parts.append(ob); return ob
 
     # ---- shell ------------------------------------------------------------
     parts.append(box("floor_pan", -HALF_W, HALF_W, FRONT, REAR, 0.0, PAN, trim))
-    parts.append(box("ceiling", -HALF_W, HALF_W, FRONT + 0.05, REAR, CEIL, CEIL + SKIN, shell))
+    parts.append(box("ceiling", -HALF_W, HALF_W, FRONT + 0.05, REAR, CEIL, CEIL + SKIN, ivory))
     # Left wall carries the driver's window; right wall carries the passenger
     # window and, further back, the serving hatch onto the kerb.
     parts += wall("wall_left", "x", HALF_W, SKIN, FRONT, REAR, 0.0, CEIL, [DOOR_WINDOW], shell)
@@ -239,6 +260,24 @@ def build():
     parts += gauge("gauge_speed", DRIVER_X + 0.03, 1.000, 0.076, face_mat, chrome)
     parts += gauge("gauge_fuel", DRIVER_X + 0.21, 0.980, 0.046, face_mat, chrome)
     parts += gauge("gauge_temp", DRIVER_X - 0.15, 0.980, 0.046, face_mat, chrome)
+    for label,x,z,r in [('speed',DRIVER_X+.03,1,.076),('depth',DRIVER_X+.21,.980,.046),('temp',DRIVER_X-.15,.980,.046)]:
+        count=30 if label=='speed' else 10
+        for j in range(count+1):
+            angle=math.radians(-125+250*j/count)
+            # Driver sees +X on the left. A negative needle angle = lower left.
+            px=x-math.sin(angle)*r*.72; pz=z+math.cos(angle)*r*.72
+            mark=box('dial_tick',-.001,.001,-.001,.001,-.006 if j%5==0 else -.003,.004,tick_mat)
+            mark.rotation_euler.y=-angle; mark.location=(px,NEEDLE_Y-.001,pz)
+            parts.append(mark)
+        if label=='speed':
+            for j in range(0,31,5):
+                angle=math.radians(-125+250*j/30)
+                lettering('speed_number',str(j*5),(x-math.sin(angle)*r*.50,NEEDLE_Y+.003,z+math.cos(angle)*r*.50),.009,tick_mat)
+            lettering('speed_units','km/h',(x,NEEDLE_Y+.003,z-.023),.008,tick_mat)
+        else:
+            lettering('dial_label','DEPTH' if label=='depth' else 'TEMP',(x,NEEDLE_Y+.003,z-.014),.007,tick_mat)
+    for x in [.47,.51,.65,.69]:
+        parts.append(box('warning_lamp',x,x+.015,-1.169,-1.166,1.107,1.112,amber if x<.6 else tick_mat))
     # Temperature is never driven, so its needle joins the static mesh rather
     # than costing a node the runtime would only ever leave alone.
     parts.append(needle("needle_temp", DRIVER_X - 0.15, 0.980, 0.038, needle_mat, -22.0))
@@ -247,12 +286,34 @@ def build():
     # panel in the reference. Emissive cyan so it reads at night.
     parts.append(box("screen_bezel", -0.24, 0.06, -1.30, -1.24, 0.62, 0.90, trim))
     parts.append(box("screen_glass", -0.21, 0.03, -1.242, -1.232, 0.65, 0.87, screen))
-    for i, z0 in enumerate((0.70, 0.745)):
-        parts.append(box(f"screen_line_{i}", -0.18, -0.02, -1.233, -1.228, z0, z0 + 0.018, dash))
+    parts.append(box('radio_face',-.23,.05,-1.228,-1.214,.64,.90,trim))
+    parts.append(box('radio_display',-.195,.015,-1.212,-1.209,.808,.858,dash))
+    lettering('radio_title','SNACK FM',(-.09,-1.206,.836),.022,tick_mat)
+    parts.append(box('cassette_slot',-.17,-.01,-1.212,-1.208,.739,.783,rubber))
+    parts.append(box('cassette_label',-.155,-.025,-1.207,-1.204,.752,.776,amber))
+    for x in [-.13,-.05]:
+        ob=cylinder('tape_reel',.010,.004,verts=16,location=(x,-1.200,.755),rotation=(math.pi/2,0,0)); assign(ob,trim); parts.append(ob)
+    for x in [-.17,-.13,-.09,-.05,-.01]:
+        parts.append(box('radio_key',x-.013,x+.013,-1.21,-1.19,.69,.708,steel))
+    lettering('stereo_badge','AUTO REVERSE',(-.09,-1.19,.665),.008,ivory)
 
     for i, (x0, x1) in enumerate(((-0.62, -0.40), (0.10, 0.32))):
         parts.append(box(f"vent_{i}", x0, x1, -1.30, -1.26, 0.76, 0.90, trim))
+        for z in [.78,.80,.82,.84,.86,.88]:
+            parts.append(box('vent_louvre',x0+.012,x1-.012,-1.258,-1.246,z,z+.008,steel))
     parts.append(box("glovebox", -HALF_W + 0.06, -0.30, -1.30, -1.265, 0.62, 0.86, dash))
+    parts.append(box('glovebox_latch',-.75,-.66,-1.262,-1.244,.785,.801,chrome))
+    parts.append(box('dash_ivory_band',-1.02,.25,-1.278,-1.263,.918,.932,ivory))
+    lettering('passenger_badge','SEOUL  /  NIGHT SHIFT',(-.66,-1.258,.877),.013,ivory)
+    parts.append(box('hazard_button',.155,.205,-1.294,-1.258,.656,.696,red))
+    lettering('hazard_mark','!',(.18,-1.254,.676),.027,ivory)
+    # Dash tray, a take-away coffee and a paper delivery ticket.
+    parts.append(box('dash_tray',-.70,-.32,-1.58,-1.33,.99,1.005,rubber))
+    cup=cylinder('coffee_cup',.035,.08,verts=20,location=(-.56,-1.44,1.045)); assign(cup,ivory); parts.append(cup)
+    lid=cylinder('coffee_lid',.038,.010,verts=20,location=(-.56,-1.44,1.09)); assign(lid,trim); parts.append(lid)
+    parts.append(box('receipt',-.44,-.36,-1.54,-1.35,1.006,1.007,ivory))
+    for j in range(8):
+        parts.append(box('receipt_ink',-.432,-.37,-1.51+j*.019,-1.508+j*.019,1.007,1.008,trim))
 
     # ---- steering ---------------------------------------------------------
     column = cylinder(
@@ -262,7 +323,7 @@ def build():
     assign(column, trim)
     parts.append(column)
 
-    rim = torus("wheel_rim", major=0.185, minor=0.018, major_seg=20, minor_seg=8)
+    rim = torus("wheel_rim", major=0.185, minor=0.018, major_seg=48, minor_seg=10)
     assign(rim, rubber)
     hub = cylinder("wheel_hub", radius=0.052, depth=0.046, verts=14)
     assign(hub, trim)
@@ -286,7 +347,7 @@ def build():
     wheel.rotation_euler = (math.radians(55), 0.0, 0.0)
     # Parts were built centred on the origin, so after the join the object's
     # origin already IS the hub — the runtime spins this node about its local Z.
-    wheel.location = (DRIVER_X, -1.00, 0.930)
+    wheel.location = (DRIVER_X, -1.00, 0.865)
 
     # ---- seats ------------------------------------------------------------
     for tag, x in (("driver", DRIVER_X), ("pass", PASS_X)):
@@ -294,6 +355,14 @@ def build():
         parts.append(box(f"seat_{tag}_pedestal", x - 0.18, x + 0.18, -0.80, -0.42, PAN, 0.30, trim))
         parts.append(box(f"seat_{tag}_back", x - 0.25, x + 0.25, -0.36, -0.24, 0.42, 1.06, seat_mat))
         parts.append(box(f"seat_{tag}_head", x - 0.15, x + 0.15, -0.35, -0.25, 1.06, 1.24, seat_mat))
+        for j in range(6):
+            sx=x-.19+j*.075
+            parts.append(box('seat_pleat',sx,sx+.05,-.868,-.375,.45,.461,seat_mat))
+            parts.append(box('back_pleat',sx,sx+.05,-.373,-.356,.48,1.01,seat_mat))
+            for z in [.5,.61,.72,.83,.94]:
+                parts.append(box('seat_stitch',sx,sx+.012,-.375,-.374,z,z+.002,ivory))
+        parts.append(box('seatbelt',x+.175,x+.212,-.39,-.375,.53,1.04,rubber))
+        parts.append(box('seatbelt_buckle',x-.24,x-.21,-.66,-.59,.40,.44,red))
 
     # ---- controls on the floor -------------------------------------------
     lever = cylinder(
@@ -341,15 +410,16 @@ def build():
         parts.append(run)
 
     # ---- galley -----------------------------------------------------------
-    parts.append(box("counter_top", -HALF_W, -0.52, -0.05, 1.50, 0.86, 0.92, steel))
+    parts += wall('counter_top','z',.86,.06,-HALF_W,-.52,-.05,1.50,[(-.97,-.63,.45,.79)],steel)
     parts.append(box("counter_front", -0.56, -0.52, -0.05, 1.50, PAN, 0.86, steel))
     parts.append(box("counter_kick", -HALF_W, -0.52, -0.05, 0.00, PAN, 0.86, trim))
     # Sink: a basin sunk below the counter line, with a lip you can see over.
-    parts.append(box("sink_basin", -0.98, -0.62, 0.44, 0.80, 0.70, 0.87, steel))
-    parts.append(box("sink_well", -0.95, -0.65, 0.47, 0.77, 0.70, 0.86, trim))
+    parts.append(box("sink_basin", -0.98, -0.62, 0.44, 0.80, 0.72, 0.73, steel))
+    parts += wall('sink_walls','z',.73,.13,-.98,-.62,.44,.80,[(-.97,-.63,.45,.79)],steel)
     tap = cylinder("sink_tap", radius=0.013, depth=0.22, verts=8, location=(-0.98, 0.84, 1.02))
     assign(tap, chrome)
     parts.append(tap)
+    faucet=cylinder('tap_spout',.013,.12,verts=12,location=(-.92,.84,1.125),rotation=(0,math.pi/2,0)); assign(faucet,chrome); parts.append(faucet)
 
     cooker_body = cylinder("cooker_body", radius=0.125, depth=0.20, verts=16, location=(-0.82, 0.06, 1.02))
     assign(cooker_body, cooker_mat)
@@ -386,6 +456,28 @@ def build():
     parts.append(box("overhead_cabinet", -HALF_W, -0.66, 0.10, 1.40, 1.64, CEIL - 0.06, shell))
     # The hatch counter the customer's food actually lands on.
     parts.append(box("hatch_ledge", -HALF_W - 0.16, -HALF_W, -0.10, 1.00, 0.92, 0.98, steel))
+    # Cabinet reveals, handles, tiles and practical kitchen clutter.
+    for y in [.02,.48,.98]:
+        parts.append(box('galley_door',-.516,-.499,y,y+.43,.17,.79,dash))
+        parts.append(box('galley_handle',-.493,-.477,y+.08,y+.34,.728,.747,chrome))
+    for y in [.12,.55,.98]:
+        parts.append(box('overhead_door',-.654,-.640,y,y+.39,1.67,1.81,ivory))
+        parts.append(box('overhead_handle',-.632,-.618,y+.10,y+.29,1.691,1.701,trim))
+    for x in range(8):
+        for z in range(3):
+            parts.append(box('rear_tile',-.99+x*.125,-.872+x*.125,1.517,1.532,.93+z*.12,1.043+z*.12,ivory if (x+z)%4 else dash))
+    for i in range(6):
+        cap=cylinder('spice_cap',.032,.012,verts=12,location=(-.95,.40+i*.15,1.389)); assign(cap,trim); parts.append(cap)
+    for y in [.38,.48]:
+        sauce=cylinder('sauce_bottle',.029,.15,verts=16,location=(-.80,y,1.00)); assign(sauce,red if y<.4 else amber); parts.append(sauce)
+        nozzle=cylinder('sauce_nozzle',.007,.045,verts=10,location=(-.80,y,1.097)); assign(nozzle,ivory); parts.append(nozzle)
+    parts.append(box('tea_towel',-.525,-.508,.85,1.0,.59,.85,ivory))
+    for y in [.87,.91,.95]: parts.append(box('towel_stripe',-.506,-.505,y,y+.012,.59,.845,red))
+    extinguisher=cylinder('extinguisher',.07,.32,verts=20,location=(.89,1.39,.30)); assign(extinguisher,red); parts.append(extinguisher)
+    parts.append(box('extinguisher_label',.855,.925,1.315,1.32,.22,.36,ivory))
+    parts.append(box('extinguisher_handle',.84,.94,1.36,1.41,.47,.49,trim))
+    for y in [-.35,.2,.75,1.3]:
+        parts.append(box('floor_grip',-.40,.78,y,y+.04,.051,.055,rubber))
 
     needles = [
         needle("needle_speed", DRIVER_X + 0.03, 1.000, 0.064, needle_mat, -38.0),
@@ -463,6 +555,11 @@ def main():
     reset_scene()
     delta = build()
     export_glb(out)
+    # Render the same separate Blender toy the runtime attaches to the dash.
+    from recipes.dash_hippo import build_hippo
+    from mathutils import Matrix
+    for ob in build_hippo():
+        ob.matrix_world = Matrix.Translation((.18,-1.3,.99)) @ Matrix.Rotation(-2.5,4,'Z') @ ob.matrix_world
     city_backdrop()
 
     for suffix, cam, look, lens in VIEWS:

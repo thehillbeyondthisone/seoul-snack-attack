@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import GUI from 'lil-gui';
 import { VEHICLES, VEHICLE_IDS, DEFAULT_VEHICLE } from '../game/data/vehicles.js';
+import { DIVE_RAMP, DIVE_RAMP_HEADING } from '../world/dive-ramp.js';
 
 const SETTINGS_KEY = 'seoul-snack-attack-debug-settings-v1';
 
@@ -228,10 +229,13 @@ export function initDebug({ orders, rain, phys, post, van, cam, city, scene, tim
   restoreSection(settings, vehicleSection, p, vehicleKeys);
   const saveVehicle = () => copySettings(settings, vehicleSection, p, vehicleKeys);
   // Ranges span both vehicles: the van's springK 38000 and the pocha's
-  // damperC 4200 would each fall outside a single-vehicle slider range.
+  // damperC 4200 would each fall outside a single-vehicle slider range. The
+  // brake range tops out well above either tune so the delivery-pace numbers
+  // (van 26 kN, pocha 30 kN) sit in the middle of the slider rather than at its
+  // end, where there is no room left to test "what if it stopped harder".
   for (const [key, min, max, step, label] of [
     ['mass', 500, 2500, 10, '무게 kg'], ['engineForce', 3000, 20000, 100, '엔진 힘 N'],
-    ['maxSpeed', 15, 60, 1, '최고속도 m/s'], ['brakeForce', 5000, 30000, 100, '브레이크 N'],
+    ['maxSpeed', 15, 60, 1, '최고속도 m/s'], ['brakeForce', 5000, 45000, 100, '브레이크 N'],
     ['gripDry', 0.4, 1.8, 0.01, '마른 그립 μ'], ['gripWet', 0.3, 1.5, 0.01, '젖은 그립 μ'],
     ['tireStiffness', 3, 20, 0.5, '타이어 강성'], ['springK', 8000, 100000, 500, '서스펜션 스프링'],
     ['damperC', 800, 12000, 100, '서스펜션 댐퍼'], ['steerLockLow', 0.2, 1.0, 0.01, '저속 조향각'],
@@ -239,6 +243,12 @@ export function initDebug({ orders, rain, phys, post, van, cam, city, scene, tim
   ]) gVeh.add(p, key, min, max, step).name(label).onChange(saveVehicle);
   gVeh.add({ tp1: () => orders.teleportPickup() }, 'tp1').name('픽업지로 텔레포트');
   gVeh.add({ tp2: () => orders.teleportDropoff() }, 'tp2').name('배달지로 텔레포트');
+  gVeh.add({
+    tpRamp: () => phys.teleport(
+      new THREE.Vector3(DIVE_RAMP.x, 0, DIVE_RAMP.approachStartZ),
+      DIVE_RAMP_HEADING,
+    ),
+  }, 'tpRamp').name('다이빙 램프로 텔레포트 · Teleport to dive ramp');
   gVeh.add({ rs: () => phys.resetToRoad() }, 'rs').name('스폰 리셋 · Reset');
   gVeh.close();
 

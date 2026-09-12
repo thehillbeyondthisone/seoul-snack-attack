@@ -128,15 +128,16 @@ export const VEHICLES = {
       eye: [0.605, 1.24, 0.32],
       // Just under dome_lens, which the recipe hangs at ceiling height.
       dome: [0.055, 1.76, 0.64],
-      // Rim radians per road-wheel radian. steerLockLow is 0.62, so full lock
-      // at a standstill swings the rim 149 degrees — a little under half a turn
-      // each way, which is what a long-wheelbase truck with a slow rack does.
+      // Rim radians per road-wheel radian. steerLockLow is 0.68, so full lock
+      // at a standstill swings the rim 164 degrees — a little under half a turn
+      // each way, which is what a long-wheelbase truck with a quick-ish rack does.
       steerRatio: 4.2,
-      // The dial face is blank (the recipe draws no ticks), so the runtime owns
-      // the scale. maxSpeed 21 m/s is 76 km/h, which sits at two thirds of a
-      // 100 km/h dial — the needle spends its life on the readable part of the
-      // sweep instead of pinned near zero.
-      speedFullScale: 100,
+      // The Blender recipe now labels the dial to match this scale.
+      // maxSpeed 28 m/s is 101 km/h, which sits at two thirds of a
+      // 150 km/h dial — the needle spends its life on the readable part of the
+      // sweep instead of pinned at either end. It was a 100 km/h dial when the
+      // truck could only reach 76; at the current top speed that dial pegs.
+      speedFullScale: 150,
       // Degrees, CLOCKWISE from the driver's seat, zero first. A 250-degree
       // sweep with the rest position at lower-left, like every speedometer.
       needleSweep: [-125, 125],
@@ -148,7 +149,7 @@ export const VEHICLES = {
       // binnacle (0.335 .. 0.935), and the sightline from `eye` passes right of
       // it. Yaw points the snout at the passenger door, turned about 60 degrees
       // toward the driver: the photo's three-quarter view, open mouth and all.
-      hippo: { position: [0.18, 0.99, 1.3], yaw: -2.5 },
+      hippo: { asset: 'assets/vehicles/dash-hippo.glb', position: [0.18, 0.99, 1.3], yaw: -2.5 },
     },
 
     rig: {
@@ -164,29 +165,46 @@ export const VEHICLES = {
       // than the van's 1400 default, so it shoves props around convincingly.
       mass: 1700,
       inertiaScale: 1.25,
-      engineForce: 8400,
-      maxSpeed: 21,
-      reverseMaxSpeed: 6,
-      brakeForce: 17500,
-      handbrakeForce: 19000,
-      drag: 0.50,
+      // ---- Delivery-pace tune (see tools/bench/drive-feel.mjs) -------------
+      // The truck used to top out at 74 km/h and need 14.9 m to stop from 50,
+      // which is 0.66 g — you arrived at the shop already past it, and the only
+      // way to hit a turn-in was to crawl. Every number below moves together:
+      // speed is not fun on its own, it is fun when the brakes and the front
+      // axle can cash the cheque it writes.
+      engineForce: 13000,
+      maxSpeed: 28,            // 101 km/h
+      reverseMaxSpeed: 7,
+      // 17500 N spread over four wheels left the FRONT axle brake-limited
+      // rather than grip-limited under dive: 4375 N a corner against a
+      // ~6.8 kN loaded front tire that can take 8.3. This is the number that
+      // stops the overshooting, and it is sized to hand the limit back to the
+      // tires so the friction ellipse — not a constant — decides the stop.
+      brakeForce: 30000,
+      handbrakeForce: 24000,
+      drag: 0.46,
       rollingResistance: 150,
-      gripDry: 1.02,
-      gripWet: 0.74,
-      tireStiffness: 8.5,
+      // Grip has to rise with the brakes or the extra force is thrown away at
+      // the friction ellipse; it is also what makes a corner makeable at pace.
+      gripDry: 1.22,
+      gripWet: 0.88,
+      tireStiffness: 11,
       // Sketchbook exposes roll influence on its raycast car. A lower value on
       // this tall kitchen keeps it upright at delivery pace; only above 90%
       // of top speed does the physical lever arm fade back in. This leaves
       // normal city driving forgiving while preserving risky flat-out turns.
       rollInfluence: 0.55,
       rollInfluenceAtMax: 1,
-      rollInfluenceSpeedStart: 0.90,
+      rollInfluenceSpeedStart: 0.94,
 
-      // Long wheelbase (2.95 m) and a heavy nose: less lock than the van,
-      // slower rack.
-      steerLockLow: 0.62,
-      steerLockHigh: 0.12,
-      steerResponse: 5.0,
+      // Long wheelbase (2.95 m) and a heavy nose, so still less lock than the
+      // van — but the rack is quicker now and keeps real authority at speed.
+      // steerLockHigh 0.12 rad was the "I have to stop to make this corner"
+      // number; steerSpeedRef moves with maxSpeed so the fade is the same
+      // FRACTION of top speed it always was rather than arriving 20 km/h early.
+      steerLockLow: 0.68,
+      steerLockHigh: 0.19,
+      steerSpeedRef: 30,
+      steerResponse: 6.5,
 
       // Corner mass ~425 kg on 26 kN/m is a 1.24 Hz ride at a 0.65 damping
       // ratio — soft, befitting a truck this tall.
@@ -195,18 +213,21 @@ export const VEHICLES = {
       springK: 26000,
       damperC: 4200,
 
-      // CoM ~1.20 m above the road (origin sits at 2.363 m). The truck still
+      // CoM ~1.06 m above the road (origin sits at 2.363 m). The truck still
       // feels tall and can be upset by a hard kerb strike, but routine cornering
-      // no longer balances it on a knife edge.
-      comHeight: -1.16,
+      // no longer balances it on a knife edge. Dropped 14 cm with the grip
+      // rise above: rollover threshold is track/(2h), so 1.22 g of tire needs
+      // 2.0854 / (2 x 1.06) = 0.98 g of geometry behind it to stay a choice
+      // rather than a coin flip.
+      comHeight: -1.30,
       // The wheel centreline is (-1.2939 + 0.7915) / 2 = -0.2512 m in model
       // space. Put the CoM on it so left and right turns have equal rollover
       // margins; the serving awning may skew the visual bbox, not the chassis.
       comLateral: -0.2512,
 
-      antiRollFront: 3200,
-      antiRollRear: 2000,
-      downforce: 5,
+      antiRollFront: 4400,
+      antiRollRear: 2700,
+      downforce: 11,
       uprightTorque: 9000,
       angularDamping: 1.6,
       crashBounce: 0.25,

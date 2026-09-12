@@ -4,7 +4,7 @@ import { Input } from './core/input.js';
 import { Soundtrack } from './core/soundtrack.js';
 import { AudioManager } from './core/audio.js';
 import { Post } from './core/post.js';
-import { createGraphicsQuality } from './core/graphics-quality.js';
+import { createGraphicsQuality, applyGraphicsPreference } from './core/graphics-quality.js';
 import { loadCity } from './world/city.js';
 import { loadProcCity } from './world/proc/city.js';
 import { loadExpanseCity } from './world/expanse-city.js';
@@ -19,7 +19,7 @@ import { loadVan } from './vehicle/van.js';
 import { loadVehicle } from './vehicle/vehicle.js';
 import { VehiclePhysics, DEFAULT_PARAMS } from './vehicle/physics.js';
 import { getVehicle, VEHICLE_IDS, DEFAULT_VEHICLE } from './game/data/vehicles.js';
-import { soundtrackTracks } from './game/data/soundtrack.js';
+import { soundtrackTracks, diveTrack } from './game/data/soundtrack.js';
 import { loadSave } from './game/save.js';
 import { ChaseCamera } from './vehicle/camera.js';
 import { CockpitCamera } from './vehicle/cockpit-camera.js';
@@ -32,6 +32,7 @@ import { Orders } from './game/orders.js';
 import { startFoodBackgroundWarmup } from './game/food-display.js';
 import { HUD3 } from './ui/hud3.js';
 import { CityMap } from './ui/city-map.js';
+import { Settings } from './ui/settings.js';
 import { initDebug } from './ui/debug.js';
 
 const app = document.getElementById('app');
@@ -299,7 +300,9 @@ async function boot() {
   const hud = new HUD3();
   hud.setControllerStatus(input.supported ? 'waiting' : 'unsupported');
   // Playlist and play ORDER live in src/game/data/soundtrack.js — edit there.
-  const soundtrack = new Soundtrack(soundtrackTracks(import.meta.env.BASE_URL));
+  const soundtrack = new Soundtrack(soundtrackTracks(import.meta.env.BASE_URL), {
+    deliveries: playerSave.deliveries, diveTrack: diveTrack(import.meta.env.BASE_URL),
+  });
   const audio = new AudioManager({ music: soundtrack });
   hud.bindAudioControls?.({ soundtrack, audio });
   hud.setAudioStatus?.(audio.muted ? 'muted' : 'ready');
@@ -351,8 +354,10 @@ async function boot() {
   let onboardingPaused = hud.isOnboardingVisible?.() ?? false;
   let garagePaused = false;
   let mapPaused = false;
+  let settingsPaused = false;
+  let cassettePaused = false;
   const syncOverlayPause = () => {
-    const paused = onboardingPaused || garagePaused || mapPaused;
+    const paused = onboardingPaused || garagePaused || mapPaused || settingsPaused || cassettePaused;
     orders.setPaused?.(paused);
     input.setTouchSuspended(paused);
   };
@@ -481,7 +486,7 @@ async function boot() {
   const debugEnabled = qp.get('debug') !== 'off';
   const debug = debugEnabled
     ? initDebug({ orders, rain, phys, post, van, cam: chaseCam, city, scene, timeOfDay, vehicleDef, hud })
-    : { toggle() {}, update() {}, attachProps() {}, setEnglishMode() {} };
+    : { toggle() {}, update() {}, attachProps() {}, setEnglishMode() {}, visible: false };
 
   // Apply the capability-selected rendering budget after debug settings have
   // restored. Desktop values are the existing defaults; only the active mobile
@@ -586,19 +591,76 @@ async function boot() {
   // modes, so UI overlays and the tape deck remain ordinary clickable DOM.
   // Escape releases it as browsers expect.
   renderer.domElement.addEventListener('pointerdown', () => {
-    if (!overview && !document.pointerLockElement && !onboardingPaused && !garagePaused && !mapPaused) {
+    if (!overview && !document.pointerLockElement && !onboardingPaused && !garagePaused && !mapPaused && !settingsPaused && !cassettePaused) {
       renderer.domElement.requestPointerLock?.();
     }
   });
-  // ?stats=1 — on-screen physics/spawn readout (also readable via --dump-dom)
-  let statsEl = null;
-  if (qp.get('stats')) {
-    statsEl = document.createElement('div');
-    statsEl.id = 'stats';
-    statsEl.style.cssText =
-      'position:fixed;bottom:80px;left:12px;color:#7bff9e;font:12px monospace;z-index:99;white-space:pre;text-shadow:0 1px 2px #000';
-    document.body.appendChild(statsEl);
-  }
+  // On-screen physics/spawn readout. It used to be `?stats=1` and nothing else,
+  // which meant the only way to have it was to have it permanently, parked over
+  // the road in monospace green. It is a settings toggle now (Developer tools >
+  // Performance overlay, persisted per browser); `?stats=1` starts it on so
+  // tools/probe.mjs --dump-dom keeps working against a plain URL.
+  const statsForced = qp.get('stats') === '1';
+  const statsEl = document.createElement('div');
+  statsEl.id = 'stats';
+  statsEl.style.cssText =
+    'position:fixed;bottom:80px;left:12px;color:#7bff9e;font:12px monospace;z-index:99;white-space:pre;text-shadow:0 1px 2px #000';
+  document.body.appendChild(statsEl);
+  const setStatsVisible = (on) => {
+    statsEl.hidden = !on;
+    // `hidden` alone loses to the inline `position:fixed` cascade in some
+    // browsers, so take the layout out too.
+    statsEl.style.display = on ? '' : 'none';
+  };
+  setStatsVisible(statsForced);
+
+  // ---- Settings --------------------------------------------------------------
+  // Player settings also link to tuning; backtick opens tuning directly.
+  // `?stats=1` selects the switch's initial position,
+  // but the player can still turn it off during that run.
+  const settings = new Settings({
+    graphicsQuality,
+    setGraphicsPreference: applyGraphicsPreference,
+    debugMenuAvailable: debugEnabled,
+    initialPerfOverlay: statsForced ? true : null,
+    onOpenDebugMenu: () => debug.toggle(),
+    onOpenCassette: hud.deck ? () => hud.deck.open() : null,
+    onPerfOverlay: (on) => setStatsVisible(on),
+    onToggle: (open) => {
+      settingsPaused = open;
+      syncOverlayPause();
+    },
+  });
+  setStatsVisible(settings.perfOverlay);
+  if (hud.deck) hud.deck.onToggle = (open) => {
+    cassettePaused = open;
+    if (open) {
+      settings.close();
+      if (debug.visible) debug.toggle();
+      if (cityMap.isOpen) cityMap.hide();
+      hud.closeGarage?.();
+      input.keys.clear();
+    }
+    syncOverlayPause();
+  };
+  hud.onSettings?.(() => settings.toggle());
+  // Escape is the conventional pause/settings door. Other overlays consume it
+  // first; when none is open it brings up Settings, and it also backs out of
+  // the internal tuning tree.
+  window.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || event.defaultPrevented) return;
+    if (debug.visible) {
+      event.preventDefault();
+      debug.toggle();
+    } else if (garagePaused) {
+      event.preventDefault();
+      hud.closeGarage?.();
+    } else if (!mapPaused && !settings.isOpen()) {
+      event.preventDefault();
+      settings.open();
+    }
+  });
+
   // Static cameras for map QA. `shop=<restaurant id>` is deliberately a test
   // hook, not gameplay: it frames the authored pickup front for visual probes.
   const shopView = qp.get('shop');
@@ -745,6 +807,7 @@ async function boot() {
 
   renderer.setAnimationLoop(() => {
     const dt = Math.min(clock.getDelta(), 0.1);
+    soundtrack.update(dt);
     renderer.info.reset();
 
     // Poll gamepads before consuming controls. Analog triggers retain their
@@ -763,6 +826,7 @@ async function boot() {
     const englishMode = input.held('translate');
     hud.setEnglishMode?.(englishMode);
     debug.setEnglishMode?.(englishMode);
+    settings.setEnglishMode(englishMode);
     if (input.hadActivity) {
       if (!soundtrack.started) soundtrack.play();
       if (!audio.started || audio.ctx?.state === 'suspended') {
@@ -771,10 +835,12 @@ async function boot() {
       }
     }
 
-    if (input.pressed('map')) {
+    if (input.pressed('cassette')) hud.deck?.toggle();
+    if (!cassettePaused && input.pressed('map')) {
       if (cityMap.isOpen) cityMap.hide();
       else {
         if (garagePaused) hud.closeGarage?.();
+        settings.close();
         cityMap.show();
       }
     }
@@ -787,7 +853,7 @@ async function boot() {
     drive.controls.brake = player.isDriving ? input.actionValue('brake') : 0;
     drive.controls.steer = player.isDriving ? input.steerAxis() : 0;
     drive.controls.handbrake = player.isDriving && input.isDown('handbrake');
-    if (garagePaused || mapPaused || !player.isDriving) {
+    if (garagePaused || mapPaused || settingsPaused || cassettePaused || !player.isDriving) {
       drive.controls.throttle = 0;
       drive.controls.brake = 0;
       drive.controls.steer = 0;
@@ -796,14 +862,14 @@ async function boot() {
       drive.controls.handbrake = !player.isDriving;
     }
 
-    if (!garagePaused && !mapPaused && input.pressed('interact')) {
+    if (!garagePaused && !mapPaused && !settingsPaused && !cassettePaused && input.pressed('interact')) {
       if (player.isDriving) player.exitVehicle();
       else if (player.mode === 'onFoot') player.beginEnterVehicle();
     }
 
     // Fixed-step physics. Props run on the SAME accumulator, so the van's pose
     // is current before contacts are found and its reaction is drained after.
-    if (!mapPaused) acc += dt;
+    if (!mapPaused && !cassettePaused) acc += dt;
     else acc = 0;
     let steps = 0;
     const footForward = onFootCam.forward;
@@ -826,13 +892,13 @@ async function boot() {
       steps++;
     }
     if (props) props.update();
-    dive.update(dt, input);
+    if (!cassettePaused) dive.update(dt, input);
     // The rig whose pose is real this frame: the road model on the surface, the
     // submarine below it. Everything downstream reads this rather than `phys`.
     const rig = dive.physics;
 
     // Edge-triggered keys
-    if (!mapPaused && input.pressed('reset')) {
+    if (!mapPaused && !settingsPaused && !cassettePaused && input.pressed('reset')) {
       // R underwater would hand the truck back to a road model that is not
       // running and drop it at a carriageway 200 m above. Put it back under the
       // mouth instead, which is the only "known good" pose the abyss has.
@@ -840,13 +906,23 @@ async function boot() {
       else if (player.isDriving) phys.resetToRoad();
       else player.resetToRoad();
     }
-    if (!mapPaused && input.pressed('debug')) debug.toggle();
+    // Backtick opens tuning directly, including from Settings. Keep one menu
+    // visible at a time; Escape retains its existing overlay/back behavior.
+    if (!mapPaused && !cassettePaused && debugEnabled && input.pressed('debug')) {
+      settings.close();
+      debug.toggle();
+      if (debug.visible) document.exitPointerLock?.();
+    }
+    if (!mapPaused && !cassettePaused && input.pressed('settings')) {
+      if (debug.visible) debug.toggle();
+      else settings.toggle();
+    }
     // Neither view key works during the outside whirlpool shot: the dive owns the
     // camera and has deliberately put the body shell back on.
-    if (!mapPaused && !dive.ownsCamera && input.pressed('view')) setCockpit(!cockpit);
+    if (!mapPaused && !settingsPaused && !cassettePaused && !dive.ownsCamera && input.pressed('view')) setCockpit(!cockpit);
     // V / D-pad up cycles the chase framing, low -> medium -> high. From the cab
     // it drops to the chase at the current angle rather than doing nothing.
-    if (!mapPaused && !dive.ownsCamera && player.isDriving && input.pressed('camAngle')) {
+    if (!mapPaused && !settingsPaused && !cassettePaused && !dive.ownsCamera && player.isDriving && input.pressed('camAngle')) {
       if (cockpit) setCockpit(false);
       else {
         const angle = chaseCam.cycleAngle();
@@ -867,7 +943,7 @@ async function boot() {
     // before touching an instrument the player cannot see.
     interior?.update(dt, rig);
 
-    if (!overview && !mapPaused) {
+    if (!overview && !mapPaused && !cassettePaused) {
       const lookAxes = input.consumeLookAxes();
       // Pull the chase camera in against whichever world the truck is in — the
       // city's collider is 60 m overhead and knows nothing about the abyss walls.
@@ -912,7 +988,7 @@ async function boot() {
 
     // renderer.info is reset per render(), so it only means anything AFTER the
     // frame has actually been drawn.
-    if (statsEl) {
+    if (!statsEl.hidden) {
       const p = rig.meshPosition;
       const tile = city.grid.indexAt(p.x, p.z);
       const vis = city.tiles.reduce((n, t) => n + (t.root.visible ? 1 : 0), 0);

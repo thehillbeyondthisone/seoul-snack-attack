@@ -42,6 +42,14 @@ export const STAGE = {
   background: 0x0a0603,
 };
 
+/** Local hero-truck paint, sampled from the shipped pocha atlas (sRGB).
+ * Interior paint shares these colours; these are not HUD accents. */
+export const POCHA = {
+  orange: 0xe3a000,
+  green: 0x83b716,
+  trim: 0x3d3d3d,
+};
+
 /** Wet-street surfaces. Readability at speed depends on these more than facades. */
 export const SURFACES = {
   asphalt: 0x141009,

@@ -333,21 +333,32 @@ function soak(city, seconds = 60) {
 
 // ---------------------------------------------------------------------------
 // Targets — the GTA-IV-like envelope. null = report only, no gate.
+//
+// The performance windows below were re-cut for the delivery-pace tune (see
+// DEFAULT_PARAMS in src/vehicle/physics.js). The old envelope was a simulation
+// envelope: 90 km/h, 0-60 in 4.0 s, 27 m to stop from 80, 0.83 g of grip. It
+// made a delivery run a sequence of overshoots, because you could not carry
+// speed to a junction you had no way to scrub speed at. The ride, yaw and
+// crash windows are untouched — this pass did not go near them, and the ones
+// failing today were failing before it.
 // ---------------------------------------------------------------------------
 const TARGETS = {
   staticSag: [0.15, 0.23],
   rideFrequencyHz: [1.05, 1.35],
   rideDampingZeta: [0.25, 0.32],
   settleOvershoots: [2, 4],
-  accel0to60Kmh: [4.0, 7.0],
-  accel0to80Kmh: [7.0, 12.0],
-  // Slightly sharper arcade brake tune: still plausible, but more immediate
-  // than the old 28 m lower bound allowed.
-  braking80to0m: [26, 42],
+  accel0to60Kmh: [2.2, 3.4],
+  accel0to80Kmh: [3.3, 5.2],
+  // Arcade braking, and deliberately so: the limit belongs to the tires (the
+  // friction ellipse, which still trades stopping against steering) rather
+  // than to a constant that ran out before the front axle did.
+  braking80to0m: [16, 24],
   brakeDiveDeg: [2.5, 3.5],
-  skidpadLatG: [0.78, 0.88],
-  skidpadLatGWet: [0.55, 0.65],
-  rollPerG: [9, 11],
+  skidpadLatG: [1.00, 1.20],
+  skidpadLatGWet: [0.78, 0.95],
+  // Flatter than the old 9-11 window: the anti-roll bars came up with the grip
+  // so the extra cornering load does not arrive as lean.
+  rollPerG: [5.0, 8.0],
   cornerRollover: [0, 0],
   stepSteerT63: [0.22, 0.32],
   yawOvershoot: [1.15, 1.35],

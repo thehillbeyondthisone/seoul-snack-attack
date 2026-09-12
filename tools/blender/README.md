@@ -37,6 +37,7 @@ before opening Blender or the game:
 | `banana-milk` | ![banana-milk](previews/banana-milk.png) |
 | `soondae-platter` | ![soondae-platter](previews/soondae-platter.png) |
 | `pocha-interior` | ![pocha-interior](previews/pocha-interior.png) |
+| `dash-hippo` | ![dash-hippo](previews/dash-hippo.png) |
 
 The interior ships four stills, because one frame cannot answer "is the whole
 cab right?": [`-cabin`](previews/pocha-interior-cabin.png) (wide),
@@ -144,6 +145,25 @@ up, and the driver's eye point is glTF `(x +0.55, y 1.24, z -0.42)` — +X left,
 ## Lessons
 
 Record the failure, not the mood. Newest first.
+
+### 2026-09-12 — cab finish and Blender hippo
+
+- The cab is 19,200 triangles (30,000 budget). One-segment bevels on the small
+  fittings leave room for dial ticks/numbers, stereo controls, seat stitching,
+  cabinet reveals, tiles, an open sink and galley clutter. Larger dash edges
+  retain two bevel segments. The wheel sits lower so the instrument faces read.
+- `dash_hippo.py` builds the reference's yawning lilac souvenir as two nodes:
+  `hippo_body` and `hippo_head`, 21,140 triangles together. Metres, +Z forward
+  after glTF export, origin at the plinth bottom. `dash-hippo.js` only animates
+  the preserved head pivot; it no longer generates geometry.
+- The cab preview adds the separate hippo **after export**, in the same pose
+  as `vehicles.js`; the runtime loads the separate GLB. Rebuild the hippo first
+  when changing both. Its standalone PNG is required by the catalog too.
+- Build transformed ellipsoids with an explicit `Matrix.LocRotScale` when
+  applying a parent matrix. Reading `matrix_world` immediately after changing
+  scale can still see Blender's old transform and export metre-wide toy parts.
+- The runner passes `--python-exit-code 1`. Blender otherwise exits zero after
+  a Python exception, which could let an old preview disguise a failed build.
 
 ### 2026-09-10 — pocha truck interior
 

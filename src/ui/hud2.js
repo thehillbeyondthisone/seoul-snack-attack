@@ -271,7 +271,7 @@ export class HUD2 {
       obj: $('h2obj'), objd: $('h2objd'), arrow: el.querySelector('.objective .arrow'),
       speed: $('h2speed'), gauge: $('h2gauge'), toasts: $('h2toasts'),
     };
-    this.maxSpeed = 110;
+    this.maxSpeed = 125;
   }
 
   setCash(v) { this.$.cash.innerHTML = won(v); }

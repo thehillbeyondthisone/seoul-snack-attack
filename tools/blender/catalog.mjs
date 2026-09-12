@@ -2,6 +2,13 @@
 // is a build product that `npm run food` copies into public/assets.
 // `preview` is required — a recipe without a PNG is unfinished.
 export const RECIPES = {
+  'dash-hippo': {
+    script: 'recipes/dash_hippo.py',
+    out: '_source-assets/vehicles/dash-hippo.glb',
+    public: 'public/assets/vehicles/dash-hippo.glb',
+    preview: 'tools/blender/previews/dash-hippo.png',
+    kind: 'vehicle-prop', budgetTris: 24000, minM: 0.18, maxM: 0.30,
+  },
   'tteokbokki-cup': {
     script: 'recipes/tteokbokki_cup.py',
     out: '_source-assets/food/tteokbokki-cup.glb',

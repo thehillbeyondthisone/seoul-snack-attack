@@ -51,6 +51,7 @@ for (const id of wanted) {
   const argv = [
     '--background',
     '--factory-startup',
+    '--python-exit-code', '1',
     '--python', script,
     '--',
     '--out', out,

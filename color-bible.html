@@ -86,7 +86,7 @@
   <main id="app">Loading bible…</main>
   <script type="module">
     import {
-      HUD, STAGE, SURFACES, NEON, PAINT, DISTRICTS, cssHex,
+      HUD, STAGE, SURFACES, NEON, PAINT, POCHA, DISTRICTS, cssHex,
     } from '/src/world/data/color-bible.js';
     import { STREET_SHOPS } from '/src/world/data/shop-names.js';
 
@@ -146,6 +146,11 @@
         <div class="row">
           ${Object.entries(PAINT).map(([k, v]) => swatch(k, v)).join('')}
         </div>
+      </section>
+      <section>
+        <h2>Pocha truck paint</h2>
+        <p class="lede">Shared exterior and interior paint, sampled from the hero truck. Local vehicle colours, separate from the three HUD accents. The dashboard hippo uses strawberry-milk pink from the neon palette.</p>
+        <div class="row">${Object.entries(POCHA).map(([k, v]) => swatch(k, v)).join('')}</div>
       </section>
       <section>
         <h2>Six districts</h2>

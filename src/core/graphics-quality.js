@@ -96,17 +96,34 @@ body.graphics-toggle-visible #touch-controls .touch-toggle { left: calc(50% - 52
   document.body.classList.toggle('graphics-toggle-visible', visible);
   document.body.classList.toggle('graphics-mobile', controller.mobile);
   button.addEventListener('click', () => {
-    const next = { auto: 'desktop', desktop: 'mobile', mobile: 'auto' }[controller.preference];
-    if (controller.queryOverride) {
-      const url = new URL(location.href);
-      url.searchParams.set('gfx', next);
-      location.href = url.toString();
-    } else {
-      writeSavedPreference(next);
-      location.reload();
-    }
+    applyGraphicsPreference(controller, { auto: 'desktop', desktop: 'mobile', mobile: 'auto' }[controller.preference]);
   });
   document.body.appendChild(button);
+}
+
+/** The three choices, in the order both the chip and the settings menu list them. */
+export const GRAPHICS_PREFERENCES = PREFERENCES;
+
+/**
+ * Commit a graphics preference and reload into it.
+ *
+ * The profile is read once at boot and handed to the renderer, the rain, the
+ * streetlight pool and the city's cull distances, so there is no live path to
+ * change it — a reload is the honest way. `?gfx=` wins over storage while it is
+ * in the URL, so a page opened with the override rewrites the URL instead of
+ * writing a preference the query string would keep shadowing.
+ */
+export function applyGraphicsPreference(controller, next) {
+  const value = normalize(next);
+  if (value === controller.preference) return;
+  if (controller.queryOverride) {
+    const url = new URL(location.href);
+    url.searchParams.set('gfx', value);
+    location.href = url.toString();
+  } else {
+    writeSavedPreference(value);
+    location.reload();
+  }
 }
 
 /** Side-effect-free profile resolution for systems that need the device

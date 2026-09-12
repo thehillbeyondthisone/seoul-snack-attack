@@ -568,6 +568,8 @@ export class Orders {
       onTime ? 'win' : 'bad'
     );
     this.audio?.event('delivery');
+    const tapes = this.audio?.music?.setDeliveries(this.save.deliveries) || [];
+    for (const tape of tapes) this.hud.toast(`테이프 해금 · ${tape.ko || tape.title}`, `Tape unlocked · ${tape.title}`, 'win');
     this.hud.setDwell(null);
     this.hud.hideTicket();
     this.hud.setObjective(null);
@@ -647,6 +649,7 @@ export class Orders {
   resetSave() {
     this.save = { ...DEFAULT_SAVE, ratings: [], owned: ['van'] };
     this._persist();
+    this.audio?.music?.setDeliveries(0);
     this.hud.setCash(0);
     this.hud.setStats({ rating: 0, deliveries: 0 });
     this.hud.toast('세이브 초기화됨', 'Save reset');

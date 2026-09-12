@@ -7,17 +7,26 @@ import { COLLISION_HALF, BUMPER_Y } from './van-spec.js';
 export const DEFAULT_PARAMS = {
   mass: 1400,              // kg
   inertiaScale: 1.25,      // multiplies box inertia — calmer rotation
-  engineForce: 7200,       // N peak at wheels
-  maxSpeed: 25,            // m/s ≈ 90 km/h — engine force fades to 0
-  reverseMaxSpeed: 7,
-  brakeForce: 16500,       // N per axle-ish; quicker initial bite, still grip-limited
-  handbrakeForce: 19000,
+  // ---- Delivery-pace tune ---------------------------------------------------
+  // Measured before and after with tools/bench/drive-feel.mjs. The old envelope
+  // (90 km/h, 0-60 in 4.0 s, 10.9 m from 50) made a delivery run a sequence of
+  // overshoots: you could not carry speed to a junction because you could not
+  // scrub it off at the junction. Speed, brakes and grip move together here —
+  // raising any one of them alone just moves where the car gives up.
+  engineForce: 10200,      // N peak at wheels
+  maxSpeed: 31,            // m/s ≈ 112 km/h — engine force fades to 0
+  reverseMaxSpeed: 8,
+  // 16500 N over four wheels left the loaded front axle brake-limited under
+  // dive rather than grip-limited; this hands the stopping limit back to the
+  // tires, where the friction ellipse can trade it against steering.
+  brakeForce: 26000,
+  handbrakeForce: 21000,
   drag: 0.42,              // quadratic air drag coefficient (N per (m/s)^2)
   rollingResistance: 130,  // N constant opposing motion
-  gripDry: 1.05,           // tire friction coefficient (mu)
-  gripWet: 0.76,           // ~28% cut in the rain
+  gripDry: 1.20,           // tire friction coefficient (mu)
+  gripWet: 0.88,           // ~27% cut in the rain
   wetGripEnabled: true,
-  tireStiffness: 9,        // slip-angle stiffness (pacejka-lite B factor)
+  tireStiffness: 11,       // slip-angle stiffness (pacejka-lite B factor)
   // Sketchbook/Cannon-style roll influence. Lateral tire force is applied at
   // this fraction of the contact patch's vertical lever arm: 1 is fully
   // physical, lower values move the effective roll centre toward the CoM.
@@ -25,9 +34,12 @@ export const DEFAULT_PARAMS = {
   rollInfluenceAtMax: 1,
   rollInfluenceSpeedStart: 1,
   steerLockLow: 0.70,      // rad at standstill; tighter low-speed city turns
-  steerLockHigh: 0.13,     // rad at speed
-  steerSpeedRef: 24,       // m/s where high-speed lock applies
-  steerResponse: 5.5,      // how fast steering angle chases input
+  // 0.13 rad was the "brake to walking pace or miss the corner" number. The
+  // reference speed moves with maxSpeed so the fade is the same FRACTION of
+  // top speed it always was, rather than arriving 20 km/h earlier than before.
+  steerLockHigh: 0.19,     // rad at speed
+  steerSpeedRef: 30,       // m/s where high-speed lock applies
+  steerResponse: 6.5,      // how fast steering angle chases input
   suspensionRest: 0.42,    // m ray length at rest (from axle point)
   suspensionTravel: 0.22,  // m of extra ray length
   springK: 38000,          // N/m
@@ -37,9 +49,11 @@ export const DEFAULT_PARAMS = {
   // The model origin is the mesh bounding-box centre (van.js recenters there),
   // which put the CoM 1.33 m above the road on a 1.298 m track — a rollover
   // threshold of track/(2h) = 0.49 g, well under the 1.02 g the tires make. The
-  // van therefore tipped over in any real corner. Lowering the CoM to ~0.55 m
-  // puts the threshold at ~1.18 g, safely above the grip ceiling.
-  comHeight: -0.78,
+  // van therefore tipped over in any real corner. Lowering the CoM to ~0.47 m
+  // puts the threshold at ~1.38 g, safely above the 1.20 g grip ceiling — it
+  // was -0.78 (~0.55 m, 1.18 g) while the tires only made 1.05, and the grip
+  // rise above would have eaten that margin whole.
+  comHeight: -0.86,
   // +X is body-left. Canonical rigs whose visual bbox is laterally skewed can
   // use this to keep the physical CoM centred between the wheel contact lines.
   comLateral: 0,
@@ -52,9 +66,9 @@ export const DEFAULT_PARAMS = {
   // track/(2h) ~= 1.18 g, already above the ~0.85 g the tires make, so the bars
   // are a safety margin for curbs and cambered ground rather than the thing
   // holding the van up. Winding them up flattens the body roll we want to keep.
-  antiRollFront: 2450,
-  antiRollRear: 1350,
-  downforce: 6,            // N per (m/s)^2 pushing the body down
+  antiRollFront: 2900,
+  antiRollRear: 1600,
+  downforce: 11,           // N per (m/s)^2 pushing the body down
   uprightTorque: 6000,     // stabilization assist toward ground normal
   angularDamping: 1.6,     // 1/s
   crashBounce: 0.25,       // restitution on body hits

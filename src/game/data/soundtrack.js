@@ -13,10 +13,8 @@
 //
 // `file` is the name inside public/audio/music/; `title` is what the HUD shows.
 //
-// BONUS-TRACK HOOK (not yet implemented): a track may carry `locked: true` —
-// the cassette deck then renders its tape card dimmed and refuses to insert it
-// until an unlocking system (progression, codes, saves) starts clearing that
-// flag. Nothing sets `locked` today; it is reserved by convention.
+// unlockDeliveries uses the existing persisted successful-delivery count.
+// Dive is a separate event cue and never enters shuffle/next or the rack.
 
 export const SOUNDTRACK = [
   { file: 'budae-sizzle-hot.mp3',  title: 'BUDAE (Sizzle Hot)' },
@@ -25,10 +23,15 @@ export const SOUNDTRACK = [
   { file: 'calorie-bomb.mp3',      title: 'Calorie Bomb' },
   { file: 'crown-step.mp3',        title: 'Crown Step' },
   { file: 'sizzle.mp3',            title: 'Sizzle' },
-  { file: 'supersonic-fire.mp3',   title: 'Supersonic Fire' },
-  { file: 'rapid-fire-cover.mp3',  title: 'Rapid Fire (Cover)' },
   { file: 'countdown.mp3',         title: 'Countdown' },
+  { file: 'abyssal-ramen-submarine.mp3', title: 'Abyssal Ramen Submarine', ko: '심해 라멘 잠수함', unlockDeliveries: 3 },
+  { file: 'blade-of-hatred.mp3', title: 'Blade of Hatred', ko: '증오의 칼날', unlockDeliveries: 6 },
+  { file: 'rapid-fire.mp3', title: 'Rapid-fire', ko: '래피드 파이어', unlockDeliveries: 9 },
+  { file: 'supersonic.mp3', title: 'Supersonic', ko: '초음속', unlockDeliveries: 12 },
 ];
+
+export const DIVE_TRACK = { file: 'dive.mp3', title: 'Dive', ko: '다이브' };
+export const diveTrack = (base = '/') => ({ ...DIVE_TRACK, url: `${base}audio/music/${DIVE_TRACK.file}` });
 
 /**
  * Resolve the playlist against the Vite base path.
@@ -41,10 +44,8 @@ export const SOUNDTRACK = [
  * @param {string} baseUrl typically `import.meta.env.BASE_URL`
  */
 export function soundtrackTracks(baseUrl = '/') {
-  // `locked` passes through untouched so the deck's bonus-track hook sees it.
-  return SOUNDTRACK.map(({ file, title, locked }) => ({
+  return SOUNDTRACK.map(({ file, ...meta }) => ({
     url: `${baseUrl}audio/music/${file}`,
-    title,
-    ...(locked ? { locked: true } : {}),
+    ...meta,
   }));
 }

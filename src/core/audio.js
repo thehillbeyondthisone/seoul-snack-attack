@@ -43,6 +43,8 @@ export class AudioManager {
     this.lastSkid = 0;
     this.lastImpact = 0;
     this._unlock = () => this.start();
+    this.music?.setMuted(this.muted);
+    this.music?.setMasterVolume(this.masterLevel);
     for (const event of ['pointerdown', 'keydown', 'touchstart']) {
       window.addEventListener(event, this._unlock, { passive: true });
     }
@@ -269,6 +271,7 @@ export class AudioManager {
 
   toggleMute() {
     this.muted = !this.muted;
+    this.music?.setMuted(this.muted);
     localStorage.setItem('snack-attack-muted', this.muted ? '1' : '0');
     if (this.master && this.ctx) this.master.gain.setTargetAtTime(this.muted ? 0 : this.masterLevel, this.ctx.currentTime, 0.03);
     if (!this.muted) this.start();
@@ -278,6 +281,7 @@ export class AudioManager {
 
   setMasterVolume(value) {
     this.masterLevel = Math.max(0, Math.min(1, Number(value) || 0));
+    this.music?.setMasterVolume(this.masterLevel);
     localStorage.setItem('snack-attack-master', String(this.masterLevel));
     if (this.master && this.ctx && !this.muted) this.master.gain.setTargetAtTime(this.masterLevel, this.ctx.currentTime, 0.03);
   }
@@ -304,6 +308,7 @@ export class AudioManager {
 
   reset() {
     this.muted = false;
+    this.music?.setMuted(false);
     this.masterLevel = 0.8;
     this.sfxLevel = 0.62;
     this.ambienceLevel = 0.42;

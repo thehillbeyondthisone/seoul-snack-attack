@@ -444,6 +444,7 @@ const CSS = `
   text-shadow: 0 1px 4px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.7);
 }
 #hud3 .legend.dim { opacity: 0.4; }
+#hud3 .legend[hidden] { display: none !important; }
 #hud3 .legend b {
   display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px;
   margin-right: 4px; border: 1px solid rgba(238,244,255,0.30); border-radius: 3px;
@@ -500,15 +501,46 @@ const CSS = `
 }
 #hud3 .pad-status.connected { color: var(--nav); border-color: rgba(77,200,255,0.45); }
 #hud3 .pad-status.unsupported { color: var(--alarm); border-color: rgba(255,45,120,0.45); }
-#hud3 .audio-status { margin-top: 1px; padding: 4px 8px; border-radius: 3px; color: var(--muted); background: rgba(4,6,12,0.66); border: 1px solid rgba(238,244,255,0.16); font-size: 10px; letter-spacing: 0.04em; text-shadow: 0 1px 4px #000; }
+#hud3 .audio-status {
+  position: relative; width: 122px; height: 72px; margin-top: 1px; padding: 0;
+  overflow: hidden; border-radius: 5px; color: var(--muted);
+  background: radial-gradient(circle at 55% 30%, rgba(77,200,255,.09), rgba(4,6,12,.88) 72%);
+  border: 1px solid rgba(238,244,255,0.18); font: inherit; cursor: pointer;
+  box-shadow: 0 7px 20px rgba(0,0,0,.28); transform: perspective(260px) rotateX(2deg);
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+#hud3 .audio-status:hover, #hud3 .audio-status:focus-visible {
+  transform: perspective(260px) rotateX(0) translateY(-2px); border-color: rgba(77,200,255,.58);
+  box-shadow: 0 10px 25px rgba(0,0,0,.38), 0 0 16px rgba(77,200,255,.12); outline: none;
+}
+#hud3 .cassette-launcher-view { position: absolute; inset: 0; display: grid; place-items: center; }
+#hud3 .cassette-launcher-view::before {
+  content: ''; width: 82px; height: 47px; border-radius: 4px;
+  background: linear-gradient(155deg, #554638, #17120f 58%, #312820);
+  border: 1px solid rgba(255,242,224,.32); box-shadow: 7px 9px 12px rgba(0,0,0,.45);
+  transform: rotate(-7deg) skewX(-2deg);
+}
+#hud3 .cassette-launcher-view canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+#hud3 .cassette-launcher-label {
+  position: absolute; left: 6px; right: 6px; bottom: 4px; z-index: 2;
+  color: rgba(238,244,255,.78); font-size: 8px; font-weight: 800; letter-spacing: .12em;
+  text-align: center; text-shadow: 0 1px 5px #000, 0 0 8px #000;
+}
 #hud3 .garage-status { margin-top: 1px; padding: 4px 8px; border-radius: 3px; color: var(--nav); background: rgba(4,6,12,0.66); border: 1px solid rgba(77,200,255,.35); font-size: 10px; letter-spacing: .04em; text-shadow: 0 1px 4px #000; pointer-events: auto; cursor: pointer; }
+/* The settings door. Deliberately quieter than the garage chip: it is a place
+   you go once, not a thing the delivery loop keeps pointing at. */
+#hud3 .settings-status { margin-top: 1px; padding: 4px 8px; border-radius: 3px; color: var(--muted); background: rgba(4,6,12,0.66); border: 1px solid rgba(238,244,255,0.16); font-size: 10px; letter-spacing: .04em; text-shadow: 0 1px 4px #000; pointer-events: auto; cursor: pointer; }
+#hud3 .settings-status:hover, #hud3 .settings-status:focus-visible { color: var(--nav); border-color: rgba(77,200,255,.45); }
+#hud3 .pad-status[hidden] { display: none; }
 #hud3 .audio-status.on { color: var(--nav); border-color: rgba(77,200,255,0.45); }
 #hud3 .audio-status.muted { color: var(--alarm); border-color: rgba(255,45,120,0.45); }
 #hud3 .audio-status.blocked { color: var(--alarm); border-color: rgba(255,45,120,0.45); }
-#hud3 .audio-status::before { content: '◌'; display: inline-block; margin-right: 6px; }
-#hud3 .audio-status.on::before { content: '●'; }
-#hud3 .audio-status.muted::before, #hud3 .audio-status.blocked::before { content: '×'; }
-#hud3 .audio-status { pointer-events: auto; cursor: pointer; }
+#hud3 .audio-status::before {
+  content: ''; position: absolute; z-index: 3; top: 7px; right: 7px; width: 6px; height: 6px;
+  border-radius: 50%; background: rgba(238,244,255,.34); box-shadow: 0 0 7px currentColor;
+}
+#hud3 .audio-status.on::before { background: var(--nav); }
+#hud3 .audio-status.muted::before, #hud3 .audio-status.blocked::before { background: var(--alarm); }
 #hud3 .release-card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(430px, calc(100vw - 36px)); padding: 22px 24px 20px; pointer-events: auto; text-align: left; background: rgba(6,9,16,0.94); border: 1px solid rgba(77,200,255,0.42); box-shadow: 0 22px 70px rgba(0,0,0,0.65), 0 0 35px rgba(77,200,255,0.10); transition: opacity .25s ease, transform .25s ease; }
 #hud3 .release-card.hide { opacity: 0; transform: translate(-50%, -46%); pointer-events: none; }
 #hud3 .release-card h2 { margin: 0; font-size: 22px; letter-spacing: .06em; }
@@ -583,16 +615,18 @@ export const minimapArrowRotation = (heading, flipX = false, flipY = false) => {
 };
 
 // Bindings mirror KEY_ACTIONS / PAD_BUTTONS in core/input.js. The full-city map
-// is keyboard-only for now, so it appears in the keyboard list only.
+// is keyboard-only for now, so it appears in the keyboard list only. The action
+// is still named `debug` in the input map; what it opens is Settings, which is
+// where the developer surfaces now live.
 const LEGENDS = {
   keyboard: [
     ['W A S D', '주행'], ['Space', '사이드브레이크'], ['E', '수락'],
-    ['C', '시점'], ['V', '카메라 각도'], ['R', '리셋'], ['` / F3', '디버그'], ['M', '전체 지도'],
+    ['C', '시점'], ['V', '카메라 각도'], ['R', '리셋'], ['Esc', '설정'], ['M', '전체 지도'],
   ],
   gamepad: [
     ['L-Stick', '조향'], ['RT', '가속'], ['LT', '브레이크'],
     ['A', '사이드브레이크'], ['X', '수락'], ['R-Stick', '시점'], ['D-Pad ↑', '카메라 각도'],
-    ['Y', '리셋'], ['View', '디버그'],
+    ['Y', '리셋'], ['View', '설정'],
   ],
   touch: [
     ['Left', '가속 · 브레이크'], ['Right', '조향'],
@@ -604,12 +638,12 @@ const won = (n) => `<small>₩</small>${Math.round(n).toLocaleString('ko-KR')}`;
 const ENGLISH_LEGENDS = {
   keyboard: [
     ['W A S D', 'Drive'], ['Space', 'Handbrake'], ['E', 'Accept'],
-    ['C', 'View'], ['V', 'Cam angle'], ['R', 'Reset'], ['` / F3', 'Debug'], ['M', 'City map'], ['T', 'English'],
+    ['C', 'View'], ['V', 'Cam angle'], ['R', 'Reset'], ['Esc', 'Settings'], ['M', 'City map'], ['T', 'English'],
   ],
   gamepad: [
     ['L-Stick', 'Steer'], ['RT', 'Accelerate'], ['LT', 'Brake'],
     ['A', 'Handbrake'], ['X', 'Accept'], ['R-Stick', 'View'], ['D-Pad ↑', 'Cam angle'],
-    ['Y', 'Reset'], ['View', 'Debug'], ['LB', 'English'],
+    ['Y', 'Reset'], ['View', 'Settings'], ['LB', 'English'],
   ],
   touch: [
     ['Left', 'Throttle / brake'], ['Right', 'Steer'],
@@ -620,7 +654,7 @@ const ENGLISH_LEGENDS = {
 const FOOT_LEGENDS = {
   keyboard: [
     ['W A S D', '이동'], ['Shift', '달리기'], ['Space', '점프'],
-    ['F', '차량 탑승'], ['E', '수락'], ['R', '복귀'], ['M', '전체 지도'], ['` / F3', '디버그'],
+    ['F', '차량 탑승'], ['E', '수락'], ['R', '복귀'], ['M', '전체 지도'], ['Esc', '설정'],
   ],
   gamepad: [
     ['L-Stick', '이동'], ['R-Stick', '카메라'], ['RB', '달리기'],
@@ -634,7 +668,7 @@ const FOOT_LEGENDS = {
 const FOOT_ENGLISH_LEGENDS = {
   keyboard: [
     ['W A S D', 'Move'], ['Shift', 'Sprint'], ['Space', 'Jump'],
-    ['F', 'Enter vehicle'], ['E', 'Accept'], ['R', 'Reset'], ['M', 'City map'], ['` / F3', 'Debug'],
+    ['F', 'Enter vehicle'], ['E', 'Accept'], ['R', 'Reset'], ['M', 'City map'], ['Esc', 'Settings'],
   ],
   gamepad: [
     ['L-Stick', 'Move'], ['R-Stick', 'Camera'], ['RB', 'Sprint'],
@@ -753,8 +787,9 @@ export class HUD3 {
         <div class="translate-hint intro" id="h3translatehint"><b>T</b><span>HOLD FOR ENGLISH</span><i>LB</i></div>
         <div class="legend" id="h3legend"></div>
         <div class="garage-status" id="h3garagestatus" role="button" tabindex="0">차고 · GARAGE</div>
-        <div class="pad-status" id="h3padstatus">XBOX · PRESS ANY BUTTON IN THIS TAB</div>
-        <div class="audio-status" id="h3audio" role="button" tabindex="0" aria-live="polite" title="카세트 데크 · Open tape deck">AUDIO · CLICK FOR TAPE DECK</div>
+        <div class="settings-status" id="h3settingsstatus" role="button" tabindex="0">ESC · 설정 · SETTINGS</div>
+        <div class="pad-status" id="h3padstatus" hidden>XBOX · PRESS ANY BUTTON IN THIS TAB</div>
+        <button class="audio-status" id="h3audio" type="button" aria-live="polite" title="카세트 데크 · Open tape deck"><span class="cassette-launcher-view" aria-hidden="true"></span><span class="cassette-launcher-label">TAPE DECK</span></button>
       </div>
     `;
     document.body.appendChild(el);
@@ -777,7 +812,7 @@ export class HUD3 {
       blade: $('h3blade'), streetKo: $('h3streetko'), streetEn: $('h3streeten'),
       speed: $('h3speed'), gauge: $('h3gauge'),
       toasts: $('h3toasts'), legend: $('h3legend'), acceptKey: $('h3acceptkey'),
-      padStatus: $('h3padstatus'), audio: $('h3audio'), release: $('h3release'), start: $('h3start'), translateHint: $('h3translatehint'),
+      padStatus: $('h3padstatus'), settingsStatus: $('h3settingsstatus'), audio: $('h3audio'), release: $('h3release'), start: $('h3start'), translateHint: $('h3translatehint'),
       intro: $('h3intro'), garage: $('h3garage'), garageTitle: $('h3garagetitle'), garageClose: $('h3garageclose'), garageCash: $('h3garagecash'), garageList: $('h3garagelist'), garageStatus: $('h3garagestatus'),
     };
 
@@ -787,9 +822,8 @@ export class HUD3 {
     this.mapContext = this.$.map.getContext('2d');
     this.foodPreview = new FoodPreview(this.$.tdishview);
 
-    this.maxSpeed = 110;
+    this.maxSpeed = 125;
     this._spillTimer = null;
-    this._legendTimer = null;
     this._localized = new Set();
     this.englishMode = false;
     this.inputMode = 'keyboard';
@@ -823,6 +857,7 @@ export class HUD3 {
       [this.$.start, 'START FIRST DELIVERY'],
       [this.$.garageTitle, 'GARAGE'],
       [this.$.garageStatus, 'GARAGE'],
+      [this.$.settingsStatus, 'SETTINGS'],
       [this.$.release.querySelector('h2'), 'SEOUL SNACK ATTACK'],
       [this.$.release.querySelectorAll('.keys b')[5], 'Any input'],
     ];
@@ -846,12 +881,12 @@ export class HUD3 {
       if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.$.garageStatus.click(); }
     });
     this.$.garageClose.addEventListener('click', () => this.setGarageOpen(false));
-    this.$.audio.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        this.$.audio.click();
-      }
+    this.$.settingsStatus.addEventListener('click', () => this._settingsHandler?.());
+    this.$.settingsStatus.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.$.settingsStatus.click(); }
     });
+    // h3audio is a native button, so Enter/Space activation is supplied by the
+    // browser (a manual key handler would toggle the deck twice).
     if (!this._onboardingVisible) this.dismissReleaseCard({ remember: false });
   }
 
@@ -876,9 +911,8 @@ export class HUD3 {
     if (this.$.acceptKey) this.$.acceptKey.textContent = mode === 'gamepad' ? 'X' : mode === 'touch' ? 'TAP' : 'E';
 
     this.$.legend.classList.remove('dim');
-    clearTimeout(this._legendTimer);
-    // Teaches once, then gets out of the way.
-    this._legendTimer = setTimeout(() => this.$.legend.classList.add('dim'), 10000);
+    // The legend is first-delivery onboarding. It stays fully legible until the
+    // player proves the loop once, then the permanent list lives in Settings.
   }
 
   setGameplayMode(mode) {
@@ -938,8 +972,16 @@ export class HUD3 {
     node.textContent = this.englishMode ? node.dataset.langEn : node.dataset.langKo;
   }
 
+  /** main.js hands us the opener; the chip is inert until it does. */
+  onSettings(handler) { this._settingsHandler = handler; }
+
+  // "XBOX · PRESS ANY BUTTON IN THIS TAB" sat on screen for every player who
+  // has never owned a controller — a dev prompt wearing a HUD chip. The chip
+  // now appears only once there is something to say: a pad is connected, or the
+  // browser cannot do gamepads at all.
   setControllerStatus(status, name = '') {
     const connected = status === 'connected';
+    this.$.padStatus.hidden = !connected && status !== 'unsupported';
     this.$.padStatus.classList.toggle('connected', connected);
     this.$.padStatus.classList.toggle('unsupported', status === 'unsupported');
     this.$.padStatus.textContent = connected
@@ -956,7 +998,8 @@ export class HUD3 {
       on: 'AUDIO · ON · CLICK FOR TAPE DECK',
       muted: 'AUDIO · MUTED · OPEN TAPE DECK TO UNMUTE',
     };
-    this.$.audio.textContent = labels[status] || labels.ready;
+    const label = this.$.audio.querySelector('.cassette-launcher-label');
+    if (label) label.textContent = status === 'muted' ? 'MUTED · TAPE DECK' : 'TAPE DECK';
     this.$.audio.classList.toggle('on', status === 'on');
     this.$.audio.classList.toggle('muted', status === 'muted');
     this.$.audio.classList.toggle('blocked', status === 'blocked');
@@ -1038,7 +1081,7 @@ export class HUD3 {
     this.$.audio.addEventListener('click', wakeAudio);
     // The cassette deck owns the transport, the tape rack and the compact mix
     // row; it reads/writes the same shared Soundtrack and AudioManager.
-    this.deck = new CassetteDeck({ soundtrack, audio, hud: this, container: this.el });
+    this.deck = new CassetteDeck({ soundtrack, audio, hud: this, container: this.el, launcher: this.$.audio });
   }
 
   setCash(v, { bump = false } = {}) {
@@ -1052,7 +1095,10 @@ export class HUD3 {
 
   setStats({ rating, deliveries }) {
     if (rating != null) this.$.rating.textContent = rating > 0 ? `★ ${rating.toFixed(1)}` : '—';
-    if (deliveries != null) this.$.deliv.textContent = deliveries;
+    if (deliveries != null) {
+      this.$.deliv.textContent = deliveries;
+      this.$.legend.hidden = deliveries > 0;
+    }
   }
 
   setSpeed(kmh) {

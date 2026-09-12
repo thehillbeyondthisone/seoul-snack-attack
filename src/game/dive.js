@@ -608,7 +608,11 @@ export function createDiveController({
           hud?.toast?.('잠수 준비', 'DIVE ARMED');
         } else if (state === 'armed') {
           armedFor += dt;
-          if (pastRampLip(pose) && phys.forwardSpeed > DIVE_RAMP.minLaunchSpeed) state = 'launched';
+          if (pastRampLip(pose) && phys.forwardSpeed > DIVE_RAMP.minLaunchSpeed) {
+            state = 'launched';
+            // Takeoff is the musical cue; approaching the ramp is only preload.
+            audio?.music?.startDive();
+          }
           else if (!approaching && armedFor > 1.2) state = 'surface';
         }
         return;

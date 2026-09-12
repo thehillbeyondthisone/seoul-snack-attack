@@ -22,9 +22,9 @@ the current game, play the in-progress rebuild (`?world=expanse2` — now at M6a
 surfaced streets, bound shops, a routed delivery loop), or the classic
 procedural circuit. It defaults to the current game after 15 seconds.
 
-Everything else is in-game — the `` ` `` (backtick) debug menu has a **도시 ·
-World** switcher and all the graphics/weather/vehicle controls — or via the
-terminal: `npm run quickstart -- --launch=<name>`, where `<name>` is
+Everything else is in-game — **Escape** (or F3) opens **설정 · Settings**, and
+the **튜닝 메뉴 · Tuning menu** inside it has a **도시 · World** switcher and all
+the graphics/weather/vehicle controls — or via the terminal: `npm run quickstart -- --launch=<name>`, where `<name>` is
 `expanse-review`, `expanse-mobile`, `plan`, `expanse2`, or `cockpit` (boots the
 rebuild straight into the pocha's first-person cab; `C` toggles it in any mode).
 It closes only processes listening on port 5273, installs dependencies when
@@ -54,7 +54,9 @@ A local server is required — `file://` cannot fetch GLB models (CORS). To depl
 | R | Reset van to road |
 | Hold T | Show the HUD and open menus fully in English |
 | M | Toggle the full-city map (Escape also closes it) |
-| ` (backtick) or F3 | Debug menu |
+| P | Open/close the cassette player and choose an unlocked song |
+| Escape or F3 | Settings (and back out of the tuning menu) |
+| ` (backtick) | Open/close the tuning menu directly |
 
 Paired Xbox controllers use the standard browser gamepad mapping:
 
@@ -69,7 +71,7 @@ Paired Xbox controllers use the standard browser gamepad mapping:
 | X | Accept order |
 | Y | Reset van to road |
 | Hold LB | Show the HUD fully in English |
-| View | Debug menu |
+| View | Settings |
 | B | Exit vehicle |
 
 On foot, movement switches to a Sketchbook-inspired character controller:
@@ -111,11 +113,22 @@ cycles Auto, Desktop, and Mobile and reloads the renderer; `?gfx=mobile` and
 `?gfx=desktop` are explicit test overrides.
 
 The soundtrack starts automatically when the browser permits it. If autoplay is
-blocked, clicking or pressing a keyboard key once unlocks playback. The audio
-chip in the bottom-left corner opens the cassette tape deck (카세트 데크): browse
+blocked, clicking or pressing a keyboard key once unlocks playback. The persistent
+3D cassette in the bottom-left corner, **P**, or **Settings → Music → Tape deck**
+opens the cassette tape deck (카세트 데크). Opening releases the mouse and pauses
+driving/orders while music continues. Click any unlocked cassette to play it; browse
 the tape rack, insert a tape to play it, and use the transport and mix controls
 there — including master mute. Every soundtrack track is a cassette with its
 own label colourway.
+
+The rack shows all **11 cassettes** together, with no scrolling. Seven are
+available at the start. Successful deliveries unlock **Abyssal Ramen Submarine
+at 3**, **Blade of Hatred at 6**, **Rapid-fire at 9**, and **Supersonic at 12**.
+The existing delivery save carries these milestones across reloads; locked tapes
+show their requirements and are skipped by both automatic playback and Next/Prev.
+**Dive** is a separate ramp-only cue: crossing the launch lip in the rebuild
+crossfades it in over 1.6 seconds. It resumes the selected cassette afterward,
+and the deck's pause, master, music and mute controls cover the transition.
 
 ## Snack roster
 
@@ -138,9 +151,27 @@ open [color-bible.html](color-bible.html) on the dev server (also mirrored in
 - **Banana-milk cream-gold** — money and only money: cash, payouts, rating stars.
 - **Fish-cake teal-cyan** — navigation and interaction: objectives, drop-off beacons, minimap route.
 
-## Debug menu
+## Settings
 
-Hidden by default; toggle with backtick.
+Escape (or F3, **View** on a pad, or the **설정 · SETTINGS** chip in the
+bottom-left stack) opens and closes the settings menu. It pauses the
+delivery loop while it is up, the same way the garage and the city map do.
+
+- **조작 (Controls)** — the complete keyboard, mouse and controller bindings.
+  A compact copy remains on the HUD only until the first delivery is completed.
+- **화면 (Display)** — graphics quality: 자동 / 데스크톱 / 모바일. Mobile trims
+  resolution, rain, props and streetlights; physics and progression are
+  untouched. Changing it reloads, because the profile is read once at boot.
+- **개발자 도구 (Developer tools)** — **성능 오버레이** turns on the physics /
+  draw-call readout (off by default; `?stats=1` starts it on for probes),
+  and **튜닝 메뉴 · 열기** opens the lil-gui tuning tree below.
+
+Both developer rows persist per browser under `snack-attack-settings-v1`.
+
+## Tuning menu
+
+Opened directly with backtick, or from Settings > 개발자 도구 > 튜닝 메뉴.
+Backtick closes it again; Escape also backs out of it.
 
 - **게임 (Game)** — offer order now, complete current order, +₩100,000, reset save, freeze timers
 - **날씨 (Weather)** — condition preset, continuous rain density, wind X/Z; **노면** sub-folder for road wetness (lock it independently of the rain to shoot a wet street under a clear sky), dry rate, wet-grip toggle and a live wetness readout; **안개** sub-folder for fog density, wet-boost and colour
@@ -217,6 +248,13 @@ and converts the three OBJ packs; none of these assets enter the initial load.
 Custom snacks (tteokbokki cup, hotteok) are authored as headless Blender
 recipes — `npm run blender`, process in `tools/blender/README.md`.
 
+The pocha cab and dashboard hippo also have Blender recipes. The cab has a
+green dash and orange shell matching the exterior, rounded trim, marked instruments, cassette stereo, stitched seats
+and a fitted galley. `dash-hippo.glb` preserves a separate head pivot for its
+acceleration- and impact-driven bobble. Rebuild both with
+`npm run blender -- dash-hippo pocha-interior`; PNGs are in
+`tools/blender/previews/`.
+
 **Street props.** `tools/build-props.mjs` turns the 8 `_source-assets/props/NikolaJankovic/` packs into 78 individually placeable props (3.2 MB total). Each pack is one merged mesh holding a dozen-plus objects on a shared atlas, so the script welds vertices, finds connected components, merges them by proximity, and emits one primitive per resulting object plus `catalog.json`. The weld is load-bearing — these OBJs split every vertex per face, so without it a bicycle reports ~1169 "objects" instead of one.
 
 Identify props with `?props=gallery`, then name and weight them in `src/world/data/props.js`.
@@ -225,6 +263,7 @@ Identify props with `?props=gallery`, then name and weight them in `src/world/da
 
 ```bash
 npm run bench        # 20-metric physics bench vs baseline.json
+npm run drive-feel   # per-vehicle go / stop / turn envelope, every car in the roster
 npm run check        # full bench suite: tiling, roads, props, audio, touch, gfx, notes, encoding, proc city
 npm run road-check   # connected road graph, no dead ends/bridges, all routes reachable
 npm run proc-check   # procedural city graph, colour bible, Hangul shop names
@@ -249,7 +288,8 @@ Handy for screenshots and automated checks:
 - `?auto=1` — full throttle self-drive
 - `?overview=1` — static aerial view of the block
 - `?shop=tteokbokki|hotteok|eomuk|gimbap|chimaek|bingsu|gilgeori|pocha` — frame an authored pickup storefront
-- `?stats=1` — physics/tile/prop readout overlay
+- `?stats=1` — force the physics/tile/prop readout overlay on (it is otherwise a
+  settings toggle, off by default)
 - `?props=off` — skip street props entirely
 - `?props=gallery` — lay every catalog prop out on a labelled grid (curation mode)
 - `?touch=on|off|auto` — override touch-control detection
@@ -329,8 +369,10 @@ src/
   game/data/restaurants.js  snack-shop roster and pickup menu
   game/orders.js        order state machine, quality/rating/payout, save
   ui/hud3.js            DOM HUD (Korean-first bilingual, three-accent style)
-  ui/debug.js           lil-gui debug menu
+  ui/settings.js        player-facing settings + the door to the developer tools
+  ui/debug.js           lil-gui tuning menu (opened from settings)
 tools/                  asset pipeline (obj2gltf, webp, meshopt) + build-props
 tools/probe.mjs         headless Chrome probe (console + state + screenshot)
 tools/bench/            physics bench + check suites
+tools/bench/drive-feel.mjs  per-vehicle go/stop/turn envelope (npm run drive-feel)
 ```

@@ -48,10 +48,10 @@ export const LAUNCH_PROFILES = Object.freeze({
   // with facades, shopfronts and signage, a routed delivery loop, and a
   // generated PBR road surface with lane markings. It runs alongside the live
   // Expanse and does not replace it until M6b promotes it.
-  expanse2: '/?world=expanse2&intro=off&stats=1',
+  expanse2: '/?world=expanse2&intro=off',
   // The same rebuild, booted straight into the pocha's first-person cab. `C`
   // (or right-stick click) toggles back to the chase camera.
-  cockpit: '/?world=expanse2&view=cockpit&intro=off&stats=1',
+  cockpit: '/?world=expanse2&view=cockpit&intro=off',
   classic: '/?world=proc&intro=off',
   // Not a world: the M1/M2 city plan, regenerated on launch. The rebuild is
   // reviewed as a drawing before any of it is extruded.

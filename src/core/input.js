@@ -1,6 +1,6 @@
 // Seoul Snack Attack — unified keyboard + standard gamepad input.
 // Keyboard: WASD/arrows move, Space contextual jump/handbrake, F vehicle,
-// E accept, R reset, C camera view, V chase camera angle, ` debug. Xbox mirrors
+// E accept, R reset, C camera view, V chase camera angle, ` tuning. Xbox mirrors
 // that with both sticks, A and B; D-pad up is the camera angle.
 
 import { TouchControls } from './touch-controls.js';
@@ -16,7 +16,11 @@ const KEY_ACTIONS = {
   interact: ['KeyF'],
   accept: ['KeyE'],
   reset: ['KeyR'],
-  debug: ['Backquote', 'KeyF3'],
+  // KeyboardEvent.code for a function key is 'F3', not 'KeyF3': the F3 half of
+  // this binding never fired, even though the README has always documented it.
+  settings: ['F3'],
+  debug: ['Backquote'],        // direct tuning-menu shortcut
+  cassette: ['KeyP'],          // release the mouse and choose an unlocked tape
   map: ['KeyM'],
   view: ['KeyC'],
   camAngle: ['KeyV'],
@@ -30,7 +34,7 @@ const PAD_BUTTONS = {
   sprint: 5,    // RB
   accept: 2,    // X
   reset: 3,     // Y
-  debug: 8,     // View / Back
+  settings: 8,  // View / Back — settings menu
   translate: 4, // LB
   view: 10,     // right stick click
   camAngle: 12, // D-pad up (left/right steer; see steerAxis)
@@ -90,7 +94,7 @@ export class Input {
       this.edge.add(e.code);
       this.mode = 'keyboard';
       this.hadActivity = true;
-      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backquote', 'KeyF3'].includes(e.code)) {
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backquote', 'F3'].includes(e.code)) {
         e.preventDefault();
       }
     });

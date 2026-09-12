@@ -30,6 +30,10 @@ BIBLE = {
     "lime": 0x5FD068,
     "warm_white": 0xFFEDD0,
     "magenta": 0xFF85B5,
+    # POCHA local vehicle paint, sampled from the exterior atlas (sRGB).
+    "pocha_orange": 0xE3A000,
+    "pocha_green": 0x83B716,
+    "pocha_trim": 0x3D3D3D,
 }
 
 
@@ -96,6 +100,7 @@ def principled(
     alpha=1.0,
     emission_hex=None,
     emission_strength=1.0,
+    srgb=False,
 ):
     """Principled BSDF only — the Khronos exporter drops mystery nodes.
 
@@ -108,7 +113,12 @@ def principled(
     mat.use_nodes = True
     nt = mat.node_tree
     bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
-    _set_input(bsdf, ("Base Color",), hex_rgba(hex_int, 1.0))
+    color = hex_rgba(hex_int, 1.0)
+    # Opt in for sampled sRGB paint. Preserve older recipes' authored values.
+    if srgb:
+        color = tuple(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+                      for c in color[:3]) + (1.0,)
+    _set_input(bsdf, ("Base Color",), color)
     _set_input(bsdf, ("Roughness",), roughness)
     _set_input(bsdf, ("Metallic",), metallic)
     _set_input(bsdf, ("Specular IOR Level", "Specular"), specular)
