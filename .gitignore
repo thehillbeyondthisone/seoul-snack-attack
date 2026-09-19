@@ -39,3 +39,17 @@ seouldelivery/
 !/_work/city-rebuild/
 /_work/city-rebuild/*
 !/_work/city-rebuild/*.mjs
+
+# Local Python bytecode
+__pycache__/
+*.py[cod]
+
+# Agent / machine-local config (absolute paths, not source)
+.codex/
+
+# Nested leftover folder; this repo *is* the project
+/seoul-snack-attack/
+
+# NVIDIA OptiX / Blender render caches
+optix*.db
+*optix-cache*.db

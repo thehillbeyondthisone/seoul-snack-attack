@@ -1,0 +1,137 @@
+{
+  "exportReport": {
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "materials": 21,
+    "mapped": [
+      "charcoal-brick",
+      "cream-render",
+      "ivory",
+      "plaster",
+      "stone",
+      "wood",
+      "asphalt"
+    ],
+    "glass": true,
+    "storeys": 2,
+    "doorClear": true,
+    "wallBlocks": true,
+    "roadY": 0.05000000074505806,
+    "draws": 30,
+    "triangles": 4125,
+    "loadingMs": 125.89999999850988
+  },
+  "performanceReport": {
+    "width": 1440,
+    "height": 1100,
+    "drawsIncludingShadowsAndPost": 75,
+    "cpuSubmissionMedianMs": 1.6000000014901161,
+    "gpuMedianMs": 130.561024,
+    "gpuMaxMs": 177.069056,
+    "geometryBuffers": 43,
+    "textures": 46
+  },
+  "game": {
+    "world": true,
+    "position": [
+      -8.000135930619415,
+      1.3883718740591282,
+      12.251849821382365
+    ],
+    "ground": 0.04899999871850014,
+    "route": true,
+    "materials": 21
+  },
+  "driven": [
+    -5.864214093585131,
+    1.3996008865085778,
+    12.252088361630028
+  ],
+  "walking": [
+    -3.3521595024710815,
+    0.32499998807907104,
+    2.356998611147821
+  ],
+  "ao": [
+    {
+      "name": "charcoal-brick",
+      "channel": 1
+    },
+    {
+      "name": "cream-render",
+      "channel": 1
+    },
+    {
+      "name": "iron",
+      "channel": 1
+    },
+    {
+      "name": "ivory",
+      "channel": 1
+    },
+    {
+      "name": "mustard",
+      "channel": 1
+    },
+    {
+      "name": "plaster",
+      "channel": 1
+    },
+    {
+      "name": "shutter",
+      "channel": 1
+    },
+    {
+      "name": "stone",
+      "channel": 1
+    },
+    {
+      "name": "bulb",
+      "channel": 1
+    },
+    {
+      "name": "curtain",
+      "channel": 1
+    },
+    {
+      "name": "jar",
+      "channel": 1
+    },
+    {
+      "name": "room-wall",
+      "channel": 1
+    },
+    {
+      "name": "stainless",
+      "channel": 1
+    },
+    {
+      "name": "wood",
+      "channel": 1
+    },
+    {
+      "name": "enamel",
+      "channel": 1
+    },
+    {
+      "name": "leaf",
+      "channel": 1
+    },
+    {
+      "name": "leaf-dark",
+      "channel": 1
+    },
+    {
+      "name": "soil",
+      "channel": 1
+    },
+    {
+      "name": "terracotta",
+      "channel": 1
+    },
+    {
+      "name": "asphalt",
+      "channel": 1
+    }
+  ],
+  "errors": []
+}

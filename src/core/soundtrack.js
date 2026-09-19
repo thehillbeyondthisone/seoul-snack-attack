@@ -1,9 +1,12 @@
-// Two media lanes: regular cassettes and the ramp-only Dive cue.
+// Two media lanes, routed through Web Audio gains for Safari/iOS crossfades.
+import { deliveryCount } from '../game/day-progress.js';
+
 export class Soundtrack {
-  constructor(urls, { volume = 0.42, deliveries = 0, diveTrack = null } = {}) {
+  constructor(urls, { volume = 0.42, deliveries = 0, unlockedTapes = [], diveTrack = null } = {}) {
     this.tracks = (Array.isArray(urls) ? urls : [{ url: urls, title: 'Drop It Red' }]).map((t) =>
       typeof t === 'string' ? { url: t, title: t.split('/').pop().replace(/\.[^.]+$/, '') } : { ...t });
-    this.deliveries = Math.max(0, Number(deliveries) || 0);
+    this.deliveries = deliveryCount(deliveries);
+    this.unlockedTapes = new Set(unlockedTapes);
     this.listeners = new Set();
     const playlist = this.tracks.map((t) => t.url).join('\n');
     const changed = localStorage.getItem('snack-attack-playlist-v1') !== playlist;
@@ -11,10 +14,8 @@ export class Soundtrack {
     if (!this.tracks[this.index] || this.isLocked(this.index)) this.index = this.findPlayable(1, -1);
     localStorage.setItem('snack-attack-playlist-v1', playlist);
     localStorage.setItem('snack-attack-track', String(this.index));
-    const raw = localStorage.getItem('snack-attack-music');
-    const saved = raw === null || raw === '' ? NaN : Number(raw);
-    this.volume = Number.isFinite(saved) ? Math.max(0, Math.min(1, saved)) : volume;
-    if (localStorage.getItem('snack-attack-audio-settings-v2') !== '1' && this.volume === 0) this.volume = volume;
+    // The mixer UI has been retired. Old zero sliders must not leave music silent.
+    this.volume = volume;
     this.masterLevel = 1;
     this.muted = false;
     this.audio = new Audio(this.tracks[this.index]?.url || '');
@@ -31,6 +32,10 @@ export class Soundtrack {
     this.pending = new Map();
     this.revision = 0;
     this.wantPlaying = true;
+    this.ctx = null;
+    this.gains = new Map();
+    this.priming = null;
+    this.cuePrimed = false;
     this.audio.addEventListener('ended', () => { if (!this.cueActive) this.next({ autoplay: true }); });
     this.cueAudio?.addEventListener('ended', () => { if (this.cueActive) this.endCue(); });
     this.cueAudio?.addEventListener('error', () => { if (this.cueActive) this.endCue(); });
@@ -38,7 +43,14 @@ export class Soundtrack {
       for (const event of ['play', 'pause', 'ended']) lane.addEventListener(event, () => this._notify());
     }
     this._applyMix();
-    this._unlock = () => { if (this.wantPlaying) this.play({ force: true }); };
+    this._unlock = () => {
+      this._ensureGraph();
+      // The cassette is the audible result of the gesture, so claim playback
+      // for it before silently priming the optional Dive lane. Some mobile
+      // browsers only honor the first media play made by one activation.
+      if (this.wantPlaying && (this.paused || !this.started)) this.play({ force: true });
+      this._primeCue();
+    };
     for (const event of ['pointerdown', 'keydown', 'touchstart']) window.addEventListener(event, this._unlock, { passive: true });
   }
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
@@ -49,7 +61,8 @@ export class Soundtrack {
   get playPending() { return this.pending.has(this.activeAudio); }
   isLocked(i) {
     const t = this.tracks[i];
-    return !t || !!t.locked || this.deliveries < (t.unlockDeliveries || 0);
+    return !t || !!t.locked || (!this.unlockedTapes.has(t.file) &&
+      (!!t.unlockEvent || this.deliveries < (t.unlockDeliveries || 0)));
   }
   findPlayable(dir = 1, from = this.index) {
     for (let step = 1; step <= this.tracks.length; step++) {
@@ -60,11 +73,52 @@ export class Soundtrack {
   }
   setDeliveries(value) {
     const locked = this.tracks.map((_, i) => this.isLocked(i));
-    this.deliveries = Math.max(0, Math.floor(Number(value) || 0));
+    this.deliveries = deliveryCount(value);
     const unlocked = this.tracks.filter((_, i) => locked[i] && !this.isLocked(i));
     if (this.isLocked(this.index)) this.setTrack(this.findPlayable(1, -1));
     this._notify();
     return unlocked;
+  }
+  resetProgress() {
+    this.unlockedTapes.clear();
+    if (this.cueActive) this.endCue();
+    this.setDeliveries(0);
+  }
+  _awardDive() {
+    const tape = this.tracks.find(t => t.unlockEvent === 'dive');
+    if (!tape || this.unlockedTapes.has(tape.file)) return;
+    this.unlockedTapes.add(tape.file);
+    this.onUnlock?.(tape);
+    this._notify();
+  }
+  _ensureGraph() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!this.ctx) {
+      this.ctx = new Ctx();
+      for (const lane of [this.audio, this.cueAudio].filter(Boolean)) {
+        const gain = this.ctx.createGain();
+        gain.gain.value = 0;
+        this.ctx.createMediaElementSource(lane).connect(gain).connect(this.ctx.destination);
+        this.gains.set(lane, gain);
+      }
+      this._applyMix();
+    }
+    if (this.ctx.state !== 'running') this.ctx.resume().catch(error => { this.lastError = error; });
+  }
+  // Call play on BOTH elements inside the gesture, before any await. Starting
+  // Dive later from a physics tick otherwise asks Safari for new autoplay rights.
+  _primeCue() {
+    if (!this.ctx || !this.cueAudio || this.cuePrimed || this.priming || this.cueActive || this.fade) return;
+    try {
+      this.priming = Promise.resolve(this.cueAudio.play()).then(() => {
+        this.cuePrimed = true;
+        if (!this.cueActive && !this.fade) {
+          this.cueAudio.pause();
+          this.cueAudio.currentTime = 0;
+        }
+      }).catch(error => { this.lastError = error; }).finally(() => { this.priming = null; });
+    } catch (error) { this.lastError = error; }
   }
   // Single flight per lane; stale play completions cannot undo a later pause.
   _playLane(lane) {
@@ -90,6 +144,7 @@ export class Soundtrack {
   }
   async play({ force = false } = {}) {
     if (!force && !this.wantPlaying) return false;
+    this._ensureGraph();
     this.wantPlaying = true;
     const now = performance.now();
     if (!force && !this.playPending && now - this.lastAttempt < 1000) return false;
@@ -97,12 +152,16 @@ export class Soundtrack {
     const ok = await this._playLane(this.activeAudio);
     if (ok) {
       if (this.fade) this._playLane(this.cueActive ? this.audio : this.cueAudio);
-      for (const event of ['pointerdown', 'keydown', 'touchstart']) window.removeEventListener(event, this._unlock);
     }
     this._notify();
     return ok;
   }
-  wake() { return this.play({ force: true }); }
+  wake() {
+    this._ensureGraph();
+    const playing = this.play({ force: true });
+    this._primeCue();
+    return playing;
+  }
   resume() { return this.play({ force: true }); }
   pause() {
     this.wantPlaying = false; this.revision++;
@@ -118,16 +177,20 @@ export class Soundtrack {
   reset() { this.setMuted(false); this.setVolume(0.42); return this.resume(); }
   _applyMix() {
     const gain = this.volume * this.masterLevel;
-    this.audio.volume = gain * Math.cos(this.mix * Math.PI / 2);
-    this.audio.muted = this.muted;
-    if (this.cueAudio) {
-      this.cueAudio.volume = gain * Math.sin(this.mix * Math.PI / 2);
-      this.cueAudio.muted = this.muted;
+    for (const [lane, level] of [[this.audio, gain * Math.cos(this.mix * Math.PI / 2)],
+      [this.cueAudio, gain * Math.sin(this.mix * Math.PI / 2)]]) {
+      if (!lane) continue;
+      const node = this.gains?.get(lane);
+      lane.volume = node ? 1 : level;
+      lane.muted = this.muted;
+      if (node) node.gain.setTargetAtTime(this.muted ? 0 : level, this.ctx.currentTime, .015);
     }
   }
   // Called even when Web Audio effects are unavailable. Pausing freezes fades.
   update(dt) {
+    if (this.ctx && this.ctx.state !== 'running') return;
     if (!this.fade || this.paused || this.activeAudio.readyState < 2) return;
+    if (this.cueActive) this._awardDive();
     this.fade.elapsed += Math.max(0, Math.min(.1, dt));
     const t = Math.min(1, this.fade.elapsed / this.fade.seconds);
     this.mix = this.fade.from + (this.fade.to - this.fade.from) * t;
@@ -146,9 +209,17 @@ export class Soundtrack {
     this.fade = { from: this.mix, to: 1, elapsed: 0, seconds: Math.max(.1, seconds) };
     this._applyMix(); this._notify();
     if (!this.wantPlaying) return true;
+    if (this.priming) await this.priming;
+    if (revision !== this.revision) return false;
+    this._ensureGraph();
     const ok = await this._playLane(this.cueAudio);
     if (revision !== this.revision) return false;
-    if (!ok) { this.cueActive = false; this.fade = null; this.mix = 0; this._applyMix(); this._notify(); }
+    if (ok && this.fade && this.audio.paused) this._playLane(this.audio);
+    // Keep a policy-blocked cue pending for the next gesture; do not fade the
+    // playing cassette down while the incoming lane is still silent.
+    if (!ok && this.lastError?.name !== 'NotAllowedError') {
+      this.cueActive = false; this.fade = null; this.mix = 0; this._applyMix(); this._notify();
+    }
     return ok;
   }
   async endCue() {

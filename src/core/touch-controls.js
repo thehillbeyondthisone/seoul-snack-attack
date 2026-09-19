@@ -2,6 +2,9 @@
 // capabilities, never a user-agent string, so desktop keyboard/gamepad input
 // remains available and touchscreen laptops can opt out.
 
+import { icon } from '../ui/icons.js';
+
+const LANGUAGE_KEY = 'snack-attack-touch-english';
 const STORAGE_KEY = 'snack-attack-touch-controls-v1';
 const PREFERENCES = ['auto', 'off', 'on'];
 const STICK_RADIUS = 46;
@@ -35,106 +38,16 @@ function normalizedPreference(value) {
 }
 
 const CSS = `
-#touch-controls {
-  --touch-ink: #eef4ff;
-  --touch-nav: #4dc8ff;
-  position: fixed; inset: 0; z-index: 45; pointer-events: none;
-  font-family: Inter, 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
-  -webkit-user-select: none; user-select: none;
-}
-#touch-controls .touch-toggle {
-  position: absolute; left: 50%; bottom: max(8px, env(safe-area-inset-bottom));
-  transform: translateX(-50%); padding: 5px 9px; pointer-events: auto;
-  border: 1px solid rgba(77,200,255,.34); border-radius: 4px;
-  color: rgba(238,244,255,.68); background: rgba(4,6,12,.72);
-  font: 700 9px/1.2 inherit; letter-spacing: .08em; touch-action: manipulation;
-}
-#touch-controls .touch-stage { display: none; }
+#touch-controls { position: fixed; inset: 0; z-index: 45; pointer-events: none; }
+#touch-controls[hidden], #touch-controls .touch-stage { display: none; }
 #touch-controls.active .touch-stage { display: block; }
-#touch-controls .touch-stick {
-  position: absolute; bottom: max(28px, calc(env(safe-area-inset-bottom) + 20px));
-  width: 124px; height: 124px; box-sizing: border-box; pointer-events: auto;
-  border: 1px solid rgba(238,244,255,.26); border-radius: 50%;
-  background: radial-gradient(circle, rgba(77,200,255,.12), rgba(4,6,12,.34) 58%, rgba(4,6,12,.62));
-  box-shadow: inset 0 0 24px rgba(77,200,255,.08), 0 6px 28px rgba(0,0,0,.28);
-  touch-action: none;
-}
-#touch-controls .touch-stick.drive { left: max(22px, env(safe-area-inset-left)); }
-#touch-controls .touch-stick.steer { right: max(22px, env(safe-area-inset-right)); }
-#touch-controls .touch-knob {
-  position: absolute; left: 50%; top: 50%; width: 54px; height: 54px;
-  margin: -27px; border: 1px solid rgba(77,200,255,.76); border-radius: 50%;
-  background: rgba(8,16,26,.82); box-shadow: 0 0 18px rgba(77,200,255,.28);
-  will-change: transform;
-}
-#touch-controls .touch-stick::before, #touch-controls .touch-stick::after {
-  position: absolute; color: rgba(238,244,255,.65); font-size: 9px;
-  font-weight: 800; letter-spacing: .10em; pointer-events: none;
-}
-#touch-controls .drive::before { content: 'THROTTLE'; left: 50%; top: 8px; transform: translateX(-50%); }
-#touch-controls .drive::after { content: 'BRAKE / REVERSE'; left: 50%; bottom: 8px; transform: translateX(-50%); white-space: nowrap; }
-#touch-controls .steer::before { content: 'STEER'; left: 50%; top: 8px; transform: translateX(-50%); }
-#touch-controls .steer::after { content: 'L  ·  R'; left: 50%; bottom: 8px; transform: translateX(-50%); }
-#touch-controls .touch-actions {
-  position: absolute; right: max(38px, calc(env(safe-area-inset-right) + 16px));
-  bottom: max(164px, calc(env(safe-area-inset-bottom) + 156px));
-  display: flex; gap: 9px;
-}
-#touch-controls .touch-action {
-  min-width: 66px; min-height: 38px; padding: 7px 10px; pointer-events: auto;
-  border: 1px solid rgba(238,244,255,.32); border-radius: 20px;
-  color: var(--touch-ink); background: rgba(4,6,12,.70);
-  font: 750 9px/1.15 inherit; letter-spacing: .06em; touch-action: none;
-}
-#touch-controls .touch-action.pressed { color: #07101a; background: var(--touch-nav); }
-#touch-controls .foot-only { display: none; }
-#touch-controls.on-foot .drive::before { content: 'FORWARD'; }
-#touch-controls.on-foot .drive::after { content: 'BACK'; }
-#touch-controls.on-foot .steer::before { content: 'MOVE'; }
-#touch-controls.on-foot .touch-action.handbrake { display: none; }
-#touch-controls.on-foot .foot-only { display: block; }
-/* Keyboard and gamepad hints have nothing to say on a touch device. */
-body.touch-controls-active #hud3 .legend,
-body.touch-controls-active #hud3 .translate-hint,
-body.touch-controls-active #hud3 .pad-status,
-body.touch-controls-active #hud3 .garage-status { display: none; }
-/* The audio chip is NOT a keyboard hint — it is the only way to open the mixer,
-   and hiding it here left touch players with no music controls at all: no
-   prev/next, no pause, no volume. It stays, sized as a real tap target rather
-   than as the 10px desktop caption. */
-body.touch-controls-active #hud3 .audio-status {
-  display: inline-flex; align-items: center; align-self: flex-start;
-  min-height: 38px; padding: 9px 14px; border-radius: 20px;
-  font-size: 11px; letter-spacing: .06em;
-  background: rgba(4,6,12,.78); border-color: rgba(238,244,255,.32);
-}
-/* Sliders and transport buttons need finger-sized rows too.
-   NOTE: this stylesheet is a JS template literal — no backticks in comments.
-   The cassette deck is a centred overlay, so no bottom offset is needed here;
-   only the tap targets are grown. */
-body.touch-controls-active .cassette-deck input[type="range"] { height: 30px; }
-body.touch-controls-active .cassette-deck button {
-  min-height: 38px; padding: 9px 12px; font-size: 11px;
-}
-body.touch-controls-active #hud3 .stack { bottom: 150px; }
-body.touch-controls-active #hud3 .minimap {
-  top: 94px; right: 14px; bottom: auto; width: 184px; padding: 6px;
-}
-body.touch-controls-active #hud3 .minimap canvas { width: 170px; height: 119px; }
-body.touch-controls-active #hud3 .speed {
-  left: 50%; right: auto; bottom: 48px; transform: translateX(-50%) scale(.78);
-}
-body.touch-controls-active #touch-controls .touch-actions {
-  right: max(142px, calc(env(safe-area-inset-right) + 132px));
-  bottom: max(20px, calc(env(safe-area-inset-bottom) + 14px));
-  flex-direction: column;
-}
-@media (max-width: 700px), (max-height: 480px) {
-  #touch-controls .touch-stick { width: 112px; height: 112px; bottom: max(20px, calc(env(safe-area-inset-bottom) + 14px)); }
-  #touch-controls .touch-stick.drive { left: max(14px, env(safe-area-inset-left)); }
-  #touch-controls .touch-stick.steer { right: max(14px, env(safe-area-inset-right)); }
-  #touch-controls .touch-actions { right: max(132px, calc(env(safe-area-inset-right) + 122px)); bottom: max(18px, calc(env(safe-area-inset-bottom) + 12px)); }
-}
+#touch-controls .touch-stick, #touch-controls .touch-action { pointer-events: auto; touch-action: none; }
+#touch-controls .touch-stick { position: absolute; border-radius: 50%; }
+#touch-controls .touch-knob { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px; border-radius: 50%; will-change: transform; }
+#touch-controls .jump, #touch-controls .sprint, #touch-controls .ascend { display: none; }
+#touch-controls.on-foot .jump, #touch-controls.on-foot .sprint,
+#touch-controls.underwater .sprint, #touch-controls.underwater .ascend { display: flex; }
+#touch-controls.underwater .interact { display: none; }
 `;
 
 export class TouchControls {
@@ -152,9 +65,13 @@ export class TouchControls {
     this.preference = normalizedPreference(queryPreference || savedPreference);
     this.detected = shouldAutoEnableTouch(capabilitySnapshot());
     this.suspended = false;
+    this.releases = [];
+    this.look = { x: 0, y: 0 };
     this.values = { throttle: 0, brake: 0, steer: 0, handbrake: 0, jump: 0, interact: 0 };
     this.edges = new Set();
     this.activity = false;
+    this.english = false;
+    try { this.english = localStorage.getItem(LANGUAGE_KEY) === '1'; } catch { /* storage unavailable */ }
 
     const root = document.createElement('div');
     root.id = 'touch-controls';
@@ -163,27 +80,39 @@ export class TouchControls {
         <div class="touch-stick drive" role="slider" aria-label="Throttle, brake and reverse"><div class="touch-knob"></div></div>
         <div class="touch-stick steer" role="slider" aria-label="Steering"><div class="touch-knob"></div></div>
         <div class="touch-actions">
-          <button class="touch-action handbrake" type="button">HANDBRAKE</button>
-          <button class="touch-action jump foot-only" type="button">JUMP</button>
-          <button class="touch-action interact foot-only" type="button">VEHICLE</button>
-          <button class="touch-action reset" type="button">RESET</button>
+          <button class="touch-action reset" type="button" aria-label="Reset to road" title="Reset to road">${icon('reset')}</button>
+          <button class="touch-action interact" type="button" aria-label="Exit vehicle" title="Exit vehicle">${icon('vehicle')}</button>
+          <button class="touch-action jump" type="button" aria-label="Jump" title="Jump">${icon('jump')}</button>
+          <button class="touch-action ascend" type="button" aria-label="Rise" title="Hold to rise">${icon('up')}</button>
+          <button class="touch-action sprint" type="button" aria-label="Sprint" title="Hold to sprint">${icon('sprint')}</button>
         </div>
-      </div>
-      <button class="touch-toggle" type="button" aria-label="Change touch control mode"></button>`;
+        <button class="touch-action map" type="button" aria-label="Open city map" title="City map">${icon('map')}</button>
+        <button class="touch-action translate" type="button" aria-label="Switch to English" title="Switch to English" aria-pressed="false">${icon('language')}<span class="language-code">EN</span></button>
+      </div>`;
     document.body.appendChild(root);
     this.root = root;
-    this.toggle = root.querySelector('.touch-toggle');
 
     this._bindStick(root.querySelector('.drive'), 'drive');
     this._bindStick(root.querySelector('.steer'), 'steer');
-    this._bindButton(root.querySelector('.handbrake'), 'handbrake');
+    this._bindButton(root.querySelector('.ascend'), 'handbrake');
     this._bindButton(root.querySelector('.jump'), 'jump');
     this._bindButton(root.querySelector('.interact'), 'interact');
     this._bindButton(root.querySelector('.reset'), 'reset');
-    this.toggle.addEventListener('click', () => {
-      const next = { auto: 'off', off: 'on', on: 'auto' }[this.preference];
-      this.setPreference(next);
-    });
+    for (const action of ['sprint', 'map']) {
+      this._bindButton(root.querySelector('.' + action), action);
+    }
+    window.addEventListener('blur', () => this._releaseAll());
+    window.addEventListener('pagehide', () => this._releaseAll());
+    window.addEventListener('resize', () => this._releaseAll());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this._releaseAll(); });
+    this._bindLook(document.querySelector('#app canvas'));
+    this._bindTap(root.querySelector('.translate'), () => this.setEnglish(!this.english));
+    // Safari exposes pinch gestures independently of Pointer Events. Disable
+    // only zoom gestures; one-finger scrolling inside menus still works.
+    for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+      document.addEventListener(type, (event) => event.preventDefault(), { passive: false });
+    }
+    this.setEnglish(this.english);
     this._refresh();
   }
 
@@ -203,7 +132,22 @@ export class TouchControls {
   }
 
   setGameplayMode(mode) {
-    this.root.classList.toggle('on-foot', mode === 'onFoot' || mode === 'entering');
+    const onFoot = mode === 'onFoot' || mode === 'entering';
+    this.root.classList.toggle('on-foot', onFoot);
+    const label = onFoot ? 'Enter vehicle' : 'Exit vehicle';
+    this.root.querySelector('.interact').setAttribute('aria-label', label);
+    this.root.querySelector('.interact').title = label;
+    this._releaseAll();
+  }
+
+  setSubmerged(submerged) {
+    if (this.submerged === submerged) return;
+    this.submerged = submerged;
+    this.root.classList.toggle('underwater', submerged);
+    const button = this.root.querySelector('.sprint');
+    button.innerHTML = icon(submerged ? 'down' : 'sprint');
+    button.setAttribute('aria-label', submerged ? 'Dive' : 'Sprint');
+    button.title = submerged ? 'Hold to dive' : 'Hold to sprint';
     this._releaseAll();
   }
 
@@ -218,9 +162,17 @@ export class TouchControls {
     const active = available && this.enabled && !this.suspended;
     this.root.hidden = !available;
     this.root.classList.toggle('active', active);
-    document.body.classList.toggle('touch-controls-active', active);
-    this.toggle.textContent = `TOUCH · ${this.preference.toUpperCase()}`;
-    this.toggle.setAttribute('aria-pressed', String(this.enabled));
+    document.body.classList.toggle('touch-controls-active', this.enabled);
+  }
+
+  setEnglish(english) {
+    this.english = !!english;
+    try { localStorage.setItem(LANGUAGE_KEY, this.english ? '1' : '0'); } catch { /* storage unavailable */ }
+    const button = this.root.querySelector('.translate');
+    button.setAttribute('aria-pressed', String(this.english));
+    button.setAttribute('aria-label', this.english ? '한국어로 전환 · Switch to Korean' : 'Switch to English');
+    button.title = button.getAttribute('aria-label');
+    button.querySelector('.language-code').textContent = this.english ? 'EN' : '한';
   }
 
   _markActivity() { this.activity = true; }
@@ -233,13 +185,14 @@ export class TouchControls {
       const rect = element.getBoundingClientRect();
       const dx = event.clientX - (rect.left + rect.width / 2);
       const dy = event.clientY - (rect.top + rect.height / 2);
+      const radius = Math.max(1, Math.min(STICK_RADIUS, rect.width / 2 - 24));
       if (kind === 'drive') {
-        const clampedY = Math.max(-STICK_RADIUS, Math.min(STICK_RADIUS, dy));
-        Object.assign(this.values, touchDriveValues(clampedY));
+        const clampedY = Math.max(-radius, Math.min(radius, dy));
+        Object.assign(this.values, touchDriveValues(clampedY, radius));
         knob.style.transform = `translate3d(0, ${clampedY}px, 0)`;
       } else {
-        const clampedX = Math.max(-STICK_RADIUS, Math.min(STICK_RADIUS, dx));
-        this.values.steer = touchSteerValue(clampedX);
+        const clampedX = Math.max(-radius, Math.min(radius, dx));
+        this.values.steer = touchSteerValue(clampedX, radius);
         knob.style.transform = `translate3d(${clampedX}px, 0, 0)`;
       }
       this._markActivity();
@@ -253,8 +206,14 @@ export class TouchControls {
       knob.style.transform = '';
       event.preventDefault();
     };
+    this.releases.push(() => {
+      const id = pointerId;
+      if (id == null) return;
+      release({ pointerId: id, preventDefault() {} });
+      if (element.hasPointerCapture?.(id)) element.releasePointerCapture(id);
+    });
     element.addEventListener('pointerdown', (event) => {
-      if (pointerId != null) return;
+      if (pointerId != null || !this.enabled || this.suspended) return;
       pointerId = event.pointerId;
       element.setPointerCapture?.(pointerId);
       update(event);
@@ -276,8 +235,14 @@ export class TouchControls {
       element.classList.remove('pressed');
       event.preventDefault();
     };
+    this.releases.push(() => {
+      const id = pointerId;
+      if (id == null) return;
+      release({ pointerId: id, preventDefault() {} });
+      if (element.hasPointerCapture?.(id)) element.releasePointerCapture(id);
+    });
     element.addEventListener('pointerdown', (event) => {
-      if (pointerId != null) return;
+      if (pointerId != null || !this.enabled || this.suspended) return;
       pointerId = event.pointerId;
       element.setPointerCapture?.(pointerId);
       this.values[action] = 1;
@@ -293,15 +258,81 @@ export class TouchControls {
     });
   }
 
+  // Native synthetic clicks are not reliable while another finger owns a
+  // pointer capture (for example, holding the drive stick forward). Handle the
+  // physical pointer directly, while retaining click for keyboard/assistive
+  // activation where MouseEvent.detail is zero.
+  _bindTap(element, activate) {
+    let pointerId = null;
+    const cancel = (event) => {
+      if (event.pointerId !== pointerId) return;
+      pointerId = null;
+      event.preventDefault();
+    };
+    this.releases.push(() => {
+      const id = pointerId;
+      if (id == null) return;
+      cancel({ pointerId: id, preventDefault() {} });
+      if (element.hasPointerCapture?.(id)) element.releasePointerCapture(id);
+    });
+    element.addEventListener('pointerdown', (event) => {
+      if (pointerId != null || !this.enabled || this.suspended) return;
+      pointerId = event.pointerId;
+      element.setPointerCapture?.(pointerId);
+      event.preventDefault();
+    });
+    element.addEventListener('pointerup', (event) => {
+      if (event.pointerId !== pointerId) return;
+      pointerId = null;
+      activate();
+      this._markActivity();
+      event.preventDefault();
+    });
+    element.addEventListener('pointercancel', cancel);
+    element.addEventListener('lostpointercapture', (event) => {
+      if (event.pointerId === pointerId) cancel(event);
+    });
+    element.addEventListener('click', (event) => {
+      if (event.detail !== 0 || !this.enabled || this.suspended) return;
+      activate();
+      this._markActivity();
+    });
+  }
+
   _releaseAll() {
-    this.values.throttle = 0;
-    this.values.brake = 0;
-    this.values.steer = 0;
-    this.values.handbrake = 0;
-    this.values.jump = 0;
-    this.values.interact = 0;
+    this.releases.forEach((release) => release());
+    for (const action of Object.keys(this.values)) this.values[action] = 0;
     this.edges.clear();
     this.root?.querySelectorAll('.touch-knob').forEach((knob) => { knob.style.transform = ''; });
     this.root?.querySelectorAll('.touch-action').forEach((button) => button.classList.remove('pressed'));
+  }
+
+  consumeLook() {
+    const result = { ...this.look };
+    this.look.x = this.look.y = 0;
+    return result;
+  }
+
+  _bindLook(canvas) {
+    if (!canvas) return;
+    let pointer = null, x = 0, y = 0;
+    this.releases.push(() => {
+      const id = pointer;
+      pointer = null; this.look.x = this.look.y = 0;
+      if (id != null && canvas.hasPointerCapture?.(id)) canvas.releasePointerCapture(id);
+    });
+    canvas.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch' || !this.enabled || this.suspended || pointer != null) return;
+      pointer = e.pointerId; x = e.clientX; y = e.clientY;
+      canvas.setPointerCapture?.(pointer);
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== pointer) return;
+      this.look.x += e.clientX - x; this.look.y += e.clientY - y;
+      x = e.clientX; y = e.clientY; this._markActivity();
+    });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+      canvas.addEventListener(type, (e) => { if (e.pointerId === pointer) pointer = null; });
+    }
   }
 }

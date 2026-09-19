@@ -1,5 +1,363 @@
 # 서울 스낵 어택 — Seoul Snack Attack — development handoff
 
+## 2026-09-13 — Three-shop Snack Street delivery loop
+
+Patchwork Pocha (`밤참 분식`), Moon Hotteok (`달밤 호떡`) and Cloud Dumpling
+House (`구름 만두`) are now a pilot-only restaurant roster in
+`?world=pilot&building=street-assembly`. Each shop has two orders backed by the
+existing on-demand food catalog. The default kilometre city's original eight
+restaurants and placements are unchanged.
+
+`SNACK_STREET_SHOPS` binds gameplay by stable assembly entrance id, not a copied
+coordinate. The pilot turns those three transformed entrance records into named
+pickup sites and named delivery anchors. Orders use the pilot roster and its
+compact 10 m route threshold only in this world; destination tickets now show
+the receiving shop name. All other worlds retain the 55 m delivery threshold.
+
+`npm run snack-street-check` passed in a real isolated Chrome run. It verified
+the exact roster and asset/entrance bindings, routed a forced order from all
+three shops, and completed all three through the normal three-second pickup and
+drop-off dwell states. Current generated legs were 14.8–16.6 m. Production build
+passed with `--configLoader runner`.
+
+## 2026-09-13 — Building coherence and startup shader fixes
+
+The user liked the six-use street but saw a quality split between the first
+three buildings and the newer non-retail ones, and reported over ten seconds
+before driving. Blender MCP protocol 5 is connected and the project studio was
+shown. See `tools/blender/COHERENCE-PASS.md` for the full change and next step.
+
+The apartment, office and workshop now reuse Pocha's deep window kit, with
+segmented masonry holes, sills, curtains, room pockets, plants and balcony
+rails. Ground-floor uses and the ochre/sage, blue/bronze, charcoal/mustard
+palettes remain distinct. Services, coping, repaired end piers and quieter
+plaster maps establish a common detail scale. Floor slabs are inset behind the
+shell, with separate projecting mouldings to avoid coplanar exterior faces.
+The workshop roof panels are planar with closed front ends.
+
+The assembly light pool used distance-dependent `visible` flags, changing
+shader light counts at spawn and while driving. It now parks lights at zero
+intensity. Pilot boot uploads textures in yielding batches and uses parallel
+shader preparation against the post target. Food background warming starts
+after the first frame and asynchronously prepares both its gameplay and upload
+lighting variants. All 16 food models completed the browser warmup check.
+
+Recipes rebuild their GLB/JSON, editable checkpoint and required PNGs. GPU
+contention made preview rendering very slow; `BLENDER_PREVIEW_DEVICE=CPU`
+provides an optional CPU preview path without changing the default. Current
+asset/runtime numbers are in `tools/blender/reports/`; historical figures in
+older handoff entries describe earlier assets. The temporary CPU profiles and
+before/after startup logs are in `_work/`.
+
+The short delivery loop is now complete. Next proposed work is asymmetric
+placement and a small reusable street-detail kit. Do not scale
+to a district until the revised art and populated-block budget are reviewed.
+User art acceptance of this coherence pass has not yet been given.
+
+Final local review-to-drive run: 3.99 s to ready, 469 ms longest observed task,
+6.36 m travelled in the keyboard check. Three individual building checks,
+twelve entrances, top-speed wet/dry tests, 12-recipe asset gate and production
+build pass. Current draw count is 495 including shadows/post, with 84 renderer
+textures. GPU frame-time samples in this session are contended by other open
+applications; they are not a dedicated-device budget or a controlled comparison
+with the historical 5.64 ms figure.
+
+## 2026-09-13 — Backtick night-tour navigation
+
+The tuning menu now opens with an expanded `야식 투어 · Night tour` folder
+above the tuning controls. Its first actions drive or orbit the twelve-building
+Snack Street assembly; the same folder links the building kit, current Seoul,
+hippo cockpit, Drain jump, Abyss, prop gallery and colour bible. Routes are
+declared in `src/ui/debug-destinations.js`, deliberately discard stale query
+flags, and retain a nested deployment base path.
+
+The tour affordance uses `HUD.nav` cyan from the colour bible—navigation keeps
+its existing semantic colour rather than introducing another system accent.
+`tools/bench/debug-navigation-check.mjs` gates destination order, bilingual
+labels, exact URLs, stale-flag removal and the cyan token.
+
+## 2026-09-13 — Corrected building-use and palette repetition
+
+The user reviewed the first assembly and identified two art-direction problems:
+every repeated building had a shop at street level, and the shared brick/jade/
+cream palette made three models read as one. The kit now includes three
+purpose-built non-retail assets: Ochre Walk-up (apartments, 7 × 10 m, four
+storeys), Blue Ledger Offices (office/lobby, 10 × 10 m, five storeys), and Eulji
+Service Workshop (repair/storage, 9 × 10 m, two storeys).
+
+The street now places two copies of each of six models. The new ground floors
+are a residential shared entry, plain office lobby and closed workshop loading
+shutter with separate pedestrian entrance. Their ochre/sage, blue/bronze and
+charcoal/mustard palettes deliberately leave the original food-shop family.
+All three recipes, editable blends, GLBs, metadata, required Blender PNGs and
+actual-game PNGs are present; individual real-browser drive/walk/PBR/AO checks
+and the 12-recipe Blender gate pass.
+
+The combined check still passes all twelve entrances, dry/wet top-speed straight
+runs and laps, and actual game driving. At 1440 × 1100 on the RTX 4060 the
+corrected assembly measured 453 draws including post/shadows, 5.64 ms median GPU
+and 3.2 ms median CPU submission. Production build passes. See the three new
+model guides and `tools/blender/STREET-ASSEMBLY.md`.
+
+## 2026-09-13 — Twelve-building street assembly and full-speed route
+
+The user authorized test assembly, modestly wider streets and top-speed driving
+clearance. This section describes the superseded three-model art mix; the road
+and physics figures remain current. Select `building=street-assembly` with
+`world=pilot`; review is `/building-pilot.html?building=street-assembly` on port
+5273. Default city unchanged.
+
+Final road: 12 m versus the existing 10 m street baseline, 2.4 m pavements,
+16.8 m between facing shopfronts. Two 200 m straights and 140 m radius return
+bends make a roughly 1.28 km closed test route. The buildings occupy one short
+art block; the rest of the return route is deliberately undressed test space.
+The radius was increased from 110 m after the wet body clearance measured 0.39 m.
+Final wet clearance is 1.72 m. No handling changes or gameplay steering assist.
+
+An explicit source-component manifest removes the old Street render groups and
+slab colliders. Geometry, collision, threshold meshes, lights and entrances share
+placement transforms. Twelve entrance approach anchors are connected to the road;
+new restaurant identities/order definitions are not registered. Rotations are
+0/PI only. 152 InstancedMeshes draw 608 opaque part instances; glass stays sorted
+as separate objects. Matching-resolution deterministic texture slots are shared;
+AO remains per building. Eight nearest shop lights are pooled.
+
+`tools/bench/building-assembly-check.mjs` passes twelve top-speed straight runs,
+dry/wet full-throttle laps, swept body clearance, all twelve entrance capsules
+and actual keyboard driving. At the 100.8 km/h configured cutoff, full-throttle
+minimum lap speeds were 97.39 dry and 96.88 wet; zero crashes. The benchmark
+steers the loop; it does not guarantee arbitrary player input. RTX 4060 at
+1440 × 1100: 357 draws including shadows/post, GPU median 9.41 ms, CPU submission
+median 13.2 ms. Production build and encoding check passed.
+
+Guide: `tools/blender/STREET-ASSEMBLY.md`; report:
+`tools/blender/reports/street-assembly-runtime.json`; required visible assembly
+preview: `tools/blender/previews/street-assembly.png`. Kit guide, README, world
+pilot plan and portable truths updated. Next is user review of street width and
+repetition before denser art/district work; older no-assembly notes are historical.
+
+## 2026-09-13 — Cloud Dumpling House and documented three-building kit
+
+After Moon Hotteok, the user requested the next building, current paperwork and
+an explanation of how everything connects. Cost-effective reuse remains the
+working preference. Cloud Dumpling House (`cloud-dumpling`) is the third model:
+8 × 10 m, five storeys, dumpling shop, repair-studio frontage and apartment room
+pockets, alternating balconies, laundry and a steamer-shaped rooftop tank.
+The ground shop is walkable; upper-floor circulation is not implemented.
+
+`npm run blender -- cloud-dumpling` builds the recipe with existing Patchwork
+helpers. No new concept generation, helper rewrite or live MCP setup was needed.
+Editable source is `_source-assets/world/hero-building/cloud-dumpling.blend`;
+required PNG is `tools/blender/previews/cloud-dumpling.png`. Review at
+`/building-pilot.html?building=cloud-dumpling`, current dev server port 5287.
+`src/world/building-catalog.js` now supplies loader selection, UI options and
+browser check expectations for all three variants. The build catalog remains
+`tools/blender/catalog.mjs`.
+
+First build passed visual inspection and targeted browser checks: PBR/AO,
+day/dusk/night captures, drive, F-to-exit, full entrance capsule, solid walls and
+route lookup. 28,956 triangles, 25 materials, 5,617,808 bytes, 21.3 MiB estimated
+RGBA images with mips. RTX 4060 at 1440 × 1100: 123 draws including shadows/post,
+6.44 ms median GPU in this isolated run. Nine-asset Blender gate, encoding and
+production build passed. Reports: `tools/blender/reports/cloud-dumpling-*.json`.
+
+`tools/blender/BUILDING-KIT.md` is the inventory and integration guide; the model
+guide is `tools/blender/CLOUD-DUMPLING.md`. README, world pilot plan and portable
+truths are updated. Patchwork is user accepted, the user requested continuation
+after Moon, and Cloud awaits art review. No new default-city placement or delivery
+restaurant was added. Before a shared street, tag/separate review-only street
+components, align plots and entrances, share materials deliberately, register
+delivery anchors and measure the combined scene. Separate GLBs currently embed
+separate textures even though their authoring code is shared.
+
+## 2026-09-13 — Patchwork accepted; Moon Hotteok built
+
+The user accepted the implemented Patchwork Pocha and requested the next building
+cost effectively. Moon Hotteok (`moon-hotteok`) is a 6 × 10 m, three-storey narrow
+shop with a serving hatch, furnished kitchen, balcony, pancake sign and green
+pitched roof. Its blank side walls are intended to adjoin neighbouring buildings.
+The new recipe imports the first recipe's material, window, mesh, bake and export
+helpers. No new ImageGen concepts or live MCP setup were needed.
+
+Rebuild: `npm run blender -- moon-hotteok`. Checkpoint:
+`_source-assets/world/hero-building/moon-hotteok.blend`. Required PNG:
+`tools/blender/previews/moon-hotteok.png`. The shared review has a building selector;
+direct URL `/building-pilot.html?building=moon-hotteok`, playable URL
+`/?world=pilot&building=moon-hotteok&intro=off`. Temporary review server: port 5287.
+
+Final export: 21,170 triangles, 25 materials, 5,105,876 bytes, 22 images,
+21.3 MiB estimated image memory including mips (75% below Patchwork Pocha).
+PBR/AO import, fixed day/dusk/night captures, actual driving, F-to-exit, entry
+capsule and wall collision checks passed. RTX 4060 at 1440 × 1100: 121 draws with
+shadows/post and 3.03 ms median GPU time in this isolated run. This does not measure
+a populated street. Blender gate (8 assets), encoding and production build pass.
+Evidence and limits: `tools/blender/MOON-HOTTEOK.md`, `tools/blender/reports/`.
+Moon Hotteok awaits user art review; it is not yet a registered delivery restaurant
+or part of the default city. Earlier pending-approval notes below are historical.
+
+## 2026-09-13 — Patchwork Pocha built and ready for art review
+
+The user selected **A — Patchwork Pocha: wonky renovations, weathered brick,
+handmade warmth**. The implementation is `tools/blender/recipes/patchwork_pocha.py`;
+`npm run blender -- patchwork-pocha` rebuilds its GLB, maps, metadata, source
+checkpoint and PNG. Both `patchwork-pocha.blend` and the live saved
+`world-studio.blend` contain the asset in `_source-assets/world/hero-building/`.
+
+`/building-pilot.html` provides six orbit/camera views, four lighting phases and
+wet/dry comparison. Its link opens `?world=pilot` using actual game driving,
+walking, collision, lighting and post-processing. The default city is separate.
+The pilot enables one bounded sun shadow and 4-sample post-process antialiasing.
+
+Validation: 52,750 triangles, 26 materials, seven PBR map sets, UV2 occlusion,
+transparent glazing, full capsule entrance clearance after a threshold ramp,
+solid piers, game boot, driving, F-to-exit and route lookup. Chrome/RTX 4060 at
+1440 × 1100: 143 draws including shadows/post, 6.59 ms median GPU render time.
+No renderer/runtime errors. Blender gate, UTF-8 check and production build pass.
+This is a single-building desktop measurement, not a city or physical-phone
+performance claim. GLB is 20.25 MB; estimated image residency is 85.3 MiB.
+
+See `tools/blender/PATCHWORK-POCHA.md` for details and limits, and `reports/`
+beside it for saved evidence. Required model preview is
+`tools/blender/previews/patchwork-pocha.png`; actual game capture is
+`tools/blender/previews/ingame-patchwork-pocha.png`. The user has selected the
+concept but has not yet accepted this implemented art. Review it before variants
+or city replacement. The current task's temporary review server uses port 5287.
+
+## 2026-09-13 — Quirky building concept round
+
+The user requested a quirky, off-beat style and authorized the visual concept
+round. `tools/art/hero-building/round-01/README.md` compares Patchwork Pocha,
+Snackwave and Midnight Snack Lab. Each final `-v2.png` is a 1536 × 1024 ImageGen
+concept of the same four-storey building/shop brief. Initial versions omitted
+an upper floor; corrected versions were visually reviewed and saved alongside
+the original images and full generation/edit prompts.
+
+The assistant initially recommended Snackwave; the user selected Patchwork
+Pocha. These remain concept images; implementation and review status are above.
+
+## 2026-09-13 — Blender MCP and one-building quality pilot
+
+The user accepted the one-finished-building-and-shop approach and requested
+Blender/MCP setup. `WORLD-BUILDING-PILOT.md` records scope and visual acceptance:
+first offer comparable art directions, then finish the selected building in the
+runtime, then prove variants/a short street before city-wide expansion. No
+building, palette or realism level has been approved as a completed design.
+
+Blender 5.2.1 LTS already existed. Blender MCP 1.9.1 is installed in the isolated
+`_work/blender-mcp/venv` with pinned dependencies. `tools/blender/mcp/` provides
+setup, launch, stdio entry point and protocol/render checks. The visible entry
+is `Blender World Studio.cmd`. The workspace at
+`_source-assets/world/hero-building/world-studio.blend` starts empty with named
+collections and six review cameras. The game and its assets are unchanged.
+
+The project MCP endpoint is 127.0.0.1:9877, with telemetry disabled and external
+asset integrations off. The add-on loads for this studio session without
+changing normal Blender preferences. Codex must reload new configuration to
+make its newly registered tools available in a task.
+
+Validation: real MCP initialization/tool listing, current add-on handshake,
+telemetry-off readback, scene inspection, reversible Python edit, PNG render,
+editable .blend save, GLB export/structure check/re-import and viewport image.
+The disposable render uses the existing hippo; preview is
+`tools/blender/previews/blender-mcp-connection.png`, evidence is
+`_work/blender-mcp/check/report.json`. This proves setup, not building quality.
+All pre-existing game/source changes were preserved.
+
+## 2026-09-12 — Drain and Abyss visual pass
+
+The Drain now uses seeded curved water ribbons and an independent bubble field,
+with a soft textured mouth in place of the flat disc. The abyss has soft light
+shaft billboards (no hard cone walls), subtler marine snow and vent glow,
+translucent jelly bells with five actual filaments, readable silt ripples/bump,
+and reduced landmark emission so the soju label no longer blooms white.
+`src/world/abyss-art.js` owns the small generated textures. No external assets
+or new shader code; collision geometry and swimming controls are unchanged.
+
+The cab dome and truck fill dim underwater, cone beams are hidden from inside
+the cab, and a camera-only arrival hold gives the downward reveal a beat.
+Depth and contextual rise/dive bindings replace city HUD panels underwater.
+Settings/music remain available. The submarine now inherits all three chase
+framing values from its vehicle; the old generic 5m orbit clipped the pocha.
+The `?dive=1` review hook runs after lighting/settings restoration, fixing its
+surface environment leaking back into the underwater scene at boot.
+
+Validation: `tools/bench/dive-visual-check.mjs` on RTX 4060 Chrome, desktop and
+mobile graphics budgets; actual ramp → caught → Drain → arrival → abyss →
+return → surface, cockpit/chase captures, environment/HUD restore, no renderer
+errors. `DIVE_SEQUENCE=1` enables that full run; `DIVE_TOUCH=1` checks depth HUD
+clearance at 844×390, 390×844, 568×240 and 320×568. Set `SNACK_TEST_URL` to the
+dev server and `DIVE_SHOTS` for output; isolated browser saves are used.
+Production build (`vite build --configLoader native`) and UTF-8 check passed.
+This is GPU Chrome validation, not a physical phone performance test.
+
+Previews: `tools/blender/previews/drain-descent.png`, `abyss-life.png` and
+`abyss-arrival.png`. More captures live under `_work/dive-visual/`.
+
+## 2026-09-12 — Collectible Night Shift truck makeover
+
+`src/vehicle/pocha-makeover.js` builds deterministic 256px normal/roughness
+textures on separate 25cm projected UV tiles, preserving the colour atlas and
+matching cab palette. Rubber, steel and enamel get different PBR responses.
+Original Korean bowl branding covers the serving skirt and rear; a screw-fixed
+enamel plaque covers the closed side's raised menu board. The plaque avoids
+double lettering from projecting decals through that board's multiple layers.
+Geometry remains cosmetic; rig and collision are unchanged.
+
+`TruckUpgrade` in orders spawns a spinning spray can when accepting an order
+after at least one successful delivery, until `save.truckMakeover` is collected.
+It stands 6m along the pickup's road, projected onto the carriageway. Collection
+works driving/on foot, respects pause and vertical proximity, applies immediately,
+survives reload/garage swap, and is cleared by Reset save. Missed and older-save
+unlocks return at later pickups. No forced unlock was added to the user's save.
+
+Preview scene: `tools/truck-preview.html`; PNGs under `tools/blender/previews/`
+for `pocha-night-shift`, `pocha-night-shift-serving`, and `night-shift-spray-can`.
+Validation: native-config production build and
+`node tools/bench/truck-makeover-browser-check.mjs` (isolated Chrome save:
+first/second order, road placement, pause, missed pickup, collection, persistence,
+reload and reset; also regenerates previews and checks renderer errors).
+
+## 2026-09-12 — Drain music, permanent Dive tape and delivery days
+
+The rack now has 12 tapes. Dive is locked until its Drain cue actually plays,
+then `Orders.unlockTape()` persists it in the existing progression save. The
+launch-lip trigger remains in `dive.js`; approaching only prepares the abyss.
+`Soundtrack` now routes both media elements through Web Audio gain nodes and
+primes the cue during a user gesture, addressing separate-element autoplay
+blocking and iOS media-volume limitations. Both tracks overlap during the
+1.6-second fade; pause, mute, return to the selected cassette and selection
+override remain supported. Failed media keeps the cassette audible; a policy
+block leaves Dive pending for a subsequent gesture. Priming alone earns no tape.
+
+Removed the four mixing sliders and reset button; transport and mute remain.
+Audio starts with a fixed balance, ignoring retired saved slider values.
+
+Four successful deliveries now make one working day: morning 06:00, afternoon
+12:00, dusk 18:00, night 00:00, then the next morning. HUD and tape rack show
+progress. Pickups and elapsed time do not advance it. Day rewards are Abyssal
+Ramen Submarine / Blade of Hatred / Rapid-fire / Supersonic at 4/8/12/16 runs;
+the cycle continues after collecting those four tapes. Save version 2 preserves
+tapes already earned under the old 3/6/9/12 thresholds. Reset relocks all rewards.
+
+`day-progress.js` owns progression. `time-of-day.js` blends light/fog/lamp/bloom
+parameters over three seconds, while `sky-blend.js` blends cached PMREM atlases
+for the sky and reflections with one fullscreen pass. No per-frame PMREM bake.
+Transitions pause with orders and while the dive owns road physics, preserving
+the underwater environment. Saved debug lighting cannot freeze the day at boot;
+explicit review presets last until the next successful delivery.
+
+Validation: audio and day-progress Node checks (including legacy-save migration,
+graph gains and gesture priming), UTF-8 check, production build, and real Chrome
+MP3/12-tape layout checks. Expanded `cassette-browser-check.mjs --game` exercises
+actual order completion through all phases and reloads the day reward. Screenshots
+are `_work/cassette-qa/cycle-*.png`. The real ramp trigger also verified overlapping
+playback, persistent Dive discovery and direct rack selection. The full mobile
+probe passed nine viewports, delivery dwell/payout, menus, input interruption,
+underwater controls and desktop regression; compact day text avoids radar overlap.
+The Expanse runtime check passed as well. Browser harnesses accept `SNACK_TEST_URL`;
+port 5284 with watching disabled was used to avoid reloads from concurrent edits.
+These are automated Chrome checks, not a physical iPhone Safari certification.
+
 ## 2026-09-12 — M6c implementation and default-world promotion
 
 Checkpoint `c74e9ef` committed the accepted cab/music/settings/handling pass.
@@ -430,6 +788,25 @@ npm run quickstart   # or double-click Quick Start.cmd
 
 ## Known blockers / follow-ups
 
+### 2026-09-12 map field notes (not implemented in this pass)
+
+Per the user's scope boundary, these are map-only notes. No world, road,
+collision, surface, lighting, or sky implementation was changed for them:
+
+- Road collision/surface continuity fails in live driving: the vehicle can fall
+  off or through visible carriageways. Audit the rendered road mesh against the
+  global BVH and ground coverage, especially at generated joins and road-class
+  lift transitions.
+- Large unbuilt/dark ground areas read as non-descript black voids rather than
+  intentional city blocks. They need authored land treatment and boundary cues,
+  not merely brighter exposure.
+- Road geometry and paint are not coherent at every junction: some lanes kink,
+  terminate abruptly, or meet mismatched surfaces/markings. Review the full 2D
+  plan and then the live collision/render overlay before changing the graph.
+- The current sky treatment is visibly under-authored and needs a dedicated art
+  pass across all four delivery phases, with skyline/horizon integration and
+  wet-road reflection response checked together.
+
 1. ~~**RELEASE BLOCKER (inherited):** the `compact` vehicle~~ **RESOLVED 2026-08-25:** the ripped `compact` microcar (Agents of Mayhem watermark) is fully retired — removed from the roster, recipes, build pipeline and `public/assets`; source stays quarantined in `_source-assets/vehicles/compact/`. Stale saves fall back to `pocha` via `loadSave()`. Details in `ATTRIBUTION.md`.
 2. ~~**Garage / vehicle selection screen**~~ **DONE 2026-08-25:** the existing HUD3 garage overlay now swaps vehicles in place (`switchVehicle()` in `main.js`) — same pose, physics params reset per rig, saved tuning restored, no page reload. Choice persists under `snack-attack-save`.
 3. **Graphics pass 2** (from pass 1's queue; done items marked):
@@ -495,16 +872,14 @@ npm run quickstart   # or double-click Quick Start.cmd
     stop), eased so it does not pump. The scale bar and its `${VIEW_M/2} m` label
     are drawn from the constant, so they must move to whatever value the frame
     used. **Grouped with 11.**
-13. **Pickup / dish 3D models sit off-centre — open:** `normalizeModel` in
-    `src/game/food-display.js` centres X/Z but rests the base at local Y=0 (right
-    for the world beacon it hovers on a pole). The two HUD previews —
-    `src/ui/food-preview.js` (offer/ticket canvas) and the `FoodDisplay` marker
-    render — inherit that, so the model sits low in the 62 px disc and spins
-    about its base rather than its middle. Fix: give the previews their own
-    centre-on-bbox-centre (vertical included) or derive `camera.lookAt` / distance
-    from the measured height; re-check the multi-item `spacing` while there. The
-    "loading is a bit better" the user noticed is the food GPU warm-up that
-    already landed.
+13. ~~**Pickup / dish 3D models sit off-centre**~~ **RESOLVED 2026-09-12:**
+    `foodGroupBounds` measures imported geometry in the food root's local space,
+    including transformed wrappers. `centerFoodGroup` re-centres each completed
+    multi-item arrangement from its combined visible bounds: world displays keep
+    Y=0 grounding, while the HUD centres vertically and fits its camera to the
+    result. `npm run food-display-check` covers unequal meal-kit pieces and
+    off-origin wrapper transforms; the 1096×636 browser pass showed the pickup
+    model centred in its 62 px viewport.
 14. **`?world=expanse2` (Quick Start [2]) shows no street-name blade — open:**
     `describeStreet` in `src/world/expanse-street-names.js` keys
     `EXPANSE_STREET_NAMES` by the 35 **layout** edge ids. `?world=expanse` feeds
@@ -801,3 +1176,56 @@ at the current angle.
   watched end to end. The preview ran far below real time, and another chat's
   dev server kept hot-reloading the page. Watch one real jump before trusting
   the shot framing or the blend timings.
+
+## 2026-09-12 — mobile usability pass
+
+Prioritized iPhone landscape. Added touch vehicle exit/entry, camera view/angle,
+map, held English, on-foot sprint and underwater up/down, plus drag-to-look on
+the street. Touch captures and held actions clear on blur, pagehide, resize,
+menu suspension and mode changes. Mobile HUD styling remains active inside
+menus; mobile map fits short landscape viewports, settings and cassette controls
+have 44px targets, and the cassette scrolls rather than shrinking its controls.
+The tape launcher now accepts touch hits. Settings/onboarding explain touch.
+Physics and dive progression pause in all gameplay overlays and on background;
+page restoration resumes only according to the existing overlay state.
+
+Validation: core checks and production build (`npm run build -- --configLoader
+runner`; default esbuild config loader cannot read the sandbox parent directory).
+Browser regression script: `tools/mobile-probe.mjs`, with PLAYWRIGHT_PATH pointing
+to an installed Playwright package and CHROME_PATH optionally overriding Chrome.
+Run against the dev server on 5273. Exercises simultaneous touches, interruption,
+menus, a delivery using teleport-to-zone QA hooks and real dwell timers, vehicle
+exit, and 844x390 / 667x375 / 844x320 / 390x844 / 1024x768 layouts.
+Screenshots are in `_work/mobile-*.png`. Chrome touch emulation is not iPhone
+Safari hardware certification; real-device frame rate, heat, Safari audio policy
+and physical notch/browser-bar behavior still need a phone playtest.
+
+## 2026-09-12 — mobile HUD design and gesture pass
+
+Replaced the central text-button grid with shared SVG icons and compact dark
+controls. Settings/music and map/language form a right-side utility group.
+Reset and the vehicle door stay near the thumb pads; jump/sprint appear on
+foot and rise/dive underwater. Removed the driving handbrake, camera/angle,
+TOUCH toggle and garage launcher from the mobile HUD. Settings now contains
+Garage, camera view/height and Auto/On/Off touch preferences. Language is a
+one-tap persistent toggle on the right; keyboard T / pad LB still work.
+
+Rebuilt `src/ui/mobile.css` around portrait/landscape safe areas, 46px action
+buttons, size-matched analog pad travel and compact top-left offer/ticket cards.
+Very short landscape windows move tickets beside the left pad. Long delivery
+destinations truncate only in that shortest layout; timers, condition and route
+remain visible. The hidden mobile food preview no longer submits WebGL draws.
+Menus scroll, keep their close controls usable and share rounded styling.
+Viewport/CSS gesture rules disable zoom and button-text selection/callouts;
+Safari gesture events are prevented while one-finger menu scrolling remains.
+
+Validation: `tools/mobile-probe.mjs` passed nine viewport sizes (844×390,
+667×375, 844×320, 667×280, 568×240, 390×844, 375×667, 320×568, 1024×768),
+checking offer/pickup/delivery/on-foot overlaps and targets, simultaneous input,
+zoom gestures, interruptions, persistent language, Settings→Garage, camera,
+touch preferences, cassette, delivery dwell/payout, underwater and page lifecycle.
+Also checked small-screen menu scrolling and desktop Settings/keyboard behavior.
+Touch-axis, bilingual order-note and UTF-8 checks passed; production build uses
+`npm run build -- --configLoader runner`. Screenshots: `_work/mobile-ui/`.
+This is Chrome touch emulation; the supplied Safari screenshots informed the
+layout, but physical iPhone Safari gesture/browser-bar behavior is not certified.

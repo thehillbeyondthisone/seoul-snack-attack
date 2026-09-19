@@ -24,6 +24,7 @@
 // pool. A curtain that had to load assets would be a curtain that needed a
 // curtain.
 import * as THREE from 'three';
+import { seeded, mouthTexture } from './abyss-art.js';
 
 /** How far below the entry point the throat bottoms out, in metres. */
 const THROAT_DEPTH = 96;
@@ -40,8 +41,7 @@ export const DRAIN_START_SPIN = 0.75 * DESCENT_TURNS * Math.PI * 2;
 /**
  * The spiral wall texture.
  *
- * Vertical streaks of varying brightness on near-black, with a few horizontal
- * bands of debris. Wrapped and scrolled, this reads as water in violent motion
+ * Interrupted curved ribbons on near-black. Wrapped and scrolled, this reads as water in motion
  * without a single line of GLSL — and, more importantly, without a shader that
  * could fail to compile on somebody's driver in the middle of a transition
  * with no way back.
@@ -52,37 +52,27 @@ function throatTexture(scale = 1) {
   const canvas = document.createElement('canvas');
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d');
+  const rand = seeded(0xd2a1 + Math.round(scale * 100));
 
   ctx.fillStyle = '#04090f';
   ctx.fillRect(0, 0, w, h);
 
-  // Streaks. Density and brightness both vary so the wall has depth rather
-  // than reading as corduroy.
-  for (let i = 0; i < 220; i++) {
-    const x = Math.random() * w;
-    const width = 0.6 + Math.random() * 3.4;
-    const alpha = 0.04 + Math.random() * 0.3;
-    const top = Math.random() * h;
-    const length = h * (0.25 + Math.random() * 0.75);
-    const gradient = ctx.createLinearGradient(0, top, 0, top + length);
-    const tint = Math.random() < 0.22 ? '120,205,235' : '78,140,170';
-    gradient.addColorStop(0, `rgba(${tint},0)`);
-    gradient.addColorStop(0.35, `rgba(${tint},${alpha})`);
-    gradient.addColorStop(1, `rgba(${tint},0)`);
-    ctx.fillStyle = gradient;
-    ctx.fillRect(x, top, width, length);
-    // Wrap: a streak crossing the seam must appear on both sides or the spin
-    // shows a vertical join every rotation.
-    if (x + width > w) ctx.fillRect(x - w, top, width, length);
-  }
-
-  // Debris bands — horizontal smears that give the vertical scroll something
-  // to be measured against.
-  for (let i = 0; i < 14; i++) {
-    const y = Math.random() * h;
-    const thickness = 1 + Math.random() * 5;
-    ctx.fillStyle = `rgba(150,190,210,${0.03 + Math.random() * 0.07})`;
-    ctx.fillRect(0, y, w, thickness);
+  // Curved, interrupted ribbons wrap into helices. Tile every stroke on both
+  // axes: the old straight streaks and full-width bands looked like pipe ribs.
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 110; i++) {
+    const x = rand() * w, y = rand() * h;
+    const length = h * (.10 + rand() * .45), width = (.5 + rand() * 2.4) * scale;
+    const phase = rand() * Math.PI * 2, alpha = .05 + rand() * .23;
+    for (const ox of [-w, 0, w]) for (const oy of [-h, 0, h]) {
+      for (let j = 0; j < 18; j++) {
+        const a = j / 18, b = (j + 1) / 18;
+        const px = t => x + ox + t * length * .65 + Math.sin(t * 4 + phase) * w * .045;
+        ctx.strokeStyle = `rgba(99,173,190,${alpha * Math.sin(a * Math.PI)})`;
+        ctx.lineWidth = width;
+        ctx.beginPath();ctx.moveTo(px(a), y + oy + a * length);ctx.lineTo(px(b), y + oy + b * length);ctx.stroke();
+      }
+    }
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -94,7 +84,7 @@ function throatTexture(scale = 1) {
 
 /**
  * Build the Drain. Cheap enough to build at boot and leave parked — it is one
- * hidden group of four meshes until something opens it.
+ * hidden group until something opens it.
  */
 export function createDrain(scene, { textureScale = 1 } = {}) {
   const group = new THREE.Group();
@@ -104,8 +94,8 @@ export function createDrain(scene, { textureScale = 1 } = {}) {
 
   const inner = throatTexture(textureScale);
   const outer = throatTexture(textureScale * 0.75);
-  inner.repeat.set(3, 2.2);
-  outer.repeat.set(2, 1.5);
+  inner.repeat.set(2, 1.4);
+  outer.repeat.set(1.5, 1.1);
 
   // Two concentric shells scrolling at different rates. The parallax between
   // them is what sells depth; one shell alone reads as a printed tube.
@@ -137,8 +127,9 @@ export function createDrain(scene, { textureScale = 1 } = {}) {
   // The sky you are leaving: a bright disc at the mouth that shrinks and dims
   // as you fall. This is the shot — the whole sequence is about watching Seoul
   // become a coin.
+  const skyMap = mouthTexture();
   const skyMat = new THREE.MeshBasicMaterial({
-    color: 0xffcb8a, transparent: true, opacity: 0.9,
+    map: skyMap, color: 0xffd5a0, transparent: true, opacity: 0.9,
     side: THREE.DoubleSide, depthWrite: false, fog: false,
   });
   const sky = new THREE.Mesh(new THREE.CircleGeometry(THROAT_TOP_RADIUS * 0.92, 40), skyMat);
@@ -158,6 +149,21 @@ export function createDrain(scene, { textureScale = 1 } = {}) {
   deep.position.y = -THROAT_DEPTH;
   deep.name = 'drain_deep';
   group.add(deep);
+
+  // Close bubbles move independently of the distant wall, giving the eye a
+  // speed reference through the long hold as well as the normal descent.
+  const rand = seeded(0xd12f);
+  const bubbleCount = textureScale < 1 ? 100 : 240;
+  const bubbleSeeds = Array.from({ length: bubbleCount }, () => [rand(), rand(), rand()]);
+  const bubblePos = new Float32Array(bubbleCount * 3);
+  const bubbleGeo = new THREE.BufferGeometry();
+  bubbleGeo.setAttribute('position', new THREE.BufferAttribute(bubblePos, 3));
+  const bubbleMat = new THREE.PointsMaterial({ map: skyMap, color: 0x9acbd8,
+    size: .16, transparent: true, opacity: .42, depthWrite: false,
+    blending: THREE.AdditiveBlending, fog: false });
+  const bubbles = new THREE.Points(bubbleGeo, bubbleMat);
+  bubbles.name = 'drain_current'; bubbles.frustumCulled = false;
+  group.add(bubbles);
 
   const origin = new THREE.Vector3();
   const target = new THREE.Vector3();
@@ -290,6 +296,16 @@ export function createDrain(scene, { textureScale = 1 } = {}) {
       inner.offset.x = spin * 0.16;
       outer.offset.y -= dt * (0.42 + k * 1.7) * rate;
       outer.offset.x = -spin * 0.09;
+      for (let i = 0; i < bubbleCount; i++) {
+        const [a, h, r] = bubbleSeeds[i];
+        const depth = ((h + spin * .085) % 1) * THROAT_DEPTH;
+        const radius = THREE.MathUtils.lerp(THROAT_TOP_RADIUS, THROAT_BOTTOM_RADIUS, depth / THROAT_DEPTH) * (.32 + r * .4);
+        const angle = a * Math.PI * 2 + spin * .55 + depth * .08;
+        bubblePos[i * 3] = Math.sin(angle) * radius;
+        bubblePos[i * 3 + 1] = -depth;
+        bubblePos[i * 3 + 2] = Math.cos(angle) * radius;
+      }
+      bubbleGeo.attributes.position.needsUpdate = true;
 
       // The mouth closes over you. By k = 0.75 Seoul is a coin; by 1 it is gone.
       const skyShrink = Math.max(0.02, 1 - k * 1.25);
@@ -310,6 +326,7 @@ export function createDrain(scene, { textureScale = 1 } = {}) {
       innerMat.opacity = 0.95 * through;
       outerMat.opacity = THREE.MathUtils.lerp(0.6, 0.28, k) * through;
       deepMat.opacity = 0.98 * through;
+      bubbleMat.opacity = .42 * through;
     },
 
     dispose() {
@@ -317,6 +334,7 @@ export function createDrain(scene, { textureScale = 1 } = {}) {
       for (const mesh of [throat, halo, sky, deep]) mesh.geometry.dispose();
       innerMat.dispose(); outerMat.dispose(); skyMat.dispose(); deepMat.dispose();
       inner.dispose(); outer.dispose();
+      skyMap.dispose(); bubbleGeo.dispose(); bubbleMat.dispose();
     },
   };
 }

@@ -1,0 +1,254 @@
+/* Gesture rules apply before boot and inside menus as well as while driving. */
+.ui-icon { display: block; width: 22px; height: 22px; flex: none; }
+#hud3 .stack .ui-icon { display: none; }
+.ssa-settings__btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.mobile-control-help { display: none; }
+
+/* Mobile chrome stays in the same safe-area coordinate system in both orientations.
+   Specificity intentionally beats the HUD styles inserted at runtime. */
+body.touch-controls-active {
+  --ui-gap: 12px;
+  --stick-size: 112px;
+  --tools-top: 12px;
+  --map-right: 120px;
+  --map-size: 96px;
+  --card-width: clamp(200px, 32vw, 256px);
+  --chrome-fill: linear-gradient(155deg, rgba(24,39,49,.94), rgba(7,15,23,.90));
+  --chrome-edge: rgba(181,219,233,.25);
+  --chrome-ink: #e8f3f7;
+  --chrome-nav: #4dc8ff;
+}
+body.touch-controls-active #hud3,
+body.touch-controls-active #touch-controls {
+  inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+body.touch-controls-active #app canvas { touch-action: none; }
+/* iOS also zooms when focusing small text fields, independently of gestures. */
+body.touch-controls-active input:not([type=range]),
+body.touch-controls-active select,
+body.touch-controls-active textarea { font-size: 16px !important; }
+body.touch-controls-active #hud3 .legend,
+body.touch-controls-active #hud3 .translate-hint,
+body.touch-controls-active #hud3 .pad-status,
+body.touch-controls-active #hud3 .garage-status,
+body.touch-controls-active #graphics-quality-toggle { display: none; }
+body.touch-controls-active #hud3 .scrim { max-width: 52%; max-height: 50%; opacity: .7; }
+
+/* Four utility keys at the right edge: settings / music, map / language. */
+body.touch-controls-active #hud3 .stack { position: absolute; inset: 0; transform: none; display: block; pointer-events: none; }
+body.touch-controls-active #touch-controls .touch-action,
+body.touch-controls-active #hud3 .settings-status,
+body.touch-controls-active #hud3 .audio-status {
+  box-sizing: border-box; width: 46px; height: 46px; min-width: 46px; min-height: 46px;
+  display: flex; align-items: center; justify-content: center; gap: 2px; padding: 0; margin: 0;
+  border: 1px solid var(--chrome-edge); border-radius: 14px;
+  color: var(--chrome-ink); background: var(--chrome-fill);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 4px 16px rgba(0,0,0,.25);
+  pointer-events: auto; touch-action: none; cursor: pointer;
+  transform: none; transition: background .14s, border-color .14s, color .14s;
+}
+body.touch-controls-active #hud3 .stack .ui-icon { display: block; }
+body.touch-controls-active #hud3 .settings-status { position: absolute; top: var(--tools-top); right: 64px; }
+body.touch-controls-active #hud3 .audio-status { position: absolute; top: var(--tools-top); right: 12px; }
+body.touch-controls-active #hud3 .settings-status .desktop-label,
+body.touch-controls-active #hud3 .cassette-launcher-view,
+body.touch-controls-active #hud3 .cassette-launcher-label { display: none; }
+body.touch-controls-active #hud3 .audio-status::before { width: 4px; height: 4px; top: 7px; right: 7px; box-shadow: none; }
+body.touch-controls-active #touch-controls .map { position: absolute; top: calc(var(--tools-top) + 52px); right: 64px; }
+body.touch-controls-active #touch-controls .translate { position: absolute; top: calc(var(--tools-top) + 52px); right: 12px; flex-direction: column; }
+body.touch-controls-active #touch-controls .translate .ui-icon { width: 20px; height: 20px; }
+body.touch-controls-active #touch-controls .language-code { font: 800 9px/1 system-ui, sans-serif; letter-spacing: .04em; }
+body.touch-controls-active #touch-controls .touch-action.pressed,
+body.touch-controls-active #touch-controls .translate[aria-pressed=true] {
+  border-color: var(--chrome-nav); color: var(--chrome-nav); background: linear-gradient(145deg, #18384b, #0a202c);
+}
+body.touch-controls-active :is(button, [role=button]):focus-visible { outline: 2px solid var(--chrome-nav); outline-offset: 3px; }
+body.touch-controls-active #touch-controls .touch-actions {
+  position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+  display: flex; justify-content: center; gap: 8px;
+}
+body.touch-controls-active #touch-controls :is(.jump, .sprint, .ascend) { display: none; }
+body.touch-controls-active #touch-controls.on-foot :is(.jump, .sprint),
+body.touch-controls-active #touch-controls.underwater :is(.ascend, .sprint) { display: flex; }
+body.touch-controls-active #touch-controls.underwater .interact { display: none; }
+
+/* Thumb pads retain analog input with a travel radius matched to their size. */
+body.touch-controls-active #touch-controls .touch-stick {
+  width: var(--stick-size); height: var(--stick-size); bottom: 12px; box-sizing: border-box;
+  border: 1px solid rgba(166,217,233,.24);
+  background: radial-gradient(circle, rgba(30,67,85,.28) 0 32%, rgba(9,22,32,.38) 33% 63%, rgba(10,23,33,.74) 64%);
+  box-shadow: inset 0 0 0 5px rgba(6,15,23,.28), 0 4px 22px rgba(0,0,0,.22);
+}
+body.touch-controls-active #touch-controls .drive { left: 12px; }
+body.touch-controls-active #touch-controls .steer { right: 12px; }
+body.touch-controls-active #touch-controls .touch-knob {
+  border: 1px solid rgba(77,200,255,.65); box-sizing: border-box;
+  background: radial-gradient(circle at 40% 30%, #1c3545, #0b1823);
+  box-shadow: inset 0 1px 2px rgba(219,247,255,.14), 0 2px 12px rgba(0,0,0,.4);
+}
+body.touch-controls-active #touch-controls .touch-knob::after {
+  content: ''; position: absolute; inset: 17px; border: 1px solid rgba(137,222,255,.6); border-radius: 50%;
+}
+body.touch-controls-active #touch-controls .touch-stick::before,
+body.touch-controls-active #touch-controls .touch-stick::after {
+  position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap;
+  color: rgba(229,245,252,.7); font: 700 8px/1 system-ui, sans-serif; letter-spacing: .12em; pointer-events: none;
+}
+body.touch-controls-active #touch-controls .drive::before { content: 'GO'; top: 10px; }
+body.touch-controls-active #touch-controls .drive::after { content: 'BRAKE'; bottom: 10px; }
+body.touch-controls-active #touch-controls .steer::before { content: 'STEER'; top: 10px; }
+body.touch-controls-active #touch-controls .steer::after { content: '‹   ›'; bottom: 8px; font-size: 14px; }
+body.touch-controls-active #touch-controls.on-foot .drive::before { content: 'WALK'; }
+body.touch-controls-active #touch-controls.on-foot .drive::after { content: 'BACK'; }
+body.touch-controls-active #touch-controls.on-foot .steer::before { content: 'MOVE'; }
+
+/* Cash + round radar form a compact navigation cluster beside the utilities. */
+body.touch-controls-active #hud3 .rail { top: 12px; right: var(--map-right); width: var(--map-size); min-width: 0; padding: 0; }
+body.touch-controls-active #hud3 .cash { padding: 6px 8px; border-radius: 8px; clip-path: none; }
+body.touch-controls-active #hud3 .cash::before { border-radius: 7px; }
+body.touch-controls-active #hud3 .cash::after { box-shadow: none; border-radius: 2px; }
+body.touch-controls-active #hud3 .cash .amt { font-size: 18px; text-shadow: none; white-space: nowrap; }
+body.touch-controls-active #hud3 .cash .amt small { font-size: 12px; }
+body.touch-controls-active #hud3 .day-progress { font-size: 8px; margin-top: 4px; line-height: 1.3; white-space: nowrap; }
+body.touch-controls-active #hud3 .day-progress .day-runs { font-size: 8px; }
+body.touch-controls-active #hud3 .day-progress .local-time { font-size: 0; }
+body.touch-controls-active #hud3 .day-progress .local-time::after { content: '◷ ' attr(data-time); font-size: 8px; }
+body.touch-controls-active #hud3 .cash .lbl,
+body.touch-controls-active #hud3 .rail .chips { display: none; }
+body.touch-controls-active #hud3 .minimap {
+  top: 78px; right: var(--map-right); bottom: auto; width: var(--map-size); padding: 0;
+  background: none; box-shadow: none; clip-path: none;
+}
+body.touch-controls-active #hud3 .minimap::before { display: none; }
+body.touch-controls-active #hud3 .minimap canvas { width: var(--map-size); height: var(--map-size); box-sizing: border-box; box-shadow: 0 3px 15px rgba(0,0,0,.3); }
+body.touch-controls-active #hud3 .map-head { position: absolute; top: 5px; left: 25%; right: 25%; padding: 0; justify-content: center; z-index: 2; font-size: 7px; }
+body.touch-controls-active #hud3 .map-head .turn,
+body.touch-controls-active #hud3 .blade { display: none; }
+body.touch-controls-active #hud3 .speed { left: 50%; right: auto; bottom: 83px; transform: translateX(-50%); gap: 4px; }
+body.touch-controls-active #hud3 .speed .v { font-size: 28px; }
+body.touch-controls-active #hud3 .speed .u { font-size: 8px; letter-spacing: .08em; }
+body.touch-controls-active #hud3 .speed .gauge { width: 68px; height: 2px; bottom: -7px; }
+
+/* Small tickets at top left keep the van and vanishing point visible. */
+body.touch-controls-active #hud3 :is(.order, .ticket) {
+  top: 12px; left: 12px; right: auto; width: var(--card-width); transform: none;
+  --notch: 10px; --panel: rgba(8,17,25,.93);
+}
+body.touch-controls-active #hud3 :is(.order, .ticket) .body { padding: 8px 10px; }
+body.touch-controls-active #hud3 :is(.order .strip, .ticket .head) { padding: 6px 10px; }
+body.touch-controls-active #hud3 :is(.order, .ticket) .en { font-size: 8px; letter-spacing: .08em; }
+body.touch-controls-active #hud3 :is(.order .shop, .ticket .to) { font-size: 13px; line-height: 1.2; }
+body.touch-controls-active #hud3 .order .shop-en { display: none; }
+body.touch-controls-active #hud3 :is(.order, .ticket) .dish {
+  font-size: 11px; line-height: 1.3; margin-top: 5px; padding-top: 0; border: 0;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+body.touch-controls-active #hud3 .ticket:not(.has-dish) .dish { display: none; }
+body.touch-controls-active #hud3 .ticket .dish-view { display: none; }
+body.touch-controls-active #hud3 :is(.order, .ticket) .req { margin-top: 6px; padding-left: 6px; }
+body.touch-controls-active #hud3 :is(.order, .ticket) .req .k { display: none; }
+body.touch-controls-active #hud3 :is(.order, .ticket) .req .t { margin: 0; font-size: 10px; line-height: 1.3; -webkit-line-clamp: 2; }
+body.touch-controls-active #hud3 .order .foot { margin-top: 6px; min-height: 34px; align-items: center; gap: 8px; }
+body.touch-controls-active #hud3 .order .pay { font-size: 17px; white-space: nowrap; }
+body.touch-controls-active #hud3 .order .pay small { font-size: 11px; }
+body.touch-controls-active #hud3 .order .accept {
+  padding: 8px 9px; border: 1px solid rgba(77,200,255,.32); border-radius: 8px;
+  background: rgba(77,200,255,.12); font-size: 9px; letter-spacing: .04em;
+}
+body.touch-controls-active #hud3 .order .accept .key { display: none; }
+body.touch-controls-active #hud3 .order { touch-action: none; }
+body.touch-controls-active #hud3 .ticket .clock { margin-top: 6px; }
+body.touch-controls-active #hud3 .ticket .clock .t { font-size: 22px; }
+body.touch-controls-active #hud3 .ticket .bar { margin-top: 4px; }
+body.touch-controls-active #hud3 .ticket .value { margin-top: 6px; font-size: 8px; letter-spacing: .03em; }
+body.touch-controls-active #hud3 .ticket .value strong { font-size: 15px; }
+body.touch-controls-active #hud3 .ticket .cond { margin-top: 6px; padding-top: 6px; }
+body.touch-controls-active #hud3 .ticket .cond .segs { margin-top: 3px; }
+body.touch-controls-active #hud3 .ticket .cond .segs i { height: 3px; }
+body.touch-controls-active #hud3 .ticket .obj { padding: 5px 10px; gap: 7px; }
+body.touch-controls-active #hud3 .ticket .obj .arrow { width: 13px; height: 13px; padding: 3px; filter: none; }
+body.touch-controls-active #hud3 .ticket .obj .d { font-size: 13px; }
+body.touch-controls-active #hud3 .ticket .dwell { margin-top: 6px; }
+body.touch-controls-active #hud3 .ticket .dwell .k { font-size: 8px; }
+body.touch-controls-active #hud3 .ticket .dwellbar { height: 4px; }
+body.touch-controls-active #hud3 .toasts { position: absolute; left: 50%; bottom: 140px; transform: translateX(-50%); width: min(280px, 55%); }
+body.touch-controls-active #hud3 .toast { font-size: 11px; }
+body.touch-controls-active #hud3 .toast:not(:last-child) { display: none; }
+body.touch-controls-active #hud3.english-mode .toast:has(.en) > div:first-child { display: none; }
+body.touch-controls-active #player-interaction-prompt { bottom: 190px !important; font-size: 11px !important; }
+
+/* Overlays use the same rounded corners and keep full-sized touch targets. */
+body.touch-controls-active :is(.ssa-settings, .ssa-city-map, .cassette-deck) { touch-action: pan-y; }
+body.touch-controls-active #hud3 :is(.release-card, .garage-menu) { z-index: 10; max-height: calc(100% - 24px); max-width: calc(100% - 24px); overflow-y: auto; box-sizing: border-box; touch-action: pan-y; border-radius: 16px; }
+body.touch-controls-active #hud3 :is(.release-card, .garage-menu) button,
+body.touch-controls-active :is(.ssa-settings, .cassette-deck) button,
+body.touch-controls-active .ssa-city-map__close { min-height: 44px; }
+body.touch-controls-active #hud3 .garage-head button { min-width: 44px; }
+body.touch-controls-active #hud3.garage-open > :is(.order, .ticket, .rail, .minimap, .speed, .stack) { visibility: hidden; }
+body.touch-controls-active .ssa-settings__dialog {
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
+  max-width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 24px);
+  border-radius: 18px; clip-path: none; background: #0b151e;
+}
+body.touch-controls-active .ssa-settings__header { flex-shrink: 0; padding: 12px 16px; }
+body.touch-controls-active .ssa-settings__body { min-height: 0; padding: 0 16px 16px; touch-action: pan-y; }
+body.touch-controls-active .ssa-settings__title { font-size: 20px; }
+body.touch-controls-active .ssa-settings__close kbd { display: none; }
+body.touch-controls-active :is(.ssa-settings__btn, .ssa-settings__seg, .ssa-settings__close) { border-radius: 10px; }
+body.touch-controls-active .ssa-settings__control { flex-wrap: wrap; }
+body.touch-controls-active .ssa-settings__switch { height: 44px; border-radius: 24px; }
+body.touch-controls-active .ssa-settings__switch::after { top: 12px; }
+body.touch-controls-active .mobile-control-help { display: block; color: rgba(238,244,255,.7); font-size: 12px; line-height: 1.65; }
+body.touch-controls-active .ssa-settings__bindings,
+body.touch-controls-active #hud3 .release-card .keys { display: none; }
+body.touch-controls-active .ssa-city-map__dialog { min-height: 0; height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px); width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 24px); }
+body.touch-controls-active .cassette-deck .deck-unit { max-height: calc(100% - 24px); overflow-y: auto; touch-action: pan-y; }
+body.touch-controls-active .cassette-deck.show .deck-unit { transform: translate(-50%, -50%); }
+body.touch-controls-active .cassette-deck .deck-head { position: sticky; top: 0; z-index: 5; background: #30281e; }
+
+@media (orientation: portrait) {
+  body.touch-controls-active { --card-width: min(244px, calc(100% - 134px)); --map-right: 12px; --tools-top: 186px; }
+  body.touch-controls-active #touch-controls .touch-actions { bottom: 146px; }
+  body.touch-controls-active #hud3 .speed { bottom: 35px; }
+  body.touch-controls-active #hud3 .toasts { bottom: 210px; width: min(280px, 75%); }
+  body.touch-controls-active #player-interaction-prompt { bottom: 210px !important; }
+  body.touch-controls-active .ssa-city-map__body { grid-template-rows: minmax(100px, 1fr) auto; }
+}
+@media (orientation: landscape) {
+  body.touch-controls-active .ssa-city-map__body { grid-template-columns: minmax(0, 1fr) 200px; grid-template-rows: minmax(0, 1fr); }
+  body.touch-controls-active .ssa-city-map__side { max-height: none; }
+  body.touch-controls-active .ssa-city-map__header { min-height: 44px; padding: 6px 12px; }
+  body.touch-controls-active .ssa-city-map__footer { display: none; }
+}
+@media (orientation: landscape) and (max-height: 360px) {
+  body.touch-controls-active { --stick-size: 100px; --map-size: 82px; --card-width: clamp(200px, 34vw, 256px); }
+  body.touch-controls-active #hud3 :is(.order, .ticket) .body { padding: 6px 9px; }
+  body.touch-controls-active #hud3 :is(.order .strip, .ticket .head) { padding: 5px 9px; }
+  body.touch-controls-active #hud3 .ticket .body { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; }
+  body.touch-controls-active #hud3 .ticket :is(.to, .dish, .req, .dwell, .cond) { grid-column: 1 / -1; }
+  body.touch-controls-active #hud3 .ticket .clock { grid-column: 1; margin: 0; }
+  body.touch-controls-active #hud3 .ticket .clock .en,
+  body.touch-controls-active #hud3 .ticket .value > span:first-child,
+  body.touch-controls-active #hud3 .ticket .bar { display: none; }
+  body.touch-controls-active #hud3 .ticket .value { grid-column: 2; margin: 0; }
+  body.touch-controls-active #hud3 .ticket .cond { margin: 0; padding-top: 3px; }
+  body.touch-controls-active #hud3 :is(.order, .ticket) .req { margin-top: 3px; }
+  body.touch-controls-active #hud3 :is(.order, .ticket) .dish { -webkit-line-clamp: 1; margin-top: 2px; }
+  body.touch-controls-active #hud3 .order .req .t { font-size: 9px; }
+  body.touch-controls-active #hud3 .order .foot { margin-top: 2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.touch-controls-active #hud3 *, body.touch-controls-active #touch-controls * { transition: none !important; }
+}
+@media (orientation: landscape) and (max-height: 280px) {
+  body.touch-controls-active { --card-width: min(244px, calc(100% - 350px)); }
+  body.touch-controls-active #hud3 :is(.order, .ticket) { left: 124px; }
+  body.touch-controls-active #hud3 .ticket .to { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.touch-controls-active #hud3 .ticket .body { gap: 3px 8px; }
+  body.touch-controls-active #hud3 .ticket .req .t { font-size: 9px; }
+  body.touch-controls-active #hud3 .speed { left: 132px; bottom: 25px; transform: none; }
+  body.touch-controls-active #hud3 .toasts { top: 12px; bottom: auto; left: 12px; width: 100px; transform: none; }
+  body.touch-controls-active #hud3 .toast { padding: 6px; }
+  body.touch-controls-active #hud3 .toast > div:first-child { font-size: 9px; }
+  body.touch-controls-active #hud3 .toast .en { font-size: 8px; }
+}

@@ -2,7 +2,7 @@
 // pickup ticket. Owns its own renderer and rAF loop so the HUD stays DOM-only;
 // the loop runs only while the preview is visible.
 import * as THREE from 'three';
-import { foodModelsForOrder, foodTemplate } from '../game/food-display.js';
+import { centerFoodGroup, foodModelsForOrder, foodTemplate } from '../game/food-display.js';
 
 // Keep in sync with `#hud3 .ticket.has-dish .dish-view` height in hud3.js — the
 // renderer size is fixed, so a CSS box of a different height letterboxes or
@@ -47,6 +47,8 @@ export class FoodPreview {
     const request = ++this._request;
     if (!this.available) return;
     this.root.clear();
+    this.root.position.set(0, 0, 0);
+    this.root.rotation.set(0, 0, 0);
     const specs = foodModelsForOrder(order);
     if (!specs.length) { this.stop(); return; }
 
@@ -61,10 +63,26 @@ export class FoodPreview {
         model.position.x += (index - (specs.length - 1) * 0.5) * spacing;
         this.root.add(model);
       });
+      const bounds = centerFoodGroup(this.root, { vertical: 'center' });
+      this._fitCamera(bounds);
       this.start();
     } catch (error) {
       console.warn('food preview failed to load:', error);
     }
+  }
+
+  _fitCamera(bounds) {
+    if (bounds.isEmpty()) return;
+    const sphere = bounds.getBoundingSphere(new THREE.Sphere());
+    const radius = Math.max(0.08, sphere.radius);
+    const halfFov = THREE.MathUtils.degToRad(this.camera.fov * 0.5);
+    const distance = radius / Math.sin(halfFov) * 1.12;
+    const view = new THREE.Vector3(0, 0.22, 1).normalize();
+    this.camera.position.copy(view).multiplyScalar(distance);
+    this.camera.near = Math.max(0.01, distance - radius * 1.8);
+    this.camera.far = distance + radius * 2.4;
+    this.camera.lookAt(0, 0, 0);
+    this.camera.updateProjectionMatrix();
   }
 
   start() {
@@ -74,7 +92,9 @@ export class FoodPreview {
       const dt = Math.min((now - this._last) / 1000, 0.1);
       this._last = now;
       this.root.rotation.y += dt * 0.8;
-      this.renderer.render(this.scene, this.camera);
+      // The compact mobile ticket hides this viewport. Avoid drawing another
+      // WebGL scene behind it; a desktop/touch preference change reveals it again.
+      if (this.container.getClientRects().length) this.renderer.render(this.scene, this.camera);
       this._raf = requestAnimationFrame(tick);
     };
     this._raf = requestAnimationFrame(tick);

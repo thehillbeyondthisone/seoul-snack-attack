@@ -105,6 +105,7 @@ export async function loadInterior(manager, def) {
   // Metres of depth at full deflection, or null while the truck is a truck.
   // See setDepthMode below.
   let depthFullScale = null;
+  let underwater = false;
 
   return {
     group,
@@ -139,11 +140,13 @@ export async function loadInterior(manager, def) {
       }
     },
 
+    setUnderwater(on) { underwater = !!on; },
+
     update(dt, phys) {
       // Ride the lamp rather than switching it: see the light-count note above.
       const wanted = group.visible ? 1 : 0;
       lit += (wanted - lit) * Math.min(1, dt * 8);
-      dome.intensity = lit * 1.6;
+      dome.intensity += (lit * (underwater ? .35 : 1.6) - dome.intensity) * Math.min(1, dt * 4);
       if (!group.visible) return;
 
       // Steering. phys.steerAngle is the ROAD wheel angle and positive is a

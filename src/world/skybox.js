@@ -99,25 +99,25 @@ export function createNightSkybox(renderer) {
 }
 
 /** Bright, lightly overcast Seoul afternoon for the daytime preset. */
-export function createDaySkybox(renderer) {
+export function createDaySkybox(renderer, mode = 'day') {
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
   canvas.height = 512;
   const ctx = canvas.getContext('2d');
 
   const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  grad.addColorStop(0, '#3f73a7');
-  grad.addColorStop(0.38, '#79a8ca');
-  grad.addColorStop(0.62, '#bdd4df');
-  grad.addColorStop(0.76, '#d8d2c3');
-  grad.addColorStop(0.86, '#8d9691');
-  grad.addColorStop(1, '#39423f');
+  const palette = {
+    day: ['#3f73a7', '#79a8ca', '#bdd4df', '#d8d2c3', '#8d9691', '#39423f'],
+    morning: ['#565884', '#ac96b1', '#e7bba9', '#f3d0aa', '#978a88', '#443e46'],
+    dusk: ['#1c183c', '#644968', '#c68073', '#efaf7b', '#65474e', '#1f192c'],
+  }[mode];
+  [0, .38, .62, .76, .86, 1].forEach((stop, i) => grad.addColorStop(stop, palette[i]));
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Warm sun diffused through humid cloud cover.
-  const sunX = canvas.width * 0.70;
-  const sunY = canvas.height * 0.19;
+  const sunX = canvas.width * (mode === 'morning' ? .25 : .70);
+  const sunY = canvas.height * (mode === 'day' ? .19 : .43);
   const sun = ctx.createRadialGradient(sunX, sunY, 4, sunX, sunY, 105);
   sun.addColorStop(0, 'rgba(255,250,224,1)');
   sun.addColorStop(0.08, 'rgba(255,239,190,0.88)');
@@ -142,7 +142,7 @@ export function createDaySkybox(renderer) {
     { y: 0.53, rgb: '132,151,163', alpha: 0.13, count: 28 },
   ];
   for (const layer of cloudLayers) {
-    ctx.fillStyle = `rgba(${layer.rgb},${layer.alpha})`;
+    ctx.fillStyle = `rgba(${mode === 'dusk' ? '140,98,126' : layer.rgb},${layer.alpha})`;
     for (let i = 0; i < layer.count; i++) {
       const x = rand() * canvas.width;
       const y = canvas.height * layer.y + (rand() - 0.5) * 88;
@@ -167,7 +167,7 @@ export function createDaySkybox(renderer) {
   ctx.fillStyle = haze;
   ctx.fillRect(0, canvas.height * 0.61, canvas.width, canvas.height * 0.23);
 
-  return finishSkybox(renderer, canvas, 'Seoul overcast day');
+  return finishSkybox(renderer, canvas, `Seoul ${mode}`);
 }
 
 /** Lazily build each environment once, then keep it for instant later switches. */

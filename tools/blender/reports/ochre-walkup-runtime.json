@@ -1,0 +1,137 @@
+{
+  "exportReport": {
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "materials": 21,
+    "mapped": [
+      "ivory",
+      "ochre-render",
+      "plaster",
+      "sage-tile",
+      "stone",
+      "wood",
+      "asphalt"
+    ],
+    "glass": true,
+    "storeys": 4,
+    "doorClear": true,
+    "wallBlocks": true,
+    "roadY": 0.05000000074505806,
+    "draws": 30,
+    "triangles": 11544,
+    "loadingMs": 201.90000000596046
+  },
+  "performanceReport": {
+    "width": 1440,
+    "height": 1100,
+    "drawsIncludingShadowsAndPost": 75,
+    "cpuSubmissionMedianMs": 3,
+    "gpuMedianMs": 85.234688,
+    "gpuMaxMs": 97.497088,
+    "geometryBuffers": 43,
+    "textures": 46
+  },
+  "game": {
+    "world": true,
+    "position": [
+      -8.000135555786061,
+      1.3883469077196917,
+      12.252221744447036
+    ],
+    "ground": 0.04899999871850014,
+    "route": true,
+    "materials": 21
+  },
+  "driven": [
+    -4.113423374947805,
+    1.3959631881459929,
+    12.252421790875644
+  ],
+  "walking": [
+    -0.9499999999999998,
+    0.32499998807907104,
+    2.3570427646697674
+  ],
+  "ao": [
+    {
+      "name": "iron",
+      "channel": 1
+    },
+    {
+      "name": "ivory",
+      "channel": 1
+    },
+    {
+      "name": "navy-door",
+      "channel": 1
+    },
+    {
+      "name": "ochre-render",
+      "channel": 1
+    },
+    {
+      "name": "plaster",
+      "channel": 1
+    },
+    {
+      "name": "sage-tile",
+      "channel": 1
+    },
+    {
+      "name": "stone",
+      "channel": 1
+    },
+    {
+      "name": "bulb",
+      "channel": 1
+    },
+    {
+      "name": "curtain",
+      "channel": 1
+    },
+    {
+      "name": "jar",
+      "channel": 1
+    },
+    {
+      "name": "room-wall",
+      "channel": 1
+    },
+    {
+      "name": "wood",
+      "channel": 1
+    },
+    {
+      "name": "canvas",
+      "channel": 1
+    },
+    {
+      "name": "enamel",
+      "channel": 1
+    },
+    {
+      "name": "jade-paint",
+      "channel": 1
+    },
+    {
+      "name": "leaf",
+      "channel": 1
+    },
+    {
+      "name": "leaf-dark",
+      "channel": 1
+    },
+    {
+      "name": "soil",
+      "channel": 1
+    },
+    {
+      "name": "terracotta",
+      "channel": 1
+    },
+    {
+      "name": "asphalt",
+      "channel": 1
+    }
+  ],
+  "errors": []
+}

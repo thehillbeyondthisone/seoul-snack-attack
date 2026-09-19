@@ -2,9 +2,64 @@
 
 Portable facts. Not a diary. Copy into the next job.
 
+- Snack Street's three authored food buildings use a pilot-only restaurant
+  roster; do not add them to the kilometre city's eight-shop roster until real
+  city placements are approved. Bind each shop by assembly entrance id and
+  derive its pickup point and routing anchor from that transformed entrance.
+  `npm run snack-street-check` proves all three real dwell-state deliveries.
+
+- A pooled light's `visible` flag changes shader light counts. Keep the pilot's
+  practical lights visible and dim out-of-range intensity to zero. Prepare the
+  settled light rig before `compileAsync`, using the postprocessor render target.
+  Food upload scenes need their own asynchronously prepared lighting variant,
+  in addition to the gameplay variant; idle scheduling alone cannot make a
+  synchronous shader link non-blocking.
+- The non-retail kit now uses the accepted Pocha window helper and segmented
+  masonry openings. Distinct palettes and uses should share depth, sill/trim
+  scale and room detail. A dark rectangle over a solid wall is not equivalent
+  to the accepted deep-window construction.
+
+- The authored building kit now contains six types: three food-shop/mixed-use
+  buildings plus an apartment walk-up, office and service workshop. The latter
+  use non-retail ground floors and distinct ochre/sage, blue/bronze and
+  charcoal/mustard palettes. A varied city block cannot be faked by repeating
+  restaurant shells with different signs.
+- Building recipes share authoring helpers, but separate GLBs still embed
+  separate textures. The test assembly now shares matching-resolution surface
+  texture objects at runtime, while retaining per-building AO. Its explicit
+  compatibility manifest removes source Street meshes/slab colliders; placement
+  transforms visible geometry, collision, lights and entrances together.
+  `building=street-assembly&world=pilot` has a 12 m road and 2.4 m pavements.
+  Its 140 m radius test bends passed full-throttle Pocha dry/wet laps. This does
+  not make tight urban junctions full-speed corners or validate arbitrary input.
+  See `tools/blender/STREET-ASSEMBLY.md` for measured clearance and limits.
+- The approved world-quality process uses one detailed building/shop pilot.
+  The user selected Patchwork Pocha, direction A. `?world=pilot` is the playable
+  sample and `/building-pilot.html` is its camera/lighting review. Its measured
+  cost is not a city-wide budget. Follow `WORLD-BUILDING-PILOT.md` before scaling.
+- Blender contact-shadow atlases need welded shared corners before unwrapping
+  batched face geometry; per-face islands can become subpixel. Preserve metre
+  UVs on UVMap, use an explicit second UV map for glTF occlusion, and keep atlas
+  gutters neutral under minification. Verify in Three.js, not only in Blender.
+
+- Underwater chase cameras must inherit `cameraDist`, `cameraHeight` and
+  `cameraLookUp` from the road vehicle; generic defaults put the pocha camera
+  inside its cargo box. These are visual rig values, not swimming physics.
+- Run the direct abyss review hook after surface settings/lighting restoration.
+  Otherwise `?dive=1` can look different from entering through the real ramp.
+- Underwater light shafts need fading across their width as well as length.
+  Vertical-only alpha on a cone exposes hard polygon walls near the camera.
+
 - The default world is now `expanse2`. Keep `world=proc` explicitly in URLs;
   deleting it no longer selects the compact circuit. The old Expanse remains
   available as a comparison at `world=expanse`.
+- Four successful deliveries advance morning → afternoon → dusk → night →
+  next morning. `day-progress.js` owns the count; waiting and pickups do not
+  advance it. Day 1–4 tapes use 4/8/12/16 runs. Version-2 saves preserve old
+  3/6/9/12 rewards and persist Dive discovery separately in `unlockedTapes`.
+- Dive remains a launch-lip cue, and joins the 12-tape rack after playback.
+  Both media elements need gesture preparation; Web Audio gains own their
+  crossfade. The deck has transport and mute, with a fixed audio balance.
 - M6c GPU profiling found the major startup stall in shader `onFirstUse`.
   With KHR parallel compilation, prepare programs against the same render target
   as the postprocessor or the first frame recompiles a tone-mapping variant.
@@ -132,3 +187,7 @@ Portable facts. Not a diary. Copy into the next job.
 - Bind gameplay to a **building id**, not a coordinate. A site that names its
   `bld_*` and takes frontage, facing and district from that record cannot drift
   when the generator is retuned; a hand-typed transform silently can.
+- Review destinations belong in the backtick menu, not in tribal knowledge.
+  Keep their URLs deterministic by replacing the query string so a stale
+  `?dive`, `?building` or `?props` flag cannot leak into the next scene. Preserve
+  the deployment base path, and use the bible's navigation cyan for the folder.

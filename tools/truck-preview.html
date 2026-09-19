@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#101d23}canvas{display:block}#label{position:absolute;top:32px;left:40px;font:700 24px sans-serif;color:#fff4d6;letter-spacing:3px}</style></head><body><div id="label">NIGHT SHIFT / 02<br><small style="font-size:12px">SEOUL SNACK ATTACK · COLLECTIBLE TRUCK GRAPHICS</small></div><script type="module">
+import * as THREE from 'three';
+import {loadVehicle} from '/src/vehicle/vehicle.js';
+import {getVehicle} from '/src/game/data/vehicles.js';
+import {createUpgradeToken} from '/src/game/truck-upgrade.js';
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(1280,800);renderer.setPixelRatio(1);renderer.setClearColor(0x101d23);renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.3;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.add(new THREE.HemisphereLight(0xc4e8ff,0x434538,1.5));
+for(const [x,y,z,power] of [[4,8,5,3],[-5,4,-4,2]]){const light=new THREE.DirectionalLight(0xffffff,power);light.position.set(x,y,z);scene.add(light);}
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({color:0x203138,roughness:.8}));ground.rotation.x=-Math.PI/2;ground.position.y=-2.37;scene.add(ground);
+const def={...getVehicle('pocha'),asset:'/assets/vehicles/pocha.glb'};
+const van=await loadVehicle(new THREE.LoadingManager(),def);scene.add(van.group);van.makeover.setEnabled(true);
+const token=createUpgradeToken();token.position.set(-3,-.9,0);token.scale.setScalar(.8);scene.add(token);
+const camera=new THREE.PerspectiveCamera(38,1280/800,.1,100);camera.position.set(-9,3,-10);camera.lookAt(0,-.3,0);
+window.preview={THREE,renderer,scene,camera,van,token};renderer.render(scene,camera);window.ready=true;
+</script></body></html>
+

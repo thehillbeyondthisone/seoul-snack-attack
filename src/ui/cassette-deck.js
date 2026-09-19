@@ -19,6 +19,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { dayProgress, DELIVERIES_PER_DAY } from '../game/day-progress.js';
 
 // Bible hexes (src/world/data/color-bible.js HUD block). The deck redefines
 // them locally instead of leaning on #hud3's older values so this panel is
@@ -33,7 +34,7 @@ const BIBLE = {
 
 // J-card colourway per tape, drawn from the bible's NEON kit (local neon is
 // allowed on objects; these are labels, not system accents).
-const SKINS = ['#3fd2e6', '#ffd873', '#ff85b5', '#5fd068', '#ff9a3d', '#b46cff', '#e9dcab', '#6cc9b9', '#d34b67', '#ff4d26', '#b0caff'];
+const SKINS = ['#3fd2e6', '#ffd873', '#ff85b5', '#5fd068', '#ff9a3d', '#b46cff', '#e9dcab', '#6cc9b9', '#d34b67', '#ff4d26', '#b0caff', '#4baac4'];
 
 // Hangul mixtape labels, one per track — the J-card scribble next to the
 // English title. Deck-local flavour; the data file stays pure.
@@ -43,6 +44,10 @@ const FLAVOUR_KO = ['부대찌개 비트', '드랍 잇 레드', '레드 리믹�
 // of a different size letterboxes the canvas, so the window is built around it.
 const VIEW_W = 300;
 const VIEW_H = 158;
+// Frame the 101.7 mm shell to the 200 px loading slot below it. The previous
+// 215 mm camera distance left the cassette at roughly 150 px wide, making it
+// read as a miniature floating in a display case instead of a seated tape.
+const DECK_CAMERA_Z = 0.165;
 
 // Cassette geometry, in model metres (shell is 101.7 × 65.9 mm). Hub centres
 // sit ±21 mm from the middle — the compact-cassette standard — just proud of
@@ -51,6 +56,24 @@ const HUB_X = 0.021;
 const HUB_Y = 0.002;
 const HUB_Z = 0.0058;
 const HUB_R = 0.0102; // visual disc radius, matched to the printed reels
+
+/** Add the track-coloured J-card to one of the otherwise fixed cassette shells. */
+function addTapeLabel(tape, skin) {
+  const label = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.068, 0.026),
+    new THREE.MeshBasicMaterial({
+      color: skin,
+      toneMapped: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+    }),
+  );
+  label.name = 'track_colour_label';
+  label.position.set(0, 0.004, 0.0053);
+  tape.add(label);
+  tape.userData.trackColourLabel = label;
+  return label;
+}
 
 const SPOOL_SVG = `
 <svg viewBox="0 0 100 100" aria-hidden="true">
@@ -203,6 +226,16 @@ const CSS = `
   position: absolute; inset: 0; z-index: 4; pointer-events: none;
   background: linear-gradient(115deg, rgba(255,246,230,0.075) 0%, rgba(255,246,230,0.02) 26%, transparent 42%);
 }
+/* The lower receiver overlaps the shell slightly, visually capturing the
+   cassette inside the mechanism instead of leaving it floating in the bay. */
+.cassette-deck .deck-window::after {
+  content: ''; position: absolute; z-index: 2; pointer-events: none;
+  left: 42px; right: 42px; bottom: 5px; height: 11px;
+  border: 1px solid rgba(255,220,170,0.16); border-top-color: rgba(255,236,200,0.28);
+  border-radius: 2px 2px 5px 5px;
+  background: linear-gradient(180deg, rgba(55,38,25,0.76), rgba(8,4,2,0.96));
+  box-shadow: 0 -2px 5px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,236,200,0.08);
+}
 /* Spool hubs, projected onto the tape's real hub coordinates each frame. */
 .cassette-deck .deck-spools i { position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none; will-change: transform; }
 .cassette-deck .deck-spools svg { width: 100%; height: 100%; display: block; animation: deckspin 1.7s linear infinite; animation-play-state: paused; }
@@ -328,13 +361,13 @@ const CSS = `
 .cassette-deck .tape-card.locked .tc-body { opacity: .5; filter: grayscale(.5); }
 .cassette-deck .tc-status { display: block; font-size: 8px; color: var(--muted); margin-top: 3px; }
 .cassette-deck .tape-card:focus-visible { outline: 2px solid var(--nav); outline-offset: 2px; }
-.cassette-deck .rack-note { padding: 9px 4px; align-self: center; font-size: 10px; color: var(--muted); line-height: 1.5; }
+.cassette-deck .rack-note { grid-column: 1 / -1; padding: 9px 4px; align-self: center; font-size: 10px; color: var(--muted); line-height: 1.5; }
 .cassette-deck .rack-note b { display: block; color: var(--nav); font-size: 11px; }
 
 /* ---- transport ----------------------------------------------------------- */
 .cassette-deck .deck-transport {
-  display: grid; grid-template-columns: 1fr 1.35fr 1fr; gap: 8px;
-  margin: 11px 18px 0;
+  display: grid; grid-template-columns: 1fr 1.35fr 1fr 1fr; gap: 8px;
+  margin: 11px 18px 14px;
 }
 .cassette-deck .deck-transport button {
   padding: 9px 6px; cursor: pointer; font: inherit;
@@ -347,25 +380,6 @@ const CSS = `
 .cassette-deck .deck-transport .t-play { color: var(--nav); border-color: rgba(63,210,230,0.42); background: rgba(63,210,230,0.08); }
 .cassette-deck .deck-transport .t-play:hover { box-shadow: 0 0 14px rgba(63,210,230,0.30); }
 
-/* ---- compact mix row ------------------------------------------------------ */
-.cassette-deck .deck-mix {
-  display: grid; grid-template-columns: repeat(4, 1fr) auto auto; gap: 10px; align-items: end;
-  margin: 13px 18px 12px; padding-top: 11px;
-  border-top: 1px solid rgba(255,242,224,0.10);
-}
-.cassette-deck .dm .k {
-  display: flex; justify-content: space-between; margin-bottom: 4px;
-  font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint);
-}
-.cassette-deck .dm output { color: var(--muted); letter-spacing: 0; }
-.cassette-deck .dm input[type='range'] { width: 100%; height: 14px; accent-color: ${BIBLE.nav}; margin: 0; }
-.cassette-deck .t-mute, .cassette-deck .t-reset {
-  padding: 7px 10px; cursor: pointer; font: inherit;
-  font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
-  color: var(--muted); background: rgba(255,242,224,0.05);
-  border: 1px solid rgba(255,242,224,0.20); border-radius: 3px;
-  transition: color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-}
 .cassette-deck.muted .t-mute {
   color: var(--alarm); border-color: rgba(255,77,38,0.55);
   background: rgba(255,77,38,0.08); box-shadow: 0 0 10px rgba(255,77,38,0.25);
@@ -376,6 +390,7 @@ const CSS = `
   .cassette-deck .deck-stage { padding: 6px; }
   .cassette-deck .deck-rack { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; margin: 6px 10px 0; }
   .cassette-deck .deck-window { height: 96px; width: 182px; }
+  .cassette-deck .deck-slot { width: 120px; }
   .cassette-deck .deck-view, .cassette-deck .deck-spools { width: 300px; height: 158px; transform: scale(.6); transform-origin: top left; }
   .cassette-deck .deck-head { padding: 9px 12px; gap: 6px; }
   .cassette-deck .deck-brand b { font-size: 11px; }
@@ -388,20 +403,18 @@ const CSS = `
   .cassette-deck .tape-card .tc-hub { top: 12px; }
   .cassette-deck .tape-card .tc-label { inset: 4px 5px 8px; }
   .cassette-deck .tc-status { font-size: 7px; }
-  .cassette-deck .deck-transport { margin: 7px 10px 0; }
-  .cassette-deck .deck-mix { margin: 7px 10px; padding-top: 6px; gap: 5px 10px; }
-  .cassette-deck .deck-mix { grid-template-columns: repeat(2, 1fr); }
-  .cassette-deck .t-mute, .cassette-deck .t-reset { grid-column: span 1; }
+  .cassette-deck .deck-transport { margin: 7px 10px 12px; gap: 5px; }
   .cassette-deck .np-vu { display: none; }
 }
 @media (max-height: 670px) and (min-width: 561px) {
   .cassette-deck .deck-window { height: 96px; width: 182px; }
+  .cassette-deck .deck-slot { width: 120px; }
   .cassette-deck .deck-view, .cassette-deck .deck-spools { width: 300px; height: 158px; transform: scale(.6); transform-origin: top left; }
   .cassette-deck .deck-head { padding-block: 7px; }
-  .cassette-deck .deck-mix { margin-block: 7px; padding-top: 7px; }
 }
 @media (max-height: 740px) and (max-width: 560px) {
   .cassette-deck .deck-window { height: 65px; width: 122px; }
+  .cassette-deck .deck-slot { width: 80px; }
   .cassette-deck .deck-view, .cassette-deck .deck-spools { transform: scale(.4); }
   .cassette-deck .deck-slot { margin-top: 5px; }
   .cassette-deck .tc-status { margin-top: 0; }
@@ -418,7 +431,7 @@ export class CassetteDeck {
   /**
    * @param {object}   options
    * @param {object}   options.soundtrack  shared Soundtrack instance (playback state lives there)
-   * @param {object}   options.audio       shared AudioManager (mix levels + master mute)
+   * @param {object}   options.audio       shared AudioManager (master mute)
    * @param {object}   options.hud         HUD3, for bilingual labels + toasts
    * @param {HTMLElement} options.container element the deck mounts into (the #hud3 root)
    * @param {HTMLElement} options.launcher  persistent HUD cassette button
@@ -471,14 +484,7 @@ export class CassetteDeck {
             <button class="t-prev" type="button">◀◀ 이전</button>
             <button class="t-play" type="button">▶ 재생</button>
             <button class="t-next" type="button">다음 ▶▶</button>
-          </div>
-          <div class="deck-mix">
-            <label class="dm"><span class="k"><span>마스터 · Master</span><output>-%</output></span><input data-mix="master" type="range" min="0" max="1" step="0.01"></label>
-            <label class="dm"><span class="k"><span>음악 · Music</span><output>-%</output></span><input data-mix="music" type="range" min="0" max="1" step="0.01"></label>
-            <label class="dm"><span class="k"><span>효과 · Effects</span><output>-%</output></span><input data-mix="sfx" type="range" min="0" max="1" step="0.01"></label>
-            <label class="dm"><span class="k"><span>환경 · Ambience</span><output>-%</output></span><input data-mix="ambience" type="range" min="0" max="1" step="0.01"></label>
             <button class="t-mute" type="button">음소거 · MUTE</button>
-            <button class="t-reset" type="button">리셋 · RESET</button>
           </div>
         </div>
       </div>
@@ -511,8 +517,6 @@ export class CassetteDeck {
       prev: q('.t-prev'),
       next: q('.t-next'),
       mute: q('.t-mute'),
-      reset: q('.t-reset'),
-      mixes: [...el.querySelectorAll('input[data-mix]')],
     };
 
     // Bilingual static labels ride the HUD's hold-for-English system.
@@ -533,11 +537,14 @@ export class CassetteDeck {
     this._onKey = (event) => {
       if (event.key === 'Escape' && this.isOpen()) {
         event.preventDefault();
-        event.stopPropagation();
+        event.stopImmediatePropagation();
         this.close();
       }
     };
-    document.addEventListener('keydown', this._onKey);
+    // Capture at the window before the game's ordinary Escape-to-Settings
+    // listener. Otherwise closing the deck can also open Settings in the same
+    // keystroke on browsers that retarget the event during the overlay change.
+    window.addEventListener('keydown', this._onKey, true);
 
     this.$.scrim.addEventListener('click', () => this.close());
     this.$.eject.addEventListener('click', () => this.close());
@@ -553,29 +560,6 @@ export class CassetteDeck {
       // Master mute covers music too; keyboard M is reserved for the city map.
       const muted = this.audio.toggleMute();
       this.hud?.setAudioStatus?.(muted ? 'muted' : 'on');
-      this.refresh();
-    });
-    this.$.mixes.forEach((input) => {
-      input.addEventListener('input', () => {
-        this._wake();
-        const value = Number(input.value);
-        const out = input.parentElement.querySelector('output');
-        out.textContent = `${Math.round(value * 100)}%`;
-        switch (input.dataset.mix) {
-          case 'master': this.audio.setMasterVolume(value); break;
-          case 'music': this.soundtrack.setVolume(value); break;
-          case 'sfx': this.audio.setSfxVolume(value); break;
-          case 'ambience': this.audio.setAmbienceVolume(value); break;
-        }
-      });
-    });
-    this._setMixInputs();
-    this.$.reset.addEventListener('click', async () => {
-      this._wake();
-      this.audio.reset();
-      await this.soundtrack.reset();
-      this.hud?.setAudioStatus?.('on');
-      this._setMixInputs();
       this.refresh();
     });
 
@@ -616,10 +600,18 @@ export class CassetteDeck {
 
   close() {
     if (!this.isOpen()) return;
+    const restore = this._previousFocus;
     this.el.classList.remove('show');
     this.el.setAttribute('aria-hidden', 'true');
     this.onToggle?.(false);
-    if (this._previousFocus?.isConnected) this._previousFocus.focus({ preventScroll: true });
+    // Space is the driving handbrake/jump key. Returning focus to the HUD's
+    // native cassette button made the browser synthesize another click from a
+    // later Space press and reopen the deck in the middle of driving.
+    document.activeElement?.blur?.();
+    if (restore?.isConnected && restore !== this.launcher && restore.getClientRects?.().length) {
+      restore.focus({ preventScroll: true });
+    }
+    this._previousFocus = null;
     // Let the door-shut transition play before stopping the loop.
     setTimeout(() => { if (!this.isOpen()) this._stopLoop(); }, 460);
   }
@@ -632,6 +624,14 @@ export class CassetteDeck {
 
   _skin(i) { return SKINS[i % SKINS.length]; }
 
+  _displayTrackIndex() {
+    if (!this.soundtrack.cueActive) return this.soundtrack.index;
+    const cue = this.soundtrack.diveTrack;
+    const cueIndex = this.soundtrack.tracks.findIndex((track) =>
+      (cue?.file && track.file === cue.file) || (cue?.url && track.url === cue.url));
+    return cueIndex >= 0 ? cueIndex : this.soundtrack.index;
+  }
+
   _flavour(i) { return this.soundtrack.tracks[i]?.ko || FLAVOUR_KO[i] || ''; }
 
   _wake() {
@@ -641,8 +641,10 @@ export class CassetteDeck {
   /** Select a tape from the rack. Same tape toggles play; a new one inserts. */
   _select(i) {
     if (this._isLocked(i)) {
-      const n = this.soundtrack.tracks[i].unlockDeliveries;
-      this.hud?.toast?.(`배달 ${n}회 완료 시 해금`, `Complete ${n} deliveries to unlock`);
+      const track = this.soundtrack.tracks[i];
+      const days = track.unlockDeliveries / DELIVERIES_PER_DAY;
+      this.hud?.toast?.(track.unlockEvent ? '드레인으로 다이브하면 해금' : `${days}일 근무 완료 시 해금`,
+        track.unlockEvent ? 'Dive into the Drain to unlock' : `Complete ${days} working days to unlock`);
       return;
     }
     this._wake();
@@ -688,24 +690,10 @@ export class CassetteDeck {
 
   // ---- DOM state ----------------------------------------------------------
 
-  /** Push the shared mix levels into the compact sliders. */
-  _setMixInputs() {
-    const levels = {
-      master: this.audio.masterLevel,
-      music: this.soundtrack.volume,
-      sfx: this.audio.sfxLevel,
-      ambience: this.audio.ambienceLevel,
-    };
-    this.$.mixes.forEach((input) => {
-      const value = levels[input.dataset.mix];
-      input.value = value;
-      input.parentElement.querySelector('output').textContent = `${Math.round(value * 100)}%`;
-    });
-  }
-
   refresh() {
     const st = this.soundtrack;
     const i = st.index;
+    const displayIndex = this._displayTrackIndex();
     const track = st.currentTrack;
     if (track) {
       this.$.titleKo.textContent = (st.cueActive ? track.ko : this._flavour(i)) || track.title;
@@ -719,7 +707,14 @@ export class CassetteDeck {
     this.el.classList.toggle('paused', !playing && !this.audio.muted);
     this.el.classList.toggle('muted', this.audio.muted);
     this._setLocalizedPlay(playing);
+    this.hud?._setLocalized?.(this.$.mute, this.audio.muted ? '소리 켜기' : '음소거', this.audio.muted ? 'UNMUTE' : 'MUTE');
+    this.$.mute.setAttribute('aria-pressed', String(this.audio.muted));
     this._buildRack();
+    if (this.tapeA && this._shownIndex !== displayIndex) this.showTape(displayIndex);
+    if (this._launcherTape) {
+      this._launcherTape.userData.trackColourLabel.material.color.set(this._skin(displayIndex));
+      this._launcherRenderer?.render(this._launcherScene, this._launcherCamera);
+    }
   }
 
   _setLocalizedPlay(playing) {
@@ -735,7 +730,7 @@ export class CassetteDeck {
 
   _buildRack() {
     const st = this.soundtrack;
-    const key = `${st.index}:${st.cueActive}:${st.deliveries}:${this.hud?.englishMode}`;
+    const key = `${st.index}:${st.cueActive}:${st.deliveries}:${[...st.unlockedTapes]}:${this.hud?.englishMode}`;
     if (key === this._rackKey) return;
     this._rackKey = key;
     const rack = this.$.rack;
@@ -754,7 +749,9 @@ export class CassetteDeck {
         <span class="tc-title"></span><span class="tc-status"></span>`;
       card.querySelector('.tc-title').textContent = track.title;
       const status = this._isLocked(i)
-        ? (this.hud?.englishMode ? `LOCKED · ${st.deliveries}/${track.unlockDeliveries} deliveries` : `잠김 · 배달 ${st.deliveries}/${track.unlockDeliveries}`)
+        ? (track.unlockEvent
+          ? (this.hud?.englishMode ? 'DIVE INTO THE DRAIN' : '드레인으로 다이브')
+          : (this.hud?.englishMode ? `DAY ${track.unlockDeliveries / DELIVERIES_PER_DAY} · ${st.deliveries}/${track.unlockDeliveries} deliveries` : `${track.unlockDeliveries / DELIVERIES_PER_DAY}일 완료 · 배달 ${st.deliveries}/${track.unlockDeliveries}`))
         : (this.hud?.englishMode ? 'READY TO PLAY' : '재생 가능');
       card.querySelector('.tc-status').textContent = status;
       card.setAttribute('aria-label', `${track.title} · ${status}`);
@@ -762,9 +759,11 @@ export class CassetteDeck {
       rack.appendChild(card);
     });
     const note = document.createElement('div'); note.className = 'rack-note';
+    const progress = dayProgress(st.deliveries);
+    const reward = st.tracks.find((t, i) => t.unlockDeliveries && st.isLocked(i));
     note.innerHTML = this.hud?.englishMode
-      ? '<b>11 TAPES / THE COLLECTION</b>Deliver snacks. Unlock the next tape.'
-      : '<b>11 TAPES / THE COLLECTION</b>배달을 완료하고 테이프를 모으세요.';
+      ? `<b>DAY ${progress.day} · ${progress.en.toUpperCase()} · ${progress.completed}/${DELIVERIES_PER_DAY}</b>${reward ? `Next tape: ${reward.title}.` : 'All day rewards collected.'} Four deliveries make a day.`
+      : `<b>${progress.day}일차 · ${progress.ko} · ${progress.completed}/${DELIVERIES_PER_DAY}</b>${reward ? `다음 테이프: ${reward.ko || reward.title}.` : '일일 보상 수집 완료.'} 배달 4회로 하루 완료.`;
     rack.appendChild(note);
   }
 
@@ -798,6 +797,7 @@ export class CassetteDeck {
     this._launcherRenderer = renderer;
 
     const scene = new THREE.Scene();
+    this._launcherScene = scene;
     const key = new THREE.DirectionalLight(0xffd9a0, 2.4);
     key.position.set(0.7, 0.8, 1);
     scene.add(key);
@@ -807,6 +807,7 @@ export class CassetteDeck {
     const camera = new THREE.PerspectiveCamera(30, 122 / 72, 0.01, 2);
     camera.position.set(0, 0.035, 0.19);
     camera.lookAt(0, 0, 0);
+    this._launcherCamera = camera;
 
     this._loadTapeAsset().then(async (gltf) => {
       if (this._disposed || !this._launcherRenderer) return;
@@ -816,6 +817,8 @@ export class CassetteDeck {
       const tape = source.clone(true);
       tape.position.set(0, 0, 0);
       tape.rotation.set(-0.12, -0.28, -0.08);
+      addTapeLabel(tape, this._skin(this._displayTrackIndex()));
+      this._launcherTape = tape;
       scene.add(tape);
       if (renderer.extensions.has('KHR_parallel_shader_compile')) await renderer.compileAsync(scene, camera);
       if (this._disposed || this._launcherRenderer !== renderer) return;
@@ -868,7 +871,7 @@ export class CassetteDeck {
       this._scene.add(new THREE.AmbientLight(0x2c2115, 0.9));
 
       this._camera = new THREE.PerspectiveCamera(28, VIEW_W / VIEW_H, 0.01, 2);
-      this._camera.position.set(0, 0.042, 0.215);
+      this._camera.position.set(0, 0.032, DECK_CAMERA_Z);
       this._camera.lookAt(0, 0, 0);
 
       this._tapeRoot = new THREE.Group();
@@ -889,6 +892,7 @@ export class CassetteDeck {
           source.position.set(0, 0, 0);
           group.add(source);
         }
+        addTapeLabel(group, this._skin(this._displayTrackIndex()));
         group.visible = false;
         this._tapeRoot.add(group);
         return group;
@@ -911,7 +915,9 @@ export class CassetteDeck {
     tape.visible = true;
     tape.position.set(0, 0, 0);
     tape.rotation.set(0, 0, 0);
+    tape.userData.trackColourLabel.material.color.set(this._skin(i));
     this._shownTape = tape;
+    this._shownIndex = i;
     this._tween = insert ? { t0: performance.now(), dur: 380 } : null;
   }
 
@@ -983,7 +989,7 @@ export class CassetteDeck {
     this._insertTimers.forEach(clearTimeout);
     this._unsubscribe?.();
     this._resize?.disconnect();
-    document.removeEventListener('keydown', this._onKey);
+    window.removeEventListener('keydown', this._onKey, true);
     this._stopLoop();
     if (this._renderer) {
       this._renderer.dispose();
@@ -995,6 +1001,8 @@ export class CassetteDeck {
       this._launcherRenderer.forceContextLoss?.();
       this._launcherRenderer.domElement.remove();
       this._launcherRenderer = null;
+      this._launcherScene = null;
+      this._launcherCamera = null;
     }
     this.el.remove();
   }

@@ -262,7 +262,9 @@ export class PlayerCharacter {
     });
     const near = horizontalDistance(this.position, this.phys.meshPosition) <= ENTER_RANGE;
     if (this.mode === 'onFoot' && near && this.phys.speedKmh <= EXIT_MAX_KMH) {
-      this.prompt.textContent = 'F / B  차량 탑승 · ENTER VEHICLE';
+      this.prompt.textContent = document.body.classList.contains('touch-controls-active')
+        ? '문 아이콘 · TAP THE DOOR ICON TO ENTER'
+        : 'F / B  차량 탑승 · ENTER VEHICLE';
       this.prompt.style.display = 'block';
     } else {
       this.prompt.style.display = 'none';

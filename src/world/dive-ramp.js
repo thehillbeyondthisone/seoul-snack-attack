@@ -38,6 +38,12 @@ export const DIVE_RAMP = Object.freeze({
    */
   approachStartZ: 68,
   /**
+   * Player-facing teleport point. Keep this close enough that the ramp is
+   * unmistakably in view, but leave enough paved run-up to clear the lip at
+   * the minimum launch speed.
+   */
+  stagingZ: 87,
+  /**
    * Minimum forward speed AT THE LIP, m/s. Below this you drop off the end into
    * the river and get the ordinary respawn — the dive is a thing you commit to,
    * and rolling off at walking pace should not trigger a set piece.

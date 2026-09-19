@@ -27,6 +27,11 @@ const MODEL_BY_ID = new Map(MODEL_SPECS.map((spec) => [spec.id, spec]));
 
 const loader = new GLTFLoader();
 const cache = new Map();
+const _bounds = new THREE.Box3();
+const _meshBounds = new THREE.Box3();
+const _inverseWorld = new THREE.Matrix4();
+const _relativeMatrix = new THREE.Matrix4();
+const _contentCentre = new THREE.Vector3();
 
 export function foodModelForOrder(order) {
   return foodModelsForOrder(order)[0] || null;
@@ -144,10 +149,26 @@ export function startFoodBackgroundWarmup(renderer, scene) {
   let stopped = false;
   let scheduled = null;
 
-  const renderTemplate = (template) => {
+  const renderTemplate = async (template) => {
     root.clear();
     root.add(template.clone(true));
     root.updateMatrixWorld(true);
+
+    // The upload scene and gameplay have different light counts. Prepare both
+    // variants asynchronously; compiling only gameplay left the upload draw
+    // blocking on a fresh shader for about a second while the player drove.
+    for (const context of [scene, warmScene]) {
+      const savedTarget = renderer.getRenderTarget();
+      let compilation;
+      try {
+        renderer.setRenderTarget(target);
+        compilation = renderer.compileAsync(root, camera, context);
+      } finally {
+        renderer.setRenderTarget(savedTarget);
+      }
+      await compilation;
+      if (stopped) return;
+    }
 
     const previousTarget = renderer.getRenderTarget();
     const previousFace = renderer.getActiveCubeFace?.() ?? 0;
@@ -155,9 +176,7 @@ export function startFoodBackgroundWarmup(renderer, scene) {
     const xrEnabled = renderer.xr.enabled;
     try {
       renderer.xr.enabled = false;
-      // Compile against gameplay's actual lighting context without traversing
-      // the entire city, then use the tiny scene for the real upload draw.
-      renderer.compile(root, camera, scene);
+      // The tiny draw still performs the geometry and texture uploads.
       renderer.setRenderTarget(target);
       renderer.clear();
       renderer.render(warmScene, camera);
@@ -169,8 +188,8 @@ export function startFoodBackgroundWarmup(renderer, scene) {
   };
 
   const scheduleNext = () => {
-    if (stopped || scheduled || queue.length === 0) {
-      if (!stopped && queue.length === 0) {
+    if (stopped || scheduled || inFlight.size || queue.length === 0) {
+      if (!stopped && !inFlight.size && queue.length === 0) {
         warmScene.remove(root);
         target.dispose();
         if (activeWarmup === controller) activeWarmup = null;
@@ -187,11 +206,11 @@ export function startFoodBackgroundWarmup(renderer, scene) {
         const template = await foodTemplate(spec);
         // Loading may resume as soon as fetch/decode finishes. Yield once more
         // before the GPU work so it never lands in the middle of a game frame.
-        scheduled = scheduleIdle(() => {
+        scheduled = scheduleIdle(async () => {
           scheduled = null;
           if (stopped) return;
           try {
-            renderTemplate(template);
+            await renderTemplate(template);
             warmed.add(spec.id);
             markFoodGpuReady(spec.id);
             console.debug(`food warmup: ${spec.id} (${warmed.size}/${MODEL_SPECS.length})`);
@@ -248,19 +267,55 @@ function prepareFoodOrder(order) {
   return Promise.all(specs.map((spec) => foodTemplate(spec).catch(() => null)));
 }
 
+/**
+ * Measure renderable geometry in `group`'s local coordinates. Box3.setFromObject
+ * returns world coordinates, which made imported root transforms part of the
+ * centering offset for a few catalog GLBs.
+ */
+export function foodGroupBounds(group, target = new THREE.Box3()) {
+  target.makeEmpty();
+  group.updateWorldMatrix(true, true);
+  _inverseWorld.copy(group.matrixWorld).invert();
+  group.traverse((object) => {
+    if (!object.isMesh || !object.geometry) return;
+    if (!object.geometry.boundingBox) object.geometry.computeBoundingBox();
+    if (!object.geometry.boundingBox) return;
+    _relativeMatrix.multiplyMatrices(_inverseWorld, object.matrixWorld);
+    _meshBounds.copy(object.geometry.boundingBox).applyMatrix4(_relativeMatrix);
+    target.union(_meshBounds);
+  });
+  return target;
+}
+
+/**
+ * Re-centre a completed dish arrangement around its actual combined bounds.
+ * World displays stay grounded; HUD previews centre vertically around their
+ * pivot so uneven meal kits rotate and frame as one object.
+ */
+export function centerFoodGroup(group, { vertical = 'ground' } = {}) {
+  const box = foodGroupBounds(group, _bounds);
+  if (box.isEmpty()) return new THREE.Box3();
+  box.getCenter(_contentCentre);
+  const dy = vertical === 'center' ? _contentCentre.y : vertical === 'ground' ? box.min.y : 0;
+  for (const child of group.children) {
+    child.position.x -= _contentCentre.x;
+    child.position.y -= dy;
+    child.position.z -= _contentCentre.z;
+  }
+  group.updateWorldMatrix(true, true);
+  return foodGroupBounds(group, new THREE.Box3());
+}
+
 function normalizeModel(model, targetSize) {
-  const box = new THREE.Box3().setFromObject(model);
+  const box = foodGroupBounds(model, new THREE.Box3());
   const size = box.getSize(new THREE.Vector3());
   const largest = Math.max(size.x, size.y, size.z, 1e-4);
   model.scale.multiplyScalar(targetSize / largest);
 
-  // Re-measure after scale, then centre it over the beacon and rest its base at
-  // local Y=0. A wrapper supplies the hover height and animation.
-  box.setFromObject(model);
-  const centre = box.getCenter(new THREE.Vector3());
-  model.position.x -= centre.x;
-  model.position.y -= box.min.y;
-  model.position.z -= centre.z;
+  // Centre the geometry within the imported root rather than moving that root
+  // by a world-space Box3 offset. Several catalog assets have transformed
+  // wrappers; keeping their root intact makes every clone share one true pivot.
+  centerFoodGroup(model, { vertical: 'ground' });
   model.traverse((object) => {
     if (!object.isMesh) return;
     object.castShadow = false;
@@ -314,6 +369,10 @@ export class FoodDisplay {
         this.root.add(model);
         return model;
       });
+      // Equal centre spacing is not equal visual spacing when, for example, a
+      // broad platter sits beside a narrow bottle. Re-centre the final meal kit
+      // after every model has been scaled and placed.
+      centerFoodGroup(this.root, { vertical: 'ground' });
       this.root.userData.foodModelId = specs[0].id;
       this.root.userData.foodModelIds = specs.map((spec) => spec.id);
       this.root.visible = this._enabled;

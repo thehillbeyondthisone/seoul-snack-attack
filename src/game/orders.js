@@ -1,11 +1,13 @@
 // Seoul Snack Attack — order state machine + waypoint markers + persistence.
 // idle → offered → toPickup → waiting(3s) → delivering (timed, quality) → delivered → idle.
 import * as THREE from 'three';
-import { RESTAURANTS, FOOD_TYPES } from './data/restaurants.js';
+import { RESTAURANTS, SNACK_STREET_RESTAURANTS, FOOD_TYPES } from './data/restaurants.js';
 import { pickOrderNotes } from './data/order-notes.js';
 import { FoodDisplay } from './food-display.js';
 import { DEFAULT_SAVE, loadSave, persistSave } from './save.js';
 import { describeStreet } from '../world/expanse-street-names.js';
+import { dayProgress } from './day-progress.js';
+import { TruckUpgrade } from './truck-upgrade.js';
 
 // Generous arcade staging areas: large enough to hit cleanly at city speed,
 // while pickup completion still asks the driver to settle the vehicle.
@@ -32,11 +34,13 @@ export class Orders {
     // to agree with what the player is actually looking at.
     this.camera = camera;
     this.audio = audio;
+    if (audio?.music) audio.music.onUnlock = (tape) => this.unlockTape(tape);
     // Optional on-foot/vehicle mode provider. Delivery zone completion stays
     // vehicle-based, but bearing, route and mini-map follow whoever is active.
     this.player = player;
 
     this.save = loadSave();
+    this.truckUpgrade = new TruckUpgrade(this);
     this.state = 'idle';
     this.idleTimer = 4;   // first offer lands quickly
     this.freezeTimers = false;
@@ -56,7 +60,10 @@ export class Orders {
     // loaded successfully. Fall back to sampled road points so an optional
     // dressing failure never bricks the order loop.
     const pickupById = new Map((city.pickupSites || []).map((site) => [site.id, site]));
-    this.restaurants = RESTAURANTS.map((r, i) => {
+    const roster = city.restaurantRoster === 'snack-street'
+      ? SNACK_STREET_RESTAURANTS
+      : RESTAURANTS;
+    this.restaurants = roster.map((r, i) => {
       const site = pickupById.get(r.id) || null;
       const preferred = site?.point || city.points[i % city.points.length];
       const anchor = city.deliveryAnchors.reduce((best, candidate) =>
@@ -195,8 +202,8 @@ export class Orders {
     this.hud.toast(`${o.dish.nameKo} 픽업 완료`, 'Picked up — deliver now');
     this.audio?.event('pickup');
     this.hud.showTicket({
-      to: '배달지 · Drop-off',
-      toEn: 'DROP-OFF',
+      to: o.dropoffAnchor.nameKo || '배달지 · Drop-off',
+      toEn: o.dropoffAnchor.nameEn || 'DROP-OFF',
       stage: '배달 · Deliver',
       stageEn: 'DELIVER',
       seconds: o.timer,
@@ -268,12 +275,14 @@ export class Orders {
     const requested = restaurantId && this.restaurants.find((r) => r.id === restaurantId);
     const rest = requested || this.restaurants[(Math.random() * this.restaurants.length) | 0];
     const dish = rest.dishes[(Math.random() * rest.dishes.length) | 0];
-    const candidates = this.city.deliveryAnchors
+    const deliveryAnchors = this.city.orderDeliveryAnchors || this.city.deliveryAnchors;
+    const minRouteDistance = this.city.orderMinRouteDistance ?? 55;
+    const candidates = deliveryAnchors
       .filter((anchor) => anchor.edgeId !== rest.anchor.edgeId)
       .map((anchor) => ({ anchor, route: this.city.findRoute(rest.anchor, anchor) }))
-      .filter(({ route }) => route && route.distance >= 55);
+      .filter(({ route }) => route && route.distance >= minRouteDistance);
     const selected = candidates[(Math.random() * candidates.length) | 0]
-      || { anchor: this.city.deliveryAnchors[(Math.random() * this.city.deliveryAnchors.length) | 0], route: null };
+      || { anchor: deliveryAnchors[(Math.random() * deliveryAnchors.length) | 0], route: null };
     const dropoff = selected.anchor.point;
     const route = selected.route || this.city.findRoute(rest.point, dropoff);
     const dist = route?.distance ?? rest.point.distanceTo(dropoff);
@@ -356,11 +365,13 @@ export class Orders {
       ...this._noteFields('pickup'),
     });
     this.audio?.event('accept');
+    this.truckUpgrade.spawn(o.rest);
   }
 
   // ------------------------------------------------------------------ update
   update(dt, input) {
     if (this.paused) return;
+    this.truckUpgrade.update(dt);
     const o = this.order;
     const vanPos = this.phys.position;
 
@@ -569,7 +580,10 @@ export class Orders {
     );
     this.audio?.event('delivery');
     const tapes = this.audio?.music?.setDeliveries(this.save.deliveries) || [];
-    for (const tape of tapes) this.hud.toast(`테이프 해금 · ${tape.ko || tape.title}`, `Tape unlocked · ${tape.title}`, 'win');
+    for (const tape of tapes) this.unlockTape(tape);
+    const day = dayProgress(this.save.deliveries);
+    if (day.completed === 0) this.hud.toast(`${day.days}일 근무 완료 · ${day.day}일차 시작`, `Day ${day.days} complete · Day ${day.day} begins`, 'win');
+    this.onProgress?.(this.save.deliveries);
     this.hud.setDwell(null);
     this.hud.hideTicket();
     this.hud.setObjective(null);
@@ -647,12 +661,21 @@ export class Orders {
   }
 
   resetSave() {
-    this.save = { ...DEFAULT_SAVE, ratings: [], owned: ['van'] };
+    this.save = { ...DEFAULT_SAVE, ratings: [], unlockedTapes: [], owned: ['van'] };
+    this.truckUpgrade.reset();
     this._persist();
-    this.audio?.music?.setDeliveries(0);
+    this.audio?.music?.resetProgress();
+    this.onProgress?.(0);
     this.hud.setCash(0);
     this.hud.setStats({ rating: 0, deliveries: 0 });
     this.hud.toast('세이브 초기화됨', 'Save reset');
+  }
+
+  unlockTape(tape) {
+    if (this.save.unlockedTapes.includes(tape.file)) return;
+    this.save.unlockedTapes.push(tape.file);
+    this._persist();
+    this.hud.toast(`테이프 해금 · ${tape.ko || tape.title}`, `Tape unlocked · ${tape.title}`, 'win');
   }
 
   purchaseVehicle(vehicle) {

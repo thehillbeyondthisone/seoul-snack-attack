@@ -10,6 +10,7 @@ globalThis.window = {
   removeEventListener() {},
 };
 
+const playOrder = [];
 class FakeAudio {
   constructor(url) {
     this.src = url;
@@ -30,6 +31,7 @@ class FakeAudio {
   pause() { this.paused = true; }
   play() {
     this.playCalls++;
+    playOrder.push(this.src);
     return new Promise((resolve) => {
       this.finishPlay = () => {
         this.paused = false;
@@ -72,7 +74,7 @@ values.set('snack-attack-ambience', '0');
 const recovered = new AudioManager();
 assert.equal(recovered.masterLevel, 0.8, 'legacy all-zero master setting recovers');
 assert.equal(recovered.sfxLevel, 0.62, 'legacy all-zero effects setting recovers');
-assert.equal(recovered.ambienceLevel, 0.42, 'legacy all-zero ambience setting recovers');
+assert.equal(recovered.ambienceLevel, 0.22, 'retired mixer restores the fixed ambience balance');
 
 console.log('PASS  audio defaults are audible');
 console.log('PASS  changed playlist starts with BUDAE');
@@ -82,9 +84,9 @@ console.log('PASS  legacy all-zero mixer settings recover');
 // The real catalog and files: every rack entry resolves, with no event cue in it.
 const { SOUNDTRACK, soundtrackTracks, diveTrack } = await import('../../src/game/data/soundtrack.js');
 const { existsSync } = await import('node:fs');
-assert.equal(SOUNDTRACK.length, 11);
+assert.equal(SOUNDTRACK.length, 12);
 assert.equal(SOUNDTRACK.filter((t) => t.unlockDeliveries).length, 4);
-assert.equal(SOUNDTRACK.some((t) => t.file === 'dive.mp3'), false);
+assert.equal(SOUNDTRACK.find((t) => t.file === 'dive.mp3').unlockEvent, 'dive');
 for (const t of [...SOUNDTRACK, { file: 'dive.mp3' }]) assert.ok(existsSync(new URL(`../../public/audio/music/${t.file}`, import.meta.url)), t.file);
 assert.equal(soundtrackTracks('/play/')[0].url, '/play/audio/music/budae-sizzle-hot.mp3');
 
@@ -97,16 +99,19 @@ assert.equal(await st.setTrack(-1), false, 'invalid selection cannot reach the t
 await st.setTrack(6);
 await st.next(); assert.equal(st.index, 0, 'next skips every locked cassette');
 await st.previous(); assert.equal(st.index, 6, 'previous skips locks in reverse');
-for (const [n, title] of [[3, 'Abyssal Ramen Submarine'], [6, 'Blade of Hatred'], [9, 'Rapid-fire'], [12, 'Supersonic']]) {
+for (const [n, title] of [[4, 'Abyssal Ramen Submarine'], [8, 'Blade of Hatred'], [12, 'Rapid-fire'], [16, 'Supersonic']]) {
   assert.equal(st.setDeliveries(n)[0].title, title);
   assert.deepEqual(st.setDeliveries(n), [], 'milestone does not unlock twice');
 }
 await st.setTrack(10);
-const restored = new Soundtrack(soundtrackTracks(), { deliveries: 12 });
+const restored = new Soundtrack(soundtrackTracks(), { deliveries: 16 });
 assert.equal(restored.index, 10, 'unlocked selection restores');
 const fresh = new Soundtrack(soundtrackTracks(), { deliveries: 0 });
 assert.equal(fresh.index, 0, 'old saved selection cannot bypass progression');
 st.setDeliveries(0); assert.equal(st.index, 0, 'save reset relocks and ejects a bonus tape');
+assert.equal(st.isLocked(11), true, 'Dive starts locked even after delivery rewards');
+let diveAwards = 0;
+st.onUnlock = () => diveAwards++;
 
 const run = st.resume(); st.audio.finishPlay(); assert.equal(await run, true);
 st.audio.currentTime = 23;
@@ -118,6 +123,10 @@ assert.equal(await st.startDive(), false, 'multiple ramp ticks do not restart Di
 assert.equal(st.cueAudio.playCalls, cueCalls);
 st.cueAudio.finishPlay(); assert.equal(await dive, true);
 for (let i = 0; i < 8; i++) st.update(.1);
+assert.equal(st.isLocked(11), false, 'playing the Drain cue unlocks its rack cassette');
+assert.equal(diveAwards, 1, 'Dive is awarded exactly once');
+const diveReload = new Soundtrack(soundtrackTracks(), { unlockedTapes: [...st.unlockedTapes] });
+assert.equal(diveReload.isLocked(11), false, 'Dive discovery restores independently of deliveries');
 const half = Math.SQRT1_2 * st.volume;
 assert.ok(Math.abs(st.audio.volume - half) < 1e-6);
 assert.ok(Math.abs(st.cueAudio.volume - half) < 1e-6, 'equal-power overlap at midpoint');
@@ -140,7 +149,7 @@ const again = st.startDive(); st.cueAudio.finishPlay(); await again;
 assert.equal(st.cueAudio.currentTime, 0, 'a later jump starts Dive from the beginning');
 const override = st.setTrack(1, { autoplay: false }); st.audio.finishPlay(); await override;
 assert.equal(st.cueActive, false, 'choosing a cassette cancels the event');
-console.log('PASS  eleven tapes, four persisted delivery milestones, renamed media and ramp-only cue');
+console.log('PASS  twelve tapes, four working-day rewards and persistent Dive discovery');
 console.log('PASS  lock enforcement for selection, next/previous, reload and save reset');
 console.log('PASS  Dive overlap, pause/resume, master/mute, return, replay and user override');
 
@@ -157,3 +166,39 @@ assert.equal(await failing.startDive(), false);
 assert.equal(failing.cueActive, false); assert.equal(failing.audio.paused, false);
 assert.equal(failing.audio.volume, failing.volume, 'a failed cue leaves the cassette audible');
 console.log('PASS  rapid pause/resume and cue failure recovery');
+
+// Safari-style volume behavior: media stays at volume 1; graph gains own fades.
+class FakeContext {
+  constructor() { this.state = 'suspended'; this.currentTime = 0; this.destination = {}; }
+  createGain() { return { gain: { value: 0, setTargetAtTime(v) { this.value = v; } }, connect() { return this; } }; }
+  createMediaElementSource() { return { connect(node) { return node; } }; }
+  resume() { this.state = 'running'; return Promise.resolve(); }
+}
+window.AudioContext = FakeContext;
+values.set('snack-attack-music', '0');
+const graph = new Soundtrack(soundtrackTracks(), { diveTrack: diveTrack() });
+assert.equal(graph.volume, .42, 'retired music slider cannot silence playback');
+graph._unlock();
+assert.equal(graph.audio.playCalls, 1);
+assert.equal(graph.cueAudio.playCalls, 1, 'one gesture primes both media elements synchronously');
+assert.deepEqual(playOrder.slice(-2), [graph.audio.src, graph.cueAudio.src], 'the audible cassette claims the gesture before silent Dive priming');
+graph.audio.finishPlay(); graph.cueAudio.finishPlay();
+await new Promise(r => setImmediate(r));
+assert.equal(graph.cuePrimed, true);
+assert.equal(graph.cueAudio.paused, true);
+assert.equal(graph.isLocked(11), true, 'silent priming never awards the Dive tape');
+const graphDive = graph.startDive(); graph.cueAudio.finishPlay(); await graphDive;
+graph.ctx.state = 'suspended'; graph.update(.1);
+assert.equal(graph.mix, 0, 'suspended audio context cannot advance the fade or award Dive');
+assert.equal(graph.isLocked(11), true);
+graph.ctx.state = 'running';
+for (let i = 0; i < 8; i++) graph.update(.1);
+assert.equal(graph.audio.volume, 1); assert.equal(graph.cueAudio.volume, 1);
+assert.ok(Math.abs(graph.gains.get(graph.audio).gain.value - .42 * Math.SQRT1_2) < 1e-6);
+assert.ok(Math.abs(graph.gains.get(graph.cueAudio).gain.value - .42 * Math.SQRT1_2) < 1e-6);
+graph.setMuted(true);
+assert.equal(graph.gains.get(graph.audio).gain.value, 0);
+assert.equal(graph.gains.get(graph.cueAudio).gain.value, 0);
+graph.pause(); graph.resetProgress();
+assert.equal(graph.isLocked(11), true, 'save reset also relocks the discovered Dive tape');
+console.log('PASS gesture priming, Web Audio gains, context interruption, mute and Dive reset');

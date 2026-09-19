@@ -12,6 +12,8 @@
 // No Three.js and no game state: this owns its own DOM and reports changes
 // through callbacks, the same way CityMap does.
 
+import { icon, TOUCH_HELP } from './icons.js';
+
 const STORAGE_KEY = 'snack-attack-settings-v1';
 
 const INK = '#eef4ff';
@@ -178,6 +180,9 @@ export class Settings {
     onPerfOverlay = null,
     onOpenDebugMenu = null,
     onOpenCassette = null,
+    onOpenGarage = null,
+    onChangeCamera = null,
+    touchControls = null,
     debugMenuAvailable = true,
     initialPerfOverlay = null,
   } = {}) {
@@ -188,6 +193,9 @@ export class Settings {
     this.onPerfOverlay = typeof onPerfOverlay === 'function' ? onPerfOverlay : null;
     this.onOpenDebugMenu = typeof onOpenDebugMenu === 'function' ? onOpenDebugMenu : null;
     this.onOpenCassette = onOpenCassette;
+    this.onOpenGarage = onOpenGarage;
+    this.onChangeCamera = onChangeCamera;
+    this.touchControls = touchControls;
     this.debugMenuAvailable = !!debugMenuAvailable;
 
     this.values = loadStored();
@@ -295,6 +303,19 @@ export class Settings {
   }
 
   _build() {
+    if (this.onOpenGarage) {
+      const session = this._section('차량', 'VEHICLE');
+      const row = this._row(session, { ko: '차고 · 차량 선택', en: 'Garage · Choose vehicle',
+        hintKo: '차량을 선택하고 새로운 차를 구입하세요.', hintEn: 'Choose your ride or buy a new vehicle.' });
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'ssa-settings__btn';
+      button.dataset.openGarage = '';
+      button.innerHTML = icon('vehicle');
+      button.appendChild(this._localize(document.createElement('span'), '차고 열기', 'OPEN GARAGE'));
+      button.addEventListener('click', () => { this.close(); this.onOpenGarage(); });
+      row.appendChild(button);
+    }
     // ---- Controls ----------------------------------------------------------
     // This is the permanent home for bindings. The in-world legend is only an
     // onboarding aid and leaves the HUD after the first completed delivery.
@@ -325,6 +346,43 @@ export class Settings {
       bindings.appendChild(row);
     }
     controls.appendChild(bindings);
+    const touchHelp = document.createElement('p');
+    touchHelp.className = 'mobile-control-help';
+    touchHelp.textContent = TOUCH_HELP;
+    controls.appendChild(touchHelp);
+
+    if (this.touchControls) {
+      const row = this._row(controls, { ko: '터치 컨트롤', en: 'Touch controls',
+        hintKo: '자동으로 터치 화면을 감지합니다.', hintEn: 'Auto detects touch screens. Change this here at any time.' });
+      const seg = document.createElement('div');
+      seg.className = 'ssa-settings__seg';
+      const sync = () => seg.querySelectorAll('button').forEach(button => {
+        button.setAttribute('aria-pressed', String(button.dataset.touchPreference === this.touchControls.preference));
+      });
+      for (const [value, ko, en] of [['auto', '자동', 'AUTO'], ['on', '켜기', 'ON'], ['off', '끄기', 'OFF']]) {
+        const button = this._localize(document.createElement('button'), ko, en);
+        button.type = 'button';
+        button.dataset.touchPreference = value;
+        button.addEventListener('click', () => { this.touchControls.setPreference(value); sync(); });
+        seg.appendChild(button);
+      }
+      row.appendChild(seg);
+      this._syncTouch = sync;
+      sync();
+    }
+
+    if (this.onChangeCamera) {
+      const row = this._row(controls, { ko: '카메라', en: 'Camera',
+        hintKo: '운전석 시점이나 추적 카메라 각도를 바꾸세요.', hintEn: 'Switch the driving view or cycle the chase camera height.' });
+      for (const [action, ko, en] of [['view', '시점 전환', 'SWITCH VIEW'], ['angle', '높이 변경', 'CAMERA HEIGHT']]) {
+        const button = this._localize(document.createElement('button'), ko, en);
+        button.type = 'button';
+        button.className = 'ssa-settings__btn';
+        button.dataset.cameraAction = action;
+        button.addEventListener('click', () => { this.close(); this.onChangeCamera(action); });
+        row.appendChild(button);
+      }
+    }
 
     // ---- Display -----------------------------------------------------------
     const display = this._section('화면', 'DISPLAY');
@@ -429,6 +487,7 @@ export class Settings {
     this.root.hidden = !open;
     this.root.setAttribute('aria-hidden', String(!open));
     if (open) {
+      this._syncTouch?.();
       this._previousFocus = document.activeElement;
       // Pointer lock would swallow every click inside the dialog.
       document.exitPointerLock?.();

@@ -55,6 +55,7 @@ export default defineConfig({
       input: {
         main: path.resolve(root, 'index.html'),
         bible: path.resolve(root, 'color-bible.html'),
+        buildingPilot: path.resolve(root, 'building-pilot.html'),
       },
     },
   },

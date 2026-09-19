@@ -85,6 +85,7 @@ export class Input {
     this.hadActivity = false;
     this.mouseLook = { x: 0, y: 0 };
     this.touch = new TouchControls();
+    if (this.touch.enabled) this.mode = 'touch';
     this.supported = typeof navigator !== 'undefined' &&
       typeof (navigator.getGamepads || navigator.webkitGetGamepads) === 'function';
 
@@ -214,6 +215,7 @@ export class Input {
     let y = (this.isDown('throttle') ? 1 : 0) - (this.isDown('brake') ? 1 : 0);
     if (this.touch.enabled && !this.touch.suspended) {
       x = this.touch.steerAxis() || x;
+      y = (this.touch.actionValue('throttle') - this.touch.actionValue('brake')) || y;
     }
     if (this.gamepad) {
       const sx = applyDeadzone(this.gamepad.axes[0] || 0);
@@ -227,8 +229,9 @@ export class Input {
 
   /** Orbit input in normalized units. Mouse deltas are consumed once. */
   consumeLookAxes() {
-    const mouseX = this.mouseLook.x;
-    const mouseY = this.mouseLook.y;
+    const touch = this.touch.consumeLook();
+    const mouseX = this.mouseLook.x + touch.x;
+    const mouseY = this.mouseLook.y + touch.y;
     this.mouseLook.x = 0;
     this.mouseLook.y = 0;
     return {
@@ -247,6 +250,7 @@ export class Input {
     this.edge.clear();
     this.gamepadEdge.clear();
     this.touch.endFrame();
+    this.touch.consumeLook();
     // consumeLookAxes() normally clears this earlier. Clearing here prevents a
     // pointer-lock movement from being replayed after a paused/overlay frame.
     this.mouseLook.x = 0;

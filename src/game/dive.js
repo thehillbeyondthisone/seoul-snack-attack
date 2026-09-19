@@ -162,7 +162,7 @@ export function createDiveController({
   const beamMat = new THREE.MeshBasicMaterial({
     // FrontSide: from the cab you look down the cone's length, and DoubleSide
     // stacked both walls into a white glare under bloom.
-    map: beamTex, color: 0xcfe8ff, transparent: true, opacity: 0.26,
+    map: beamTex, color: 0xcfe8ff, transparent: true, opacity: 0.09,
     depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.FrontSide,
   });
   const beams = [];
@@ -232,12 +232,14 @@ export function createDiveController({
       lamps: lamps.map((l) => [l, l.intensity, l.distance, l.angle]),
       bloom: post ? [post.bloom.strength, post.bloom.radius, post.bloom.threshold] : null,
       cityVisible: city.group.visible,
+      heroFill: liveVehicle?.heroFill?.intensity,
     };
     scene.fog = new THREE.FogExp2(UNDERWATER_FOG_COLOR, UNDERWATER_FOG_DENSITY);
     scene.background = new THREE.Color(UNDERWATER_FOG_COLOR);
     // A uniform, not `environment = null`: nulling it flips a define and
     // recompiles every visible material mid-sequence.
     scene.environmentIntensity = 0.04;
+    if (liveVehicle?.heroFill) liveVehicle.heroFill.intensity = 0.35;
     for (const [l] of look.rig) l.intensity = 0;
     for (const [l] of look.lamps) { l.intensity = 170; l.distance = 75; l.angle = 0.5; }
     if (post) { post.bloom.strength = 0.9; post.bloom.radius = 0.7; post.bloom.threshold = 0.9; }
@@ -250,6 +252,7 @@ export function createDiveController({
     scene.fog = look.fog;
     scene.background = look.background;
     scene.environmentIntensity = look.envIntensity;
+    if (liveVehicle?.heroFill && look.heroFill !== undefined) liveVehicle.heroFill.intensity = look.heroFill;
     for (const [l, i] of look.rig) l.intensity = i;
     for (const [l, i, d, a] of look.lamps) { l.intensity = i; l.distance = d; l.angle = a; }
     if (post && look.bloom) [post.bloom.strength, post.bloom.radius, post.bloom.threshold] = look.bloom;
@@ -272,6 +275,7 @@ export function createDiveController({
     hud?.setCinematic?.(false);
     setCockpit(wasCockpit);
     phys.resetToRoad();
+    audio?.music?.endCue?.();
     state = 'surface';
     progress = 0;
   }
@@ -450,12 +454,16 @@ export function createDiveController({
     setCockpit(wasCockpit);
     onRumble(10);
     audio?.event?.('impact', 6);
+    // End only the ramp event lane. If the player deliberately selected the
+    // unlocked Dive cassette, cueActive is already false and their choice stays.
+    audio?.music?.endCue?.();
     progress = 0;
     setState('surface');
   }
 
   return {
     get state() { return state; },
+    get underwaterLook() { return !!look; },
     get isSubmerged() {
       return state === 'arriving' || state === 'abyss' || state === 'returning';
     },
@@ -481,7 +489,7 @@ export function createDiveController({
     async debugEnter(mode) {
       if (state === 'off') return;
       if (mode === 'ramp') {
-        phys.place(new THREE.Vector3(DIVE_RAMP.x, 1.2, DIVE_RAMP.approachStartZ), 0);
+        phys.place(new THREE.Vector3(DIVE_RAMP.x, 1.2, DIVE_RAMP.stagingZ), 0);
         requestAbyss();
         return;
       }
@@ -587,6 +595,9 @@ export function createDiveController({
 
     update(dt, input) {
       if (state === 'off') return;
+      // Looking axially down a cone reveals its circular end as a fog blob.
+      // From the seat the real lamps light surfaces; beams are for chase view.
+      for (const beam of beams) beam.visible = !isCockpit();
 
       if (splashT >= 0) {
         splashT += dt;
@@ -624,6 +635,7 @@ export function createDiveController({
           _fwd.set(0, 0, 1).applyQuaternion(phys.quaternion);
           beginCaught(Math.atan2(_fwd.x, _fwd.z), Math.hypot(phys.velocity.x, phys.velocity.z));
         } else if (pose.y < -8 || phys.forwardSpeed < 1) {
+          audio?.music?.endCue?.();
           state = 'surface';
         }
         return;
@@ -709,6 +721,12 @@ export function createDiveController({
      * flight back into the seat are moves rather than cuts.
      */
     afterCamera(dt, cam = camera) {
+      if (state === 'arriving' && isCockpit()) {
+        // Hold the trench reveal briefly before the swimming rig levels out.
+        // Camera-only: steering and hull attitude remain with the submarine.
+        const pitch = THREE.MathUtils.lerp(-1, -.65, THREE.MathUtils.smoothstep(stateT, 0, .6));
+        cam.rotateX((pitch - sub.pitch) * (1 - THREE.MathUtils.smoothstep(stateT, .65, ARRIVAL_SECONDS)));
+      }
       if (blend.t < 0) return;
       blend.t = Math.min(blend.seconds, blend.t + dt);
       const w = THREE.MathUtils.smoothstep(blend.t / blend.seconds, 0, 1);

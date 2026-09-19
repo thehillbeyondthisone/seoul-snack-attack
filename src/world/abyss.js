@@ -29,6 +29,7 @@ import * as THREE from 'three';
 import { GenerateMeshBVHWorker } from 'three-mesh-bvh/worker';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createAbyssLife } from './abyss-life.js';
+import { siltTexture, mouthTexture } from './abyss-art.js';
 
 /**
  * Where the pocket lives, in world metres.
@@ -179,6 +180,9 @@ function floorGeometry(noise, rings, spokes) {
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  const uv = [];
+  for (let i = 0; i < positions.length; i += 3) uv.push(positions[i] / 9, positions[i + 2] / 9);
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   return geometry;
@@ -423,10 +427,14 @@ export async function buildAbyss(scene, { detailIntensity = 1, seed = 20260910 }
   // is the two metres of silt the headlights land on; anything with a specular
   // response would punch through the fog and flatten the whole space.
   //
-  // TUNED ON SwiftShader. These values want a real-GPU pass before anyone calls
-  // them final — same caveat as M6b's relief strengths.
+  // Tuned on the RTX 4060 with the game compositor. Low-contrast ripples and
+  // enough cool fill to read the floor without washing out distant silhouettes.
+  const silt = siltTexture();
+  silt.wrapS = silt.wrapT = THREE.RepeatWrapping;
+  const mouthMap = mouthTexture();
   const siltMat = new THREE.MeshStandardMaterial({
-    color: 0x14202a, roughness: 0.97, metalness: 0.0,
+    map: silt, bumpMap: silt, bumpScale: 0.09,
+    color: 0x71858d, roughness: 0.97, metalness: 0.0,
   });
   // The wall is wound INWARD (its front faces the player), so BackSide — which
   // the first build used — culled exactly the faces anyone could see, and the
@@ -464,7 +472,8 @@ export async function buildAbyss(scene, { detailIntensity = 1, seed = 20260910 }
     const material = skin
       ? new THREE.MeshStandardMaterial({
         map: skin, color: 0xffffff, roughness: 0.8, metalness: 0.05,
-        emissive: 0xffffff, emissiveMap: skin, emissiveIntensity: spec.glowStrength * 1.4,
+        emissive: 0xffffff, emissiveMap: skin,
+        emissiveIntensity: spec.glowStrength * (spec.id === 'bottle' ? 0.18 : 0.55),
         side: spec.kind === 'cup' ? THREE.DoubleSide : THREE.FrontSide,
       })
       // The face gets no skin and no glow. Just eyes (below).
@@ -503,13 +512,13 @@ export async function buildAbyss(scene, { detailIntensity = 1, seed = 20260910 }
   // place you can see you are inside of.
   // Halved on the first REAL-GPU look (RTX 4060, 2026-09-10): the SwiftShader
   // values read as a bright lagoon once tone mapping and bloom were real.
-  const shaft = new THREE.DirectionalLight(0x8fd0e8, 0.6);
+  const shaft = new THREE.DirectionalLight(0x8fd0e8, 0.85);
   shaft.position.set(ABYSS.centre.x, ABYSS.ceilingY + 40, ABYSS.centre.z);
   shaft.target.position.set(ABYSS.centre.x, ABYSS.trenchY, ABYSS.centre.z);
   shaft.castShadow = false;
   group.add(shaft, shaft.target);
 
-  const ambient = new THREE.HemisphereLight(0x3d7fa0, 0x0a1219, 0.4);
+  const ambient = new THREE.HemisphereLight(0x6193a5, 0x14202a, 0.65);
   group.add(ambient);
 
   // The mouth itself, as a visible disc of paler water. Cheap, and it is the
@@ -517,7 +526,7 @@ export async function buildAbyss(scene, { detailIntensity = 1, seed = 20260910 }
   const mouth = new THREE.Mesh(
     new THREE.CircleGeometry(ABYSS.mouthRadius, 40),
     new THREE.MeshBasicMaterial({
-      color: 0x54a8c8, transparent: true, opacity: 0.34,
+      map: mouthMap, color: 0x91c9d4, transparent: true, opacity: 0.75,
       side: THREE.DoubleSide, depthWrite: false,
     }),
   );
@@ -644,11 +653,14 @@ export async function buildAbyss(scene, { detailIntensity = 1, seed = 20260910 }
       if (!group.visible) return;
       elapsed += dt;
       life.update(dt, camera, subPosition);
-      mouth.material.opacity = 0.30 + Math.sin(elapsed * 0.9) * 0.05;
+      mouth.material.opacity = 0.7 + Math.sin(elapsed * 0.45) * 0.05;
+      mouth.rotation.z = elapsed * 0.025;
     },
 
     dispose() {
       life.dispose();
+      silt.dispose(); mouthMap.dispose();
+      for (const { mesh } of landmarks) mesh.material.map?.dispose();
       group.parent?.remove(group);
       group.traverse((object) => {
         if (!object.isMesh && !object.isPoints) return;

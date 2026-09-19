@@ -1,0 +1,112 @@
+{
+  "exportReport": {
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "materials": 15,
+    "mapped": [
+      "blue-concrete",
+      "ivory",
+      "plaster",
+      "stone",
+      "wood",
+      "asphalt"
+    ],
+    "glass": true,
+    "storeys": 5,
+    "doorClear": true,
+    "wallBlocks": true,
+    "roadY": 0.05000000074505806,
+    "draws": 24,
+    "triangles": 9770,
+    "loadingMs": 187.29999999701977
+  },
+  "performanceReport": {
+    "width": 1440,
+    "height": 1100,
+    "drawsIncludingShadowsAndPost": 63,
+    "cpuSubmissionMedianMs": 2.7999999970197678,
+    "gpuMedianMs": 52.035584,
+    "gpuMaxMs": 56.267776,
+    "geometryBuffers": 37,
+    "textures": 43
+  },
+  "game": {
+    "world": true,
+    "position": [
+      -8.000135930619415,
+      1.3883718740591282,
+      12.251849821382365
+    ],
+    "ground": 0.04899999871850014,
+    "route": true,
+    "materials": 15
+  },
+  "driven": [
+    -4.379994663454984,
+    1.39685811729416,
+    12.2523710476242
+  ],
+  "walking": [
+    -6.60577537276752e-14,
+    0.32499998807907104,
+    2.3569861825292335
+  ],
+  "ao": [
+    {
+      "name": "blue-concrete",
+      "channel": 1
+    },
+    {
+      "name": "bronze-frame",
+      "channel": 1
+    },
+    {
+      "name": "iron",
+      "channel": 1
+    },
+    {
+      "name": "ivory",
+      "channel": 1
+    },
+    {
+      "name": "navy-panel",
+      "channel": 1
+    },
+    {
+      "name": "plaster",
+      "channel": 1
+    },
+    {
+      "name": "stone",
+      "channel": 1
+    },
+    {
+      "name": "bulb",
+      "channel": 1
+    },
+    {
+      "name": "curtain",
+      "channel": 1
+    },
+    {
+      "name": "jar",
+      "channel": 1
+    },
+    {
+      "name": "room-wall",
+      "channel": 1
+    },
+    {
+      "name": "wood",
+      "channel": 1
+    },
+    {
+      "name": "enamel",
+      "channel": 1
+    },
+    {
+      "name": "asphalt",
+      "channel": 1
+    }
+  ],
+  "errors": []
+}

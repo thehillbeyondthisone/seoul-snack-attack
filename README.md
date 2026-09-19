@@ -11,6 +11,34 @@ authored repeating block at `?world=block`.
 
 This fork is a self-contained subfolder bootstrapped from Seoul Delivery; see `handoff.md` for current status and `ATTRIBUTION.md` for inherited licensing.
 
+**Building quality pilot:** [WORLD-BUILDING-PILOT.md](WORLD-BUILDING-PILOT.md)
+records the accepted one-building-and-shop approach. Open **Blender World
+Studio.cmd** for its authoring workspace; setup and MCP verification are in
+[the studio guide](tools/blender/mcp/README.md).
+
+**Building kit:** open [the building review](building-pilot.html) on
+the dev server to orbit the model and compare lighting. Its **Drive & walk
+here** link enters `?world=pilot` with the real game controls. The selector includes
+three snack-shop buildings plus a residential walk-up, office and service workshop.
+[Patchwork Pocha](tools/blender/PATCHWORK-POCHA.md) ·
+[Moon Hotteok](tools/blender/MOON-HOTTEOK.md) ·
+[Cloud Dumpling House](tools/blender/CLOUD-DUMPLING.md) ·
+[Ochre Walk-up](tools/blender/OCHRE-WALKUP.md) ·
+[Blue Ledger Offices](tools/blender/BLUE-OFFICE.md) ·
+[Eulji Service Workshop](tools/blender/SERVICE-WORKSHOP.md) ·
+[How the kit fits together](tools/blender/BUILDING-KIT.md).
+
+The [coherence pass](tools/blender/COHERENCE-PASS.md) aligns the newer facades
+with the accepted Pocha kit and addresses startup shader stalls.
+
+**Test street assembly:** choose **Snack Street · assembly** in the review, or
+press backtick and choose **야식 투어 → 스낵 스트리트 운전**, or play
+`?world=pilot&building=street-assembly&intro=off&props=off`. Twelve buildings—
+two of each of six types—share a 12 m road and 2.4 m pavements, with broad return bends for
+full-speed testing. Patchwork Pocha, Moon Hotteok and Cloud Dumpling House now
+form a compact playable delivery loop: accept with **E**, collect at the named
+shop entrance and deliver to one of the other two shops. [Dimensions and validation](tools/blender/STREET-ASSEMBLY.md).
+
 ## Run it
 
 ```bash
@@ -104,9 +132,10 @@ inside the marked zone, so walking does not bypass the driving game.
 
 On touch-first devices, optional dual-thumb controls appear automatically:
 the left thumb controls throttle, brake, and reverse; the right thumb steers.
-Handbrake and reset remain separate buttons while driving. On foot they become
-Jump, Vehicle and Reset; the order card can still be tapped
-to accept. The small `TOUCH` control cycles Auto, Off, and On. Desktop keyboard
+Compact icons provide reset and vehicle entry/exit; Jump and Sprint appear on
+foot, and Rise/Dive appear underwater. Tap an order card to accept. The language
+icon at the right toggles English and remembers the choice. Settings contains
+Garage, camera view/height and Touch controls (Auto / On / Off). Desktop keyboard
 and gamepad input remain active, and `?touch=on` forces the overlay for testing.
 
 The same touch-first phone/tablet detection selects a mobile graphics budget
@@ -121,18 +150,34 @@ blocked, clicking or pressing a keyboard key once unlocks playback. The persiste
 3D cassette in the bottom-left corner, **P**, or **Settings → Music → Tape deck**
 opens the cassette tape deck (카세트 데크). Opening releases the mouse and pauses
 driving/orders while music continues. Click any unlocked cassette to play it; browse
-the tape rack, insert a tape to play it, and use the transport and mix controls
-there — including master mute. Every soundtrack track is a cassette with its
+the tape rack, insert a tape to play it, and use Previous, Play/Pause, Next and
+Mute. Audio uses a fixed balance; the mixing sliders have been removed. Every soundtrack track is a cassette with its
 own label colourway.
 
-The rack shows all **11 cassettes** together, with no scrolling. Seven are
-available at the start. Successful deliveries unlock **Abyssal Ramen Submarine
-at 3**, **Blade of Hatred at 6**, **Rapid-fire at 9**, and **Supersonic at 12**.
-The existing delivery save carries these milestones across reloads; locked tapes
-show their requirements and are skipped by both automatic playback and Next/Prev.
-**Dive** is a separate ramp-only cue: crossing the launch lip in the rebuild
-crossfades it in over 1.6 seconds. It resumes the selected cassette afterward,
-and the deck's pause, master, music and mute controls cover the transition.
+The rack contains **12 cassettes**, with seven available at the start.
+Each working day takes **four successful deliveries**: morning (06:00),
+afternoon (12:00), dusk (18:00), then night (00:00). Finishing the fourth
+delivery starts the next morning. The HUD shows the day, phase and delivery
+progress; waiting, pickups, expired offers and menus do not advance the day.
+Sky, reflections, lighting and lamps blend to each new phase over three seconds.
+
+Completing days **1–4** unlocks **Abyssal Ramen Submarine**, **Blade of Hatred**,
+**Rapid-fire**, then **Supersonic** (4/8/12/16 deliveries). The cycle continues
+after all four rewards are collected. Existing saves keep tapes earned under
+the former 3/6/9/12 milestones. Day progress and earned tapes survive reloads.
+Locked tapes show their requirements and are skipped by automatic playback and Next/Prev.
+
+Crossing the Drain ramp's launch lip crossfades **Dive** over the playing
+cassette in 1.6 seconds. Its first successful playback permanently unlocks
+the Dive tape in the rack. The selected cassette resumes afterward; selecting
+another tape overrides the cue. Web Audio gains handle the fade, both media
+elements are prepared on user interaction, and pause/mute cover both lanes.
+
+The Drain leads into an underwater pocket with sunken landmarks and drifting
+jellyfish. **Shift / RB** dives; **Space / A** rises slowly. The depth display
+replaces the delivery panels, and the pale opening overhead leads home.
+**C** still switches between the dimmed cab and chase view. Review shortcuts:
+`?dive=ramp` lines up the jump; `?dive=1` enters the abyss directly.
 
 ## Snack roster
 
@@ -177,11 +222,12 @@ Both developer rows persist per browser under `snack-attack-settings-v1`.
 Opened directly with backtick, or from Settings > 개발자 도구 > 튜닝 메뉴.
 Backtick closes it again; Escape also backs out of it.
 
+- **야식 투어 (Night tour)** — one-click travel to the driveable or orbit-camera test street, building kit, current Seoul, hippo cockpit, Drain jump, Abyss, prop gallery and colour bible. Navigation actions use the bible's cyan accent and clear stale review flags.
 - **게임 (Game)** — offer order now, complete current order, +₩100,000, reset save, freeze timers
 - **날씨 (Weather)** — condition preset, continuous rain density, wind X/Z; **노면** sub-folder for road wetness (lock it independently of the rain to shoot a wet street under a clear sky), dry rate, wet-grip toggle and a live wetness readout; **안개** sub-folder for fog density, wet-boost and colour
 - **차량 (Vehicle)** — physics tuning (mass, engine, brakes, grip dry/wet, suspension, steering, downforce), teleport to pickup/dropoff, reset to spawn
 - **후처리 (Post FX)** — master post toggle; **블룸** (enable, strength, radius, threshold), **톤 매핑** (ACES / AgX / Neutral / Cineon / Reinhard / none, plus exposure), resolution scale, and a live **성능** readout (FPS, draw calls, triangles)
-- **조명 (Lighting)** — instant **밤/낮 (Night/Day)** presets plus live exposure, hemisphere/ambient/key light, environment intensity, fog, neon emissive strength, lamp intensity, and bloom
+- **조명 (Lighting)** — morning/day/dusk/night review presets plus live exposure, hemisphere/ambient/key light, environment intensity, fog, neon emissive strength, lamp intensity, and bloom. The next delivery resumes the working-day cycle.
 - **맵 (Map)** — tile count, tiles currently drawn, tile cull distance, mini-map X/Y flips
 - **소품 물리 (Props)** — placed/awake counts, prop-vs-prop toggle, reset props, and a live **kg slider per prop type**
 - **텍스처 (Textures)** — live comparison between the procedural asphalt pool (default) and the downloaded ambientCG "Asphalt 033" CC0 pack; **Source** toggle (Procedural / Downloaded) plus a 0..1 **Blend** slider that lerps the two pairs into a single owned normal+roughness pair on the road material. State persists across sessions.
@@ -193,10 +239,12 @@ under `seoul-snack-attack-debug-settings-v1` and are restored on the next game
 restart. This includes weather, road wetness, vehicle physics, post FX,
 lighting, map culling, timer freeze, prop collision, and prop masses. Action
 buttons such as reset, teleport, and add cash remain one-shot actions.
+Delivery lighting takes precedence at boot: the saved delivery count restores
+the working-day phase. A `?time=` review override lasts until the next delivery.
 
 All other persisted state uses the `snack-attack-` prefix so saves never collide
 with the parent Seoul Delivery game: progression save (`snack-attack-save`),
-audio mix and mute flags, soundtrack selection, graphics profile, touch-control
+audio mute, soundtrack selection, graphics profile, touch-control
 preference, and the intro-seen flag.
 
 In a development build, the current saved values are available at
@@ -204,7 +252,9 @@ In a development build, the current saved values are available at
 
 ## Assets
 
-The active night or day sky is generated at boot by `src/world/skybox.js`; the alternate is generated lazily on its first menu switch. Each 360-degree panorama is prefiltered into a matching PBR environment, keeping the visible sky and wet-street reflections consistent without shipping external HDRIs.
+The saved delivery count selects the initial sky. Morning, day, dusk and night
+panoramas are generated and cached on first use; their prefiltered environments
+drive both sky transitions and PBR reflections without external HDRIs or per-frame rebaking.
 
 Build inputs that are actually used live under `_source-assets/`. Optimized
 runtime assets are generated into the categorized `public/assets/` tree. Media
@@ -221,6 +271,16 @@ npm run blender             # headless Blender recipes → custom food GLBs
 ```
 
 Pipeline notes: textures are re-encoded via sharp (raw-pixel decode to dodge broken ICC metadata); meshopt runs in a separate process because `@gltf-transform/functions` ships a nested sharp that conflicts with the root one (two libvips instances). The collision bake (`city.collider.bin`) is dev-only for the headless physics bench (`node tools/bench/bench.mjs`) and is not shipped.
+
+**Night Shift truck graphics.** After completing your first delivery, accepting
+the second order spawns a floating spray can beside its food pickup. Drive or
+walk into the can to permanently equip the pocha makeover: metre-scaled paint
+normal/roughness maps, distinct steel/rubber response, and original Korean
+night-market graphics with a framed enamel side sign. Missing it is fine: it
+returns at later accepted pickups until collected, including for older saves.
+Reloads and garage swaps keep the unlock; Reset save removes it. Preview:
+`tools/blender/previews/pocha-night-shift.png`. With Vite running, regenerate
+previews and check progression using `node tools/bench/truck-makeover-browser-check.mjs`.
 
 **Vehicles.** `tools/build-vehicle.mjs <recipeId>` runs obj2gltf →
 `normalize-vehicle.mjs` → optimize → meshopt. The normalize step is what lets a
@@ -285,7 +345,7 @@ Handy for screenshots and automated checks:
 
 - `?car=van|pocha` — pick the vehicle (default `pocha`, the CC0 snack truck)
 - `?rain=off|light|heavy` — force weather
-- `?time=night|day` — force the initial time-of-day preset
+- `?time=morning|day|dusk|night` — force the initial review preset; the next delivery resumes the cycle
 - `?offer=1&accept=1` — spawn (and auto-accept) an order
 - `?restaurant=<id>` — with `?offer=1`, select a specific shop for repeatable pickup QA
 - `?shops=off` — disable the authored storefront/district dressing for performance QA
@@ -347,7 +407,7 @@ src/
   core/rng.js           seeded PRNG + per-tile seed mixing
   world/city.js         city GLB, night lighting, BVH collision, tiling, delivery points
   world/skybox.js       procedural 360-degree storm sky + PBR environment
-  world/time-of-day.js  cached day/night preset coordinator
+  world/time-of-day.js  delivery-driven lighting and cached sky transitions
   world/city-constants.js  scale, tile grid, clip predicate (shared with tools/)
   world/data/color-bible.js  night colour bible (districts, neon, snack palette)
   world/proc/           procedural city: layout, mesh, signs, loadProcCity
@@ -380,3 +440,24 @@ tools/probe.mjs         headless Chrome probe (console + state + screenshot)
 tools/bench/            physics bench + check suites
 tools/bench/drive-feel.mjs  per-vehicle go/stop/turn envelope (npm run drive-feel)
 ```
+
+### Mobile controls and validation
+
+Touch controls use a shared line-icon style: door for vehicle entry/exit, return
+arrow for reset, folded map for navigation, gear for Settings and cassette for
+music. The right-side language icon toggles English / Korean with a saved choice.
+Drag an unobstructed part of the street to orbit the camera. Jump and Sprint
+appear on foot; Rise and Dive appear underwater. Garage, camera view/height,
+graphics quality and touch preferences live in Settings. Compact order/pickup
+cards leave the driving view clear in portrait and landscape; very short windows
+move the card beside the throttle pad. Browser zoom gestures, text selection and
+touch callouts are disabled; menus still scroll and pause gameplay.
+
+`node tools/mobile-probe.mjs` runs the Chrome touch regression against port 5273
+when Playwright is installed (or supplied through `PLAYWRIGHT_PATH`).
+`CHROME_PATH` overrides the default Windows Chrome executable. Emulation covers
+layout and input behavior across nine viewport sizes, including 568×240 and
+320×568, with overlap and tap-target checks for offers, pickup, delivery and
+on-foot states. It also exercises gestures, language persistence, settings,
+garage, music, underwater input and a delivery loop. Actual iPhone Safari
+performance and browser chrome require a device.

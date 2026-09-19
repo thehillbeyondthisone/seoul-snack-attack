@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import GUI from 'lil-gui';
 import { VEHICLES, VEHICLE_IDS, DEFAULT_VEHICLE } from '../game/data/vehicles.js';
 import { DIVE_RAMP, DIVE_RAMP_HEADING } from '../world/dive-ramp.js';
+import { HUD, cssHex } from '../world/data/color-bible.js';
+import { DEBUG_DESTINATIONS, destinationUrl } from './debug-destinations.js';
 
 const SETTINGS_KEY = 'seoul-snack-attack-debug-settings-v1';
 
@@ -103,6 +105,21 @@ export function initDebug({ orders, rain, phys, post, van, cam, city, scene, tim
   let propsFolder = null;
   let weatherState = null;
   let mapState = null;
+
+  // ---- Night tour --------------------------------------------------------
+  // Cyan is navigation everywhere in the colour bible, including developer
+  // navigation. Keep this folder open so the useful review scenes are the
+  // first thing a person sees after pressing backtick.
+  const gTour = gui.addFolder('야식 투어 · Night tour');
+  const tourTitle = gTour.domElement.querySelector(':scope > .title');
+  if (tourTitle) tourTitle.style.borderLeft = `3px solid ${cssHex(HUD.nav)}`;
+  const tourActions = {};
+  for (const destination of DEBUG_DESTINATIONS) {
+    const action = `go_${destination.id.replaceAll('-', '_')}`;
+    tourActions[action] = () => { location.href = destinationUrl(location.href, destination); };
+    const controller = gTour.add(tourActions, action).name(destination.label);
+    controller.domElement.style.borderLeft = `2px solid ${cssHex(HUD.nav)}`;
+  }
 
   // ---- Game -------------------------------------------------------------
   const gGame = gui.addFolder('게임 · Game');
@@ -244,7 +261,7 @@ export function initDebug({ orders, rain, phys, post, van, cam, city, scene, tim
   gVeh.add({ tp2: () => orders.teleportDropoff() }, 'tp2').name('배달지로 텔레포트');
   gVeh.add({
     tpRamp: () => phys.teleport(
-      new THREE.Vector3(DIVE_RAMP.x, 0, DIVE_RAMP.approachStartZ),
+      new THREE.Vector3(DIVE_RAMP.x, 0, DIVE_RAMP.stagingZ),
       DIVE_RAMP_HEADING,
     ),
   }, 'tpRamp').name('다이빙 램프로 텔레포트 · Teleport to dive ramp');
@@ -336,8 +353,9 @@ export function initDebug({ orders, rain, phys, post, van, cam, city, scene, tim
     const re = () => city.nightRig.apply();
     const gL = gui.addFolder('조명 · Lighting');
     if (timeOfDay) {
-      gL.add(timeOfDay.state, 'mode', { '밤 · Night': 'night', '낮 · Day': 'day' })
+      gL.add(timeOfDay.state, 'mode', { '아침 · Morning': 'morning', '낮 · Day': 'day', '해질녘 · Dusk': 'dusk', '밤 · Night': 'night' })
         .name('시간대 · Time of day')
+        .listen()
         .onChange((v) => {
           const active = timeOfDay.set(v);
           weather.fog = active.fogDensity;

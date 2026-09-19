@@ -157,6 +157,11 @@ export class SubmarinePhysics {
     }));
     this.params.suspensionRest = roadPhysics?.params?.suspensionRest ?? this.params.suspensionRest;
     this.params.suspensionTravel = roadPhysics?.params?.suspensionTravel ?? this.params.suspensionTravel;
+    // Camera framing belongs to the borrowed vehicle as well. Falling back to
+    // the generic 5 m chase orbit puts the camera inside the pocha's cargo box.
+    for (const key of ['cameraDist', 'cameraHeight', 'cameraLookUp']) {
+      this.params[key] = roadPhysics?.params?.[key];
+    }
     if (roadPhysics?.comOffset) this.comOffset.copy(roadPhysics.comOffset);
   }
 

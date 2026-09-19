@@ -1,0 +1,153 @@
+{
+  "exportReport": {
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "materials": 25,
+    "mapped": [
+      "brick",
+      "plaster",
+      "stone",
+      "wood",
+      "ivory",
+      "jade",
+      "asphalt"
+    ],
+    "glass": true,
+    "storeys": 5,
+    "doorClear": true,
+    "wallBlocks": true,
+    "roadY": 0.05000000074505806,
+    "draws": 54,
+    "triangles": 28958,
+    "loadingMs": 152.10000000149012
+  },
+  "performanceReport": {
+    "width": 1440,
+    "height": 1100,
+    "drawsIncludingShadowsAndPost": 123,
+    "cpuSubmissionMedianMs": 1.6000000014901161,
+    "gpuMedianMs": 6.441984,
+    "gpuMaxMs": 7.68,
+    "geometryBuffers": 67,
+    "textures": 46
+  },
+  "game": {
+    "world": true,
+    "position": [
+      -8.000104990425008,
+      1.390245279828761,
+      12.252282783545223
+    ],
+    "ground": 0.05000000074505806,
+    "route": true,
+    "materials": 25
+  },
+  "driven": [
+    -6.9063365698831936,
+    1.4018074789988217,
+    12.252381092653167
+  ],
+  "walking": [
+    -2.5039320684887425,
+    0.32499998807907104,
+    2.355888490693163
+  ],
+  "ao": [
+    {
+      "name": "brick",
+      "channel": 1
+    },
+    {
+      "name": "canvas",
+      "channel": 1
+    },
+    {
+      "name": "jade-paint",
+      "channel": 1
+    },
+    {
+      "name": "plaster",
+      "channel": 1
+    },
+    {
+      "name": "stone",
+      "channel": 1
+    },
+    {
+      "name": "warm-plaster",
+      "channel": 1
+    },
+    {
+      "name": "wood",
+      "channel": 1
+    },
+    {
+      "name": "bulb",
+      "channel": 1
+    },
+    {
+      "name": "curtain",
+      "channel": 1
+    },
+    {
+      "name": "enamel",
+      "channel": 1
+    },
+    {
+      "name": "iron",
+      "channel": 1
+    },
+    {
+      "name": "ivory",
+      "channel": 1
+    },
+    {
+      "name": "jar",
+      "channel": 1
+    },
+    {
+      "name": "oxblood",
+      "channel": 1
+    },
+    {
+      "name": "room-wall",
+      "channel": 1
+    },
+    {
+      "name": "stainless",
+      "channel": 1
+    },
+    {
+      "name": "copper",
+      "channel": 1
+    },
+    {
+      "name": "leaf",
+      "channel": 1
+    },
+    {
+      "name": "leaf-dark",
+      "channel": 1
+    },
+    {
+      "name": "soil",
+      "channel": 1
+    },
+    {
+      "name": "terracotta",
+      "channel": 1
+    },
+    {
+      "name": "jade",
+      "channel": 1
+    },
+    {
+      "name": "ink",
+      "channel": 1
+    },
+    {
+      "name": "asphalt",
+      "channel": 1
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,180 @@
+{
+  "bytes": 20251960,
+  "triangles": 52750,
+  "bounds": {
+    "min": [
+      -17,
+      0,
+      -15
+    ],
+    "max": [
+      17,
+      16,
+      15
+    ],
+    "size": [
+      34,
+      16,
+      30
+    ]
+  },
+  "materials": 26,
+  "images": [
+    {
+      "name": "brick-normal",
+      "width": 1024,
+      "height": 1024,
+      "encodedBytes": 1974361,
+      "rgbaMipBytes": 5592406
+    },
+    {
+      "name": "patchwork-occlusion",
+      "width": 2048,
+      "height": 2048,
+      "encodedBytes": 2896200,
+      "rgbaMipBytes": 22369622
+    },
+    {
+      "name": "brick-color",
+      "width": 1024,
+      "height": 1024,
+      "encodedBytes": 874264,
+      "rgbaMipBytes": 5592406
+    },
+    {
+      "name": "brick-orm",
+      "width": 1024,
+      "height": 1024,
+      "encodedBytes": 731254,
+      "rgbaMipBytes": 5592406
+    },
+    {
+      "name": "plaster-normal",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 353983,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "plaster-color",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 235379,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "plaster-orm",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 203384,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "stone-normal",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 354103,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "stone-color",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 235438,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "stone-orm",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 203241,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "wood-normal",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 446726,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "wood-color",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 250224,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "wood-orm",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 203213,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "ivory-normal",
+      "width": 1024,
+      "height": 1024,
+      "encodedBytes": 1974478,
+      "rgbaMipBytes": 5592406
+    },
+    {
+      "name": "ivory-color",
+      "width": 1024,
+      "height": 1024,
+      "encodedBytes": 924521,
+      "rgbaMipBytes": 5592406
+    },
+    {
+      "name": "ivory-orm",
+      "width": 1024,
+      "height": 1024,
+      "encodedBytes": 780954,
+      "rgbaMipBytes": 5592406
+    },
+    {
+      "name": "jade-normal",
+      "width": 1024,
+      "height": 1024,
+      "encodedBytes": 1974453,
+      "rgbaMipBytes": 5592406
+    },
+    {
+      "name": "jade-color",
+      "width": 1024,
+      "height": 1024,
+      "encodedBytes": 924468,
+      "rgbaMipBytes": 5592406
+    },
+    {
+      "name": "jade-orm",
+      "width": 1024,
+      "height": 1024,
+      "encodedBytes": 780925,
+      "rgbaMipBytes": 5592406
+    },
+    {
+      "name": "asphalt-normal",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 226350,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "asphalt-color",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 197009,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "asphalt-orm",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 217885,
+      "rgbaMipBytes": 1398102
+    }
+  ],
+  "textureRgbaMipEstimateBytes": 89478500,
+  "occlusionMaterials": 25
+}

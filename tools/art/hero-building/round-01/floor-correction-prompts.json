@@ -1,0 +1,24 @@
+{
+  "method": "Built-in image_gen edit",
+  "reason": "All initial concepts showed three storeys; pilot calls for four.",
+  "variants": [
+    {
+      "id": "a-patchwork-pocha",
+      "name": "Patchwork Pocha",
+      "reference": "a-patchwork-pocha.png",
+      "prompt": "Use case: precise-object-edit. Edit this exact concept image of the Patchwork Pocha Seoul snack shop building. Preserve its design identity, materials, colors, signs, mascot/rooftop element, shop interior, lighting, neighboring buildings, and corner-view composition. The current building shows ONLY THREE storeys: a ground-floor shop and TWO upper window rows. Correct this single structural error by adding ONE FULL ADDITIONAL UPPER STOREY between the existing top window row and the rooftop parapet. The completed hero building must clearly show EXACTLY FOUR storeys: the ground-floor shop plus THREE separate upper-floor window rows on BOTH street-facing elevations. The rooftop utility shed is small rooftop equipment and does NOT count as a storey. Extend the architecture coherently using this direction's existing distinct window frames, facade materials, bands and supported structural elements. Lift the existing rooftop assembly intact above the new floor. Keep the ground shop and mascot/signage at their current relative heights. Pull the camera back only as needed to retain the ENTIRE taller building, rooftop and sidewalk within the image, with clear top margin; do not crop the top. Keep landscape 3:2 framing. Do not add a second building or a collage. Main sign must still read exactly “밤참 분식” and the small menu “떡볶이”. This is an image edit to correct floor count; preserve the established look."
+    },
+    {
+      "id": "b-snackwave",
+      "name": "Snackwave",
+      "reference": "b-snackwave.png",
+      "prompt": "Use case: precise-object-edit. Edit this exact concept image of the Snackwave Seoul snack shop building. Preserve its design identity, materials, colors, signs, mascot/rooftop element, shop interior, lighting, neighboring buildings, and corner-view composition. The current building shows ONLY THREE storeys: a ground-floor shop and TWO upper window rows. Correct this single structural error by adding ONE FULL ADDITIONAL UPPER STOREY between the existing top window row and the rooftop parapet. The completed hero building must clearly show EXACTLY FOUR storeys: the ground-floor shop plus THREE separate upper-floor window rows on BOTH street-facing elevations. The rooftop utility shed is small rooftop equipment and does NOT count as a storey. Extend the architecture coherently using this direction's existing distinct window frames, facade materials, bands and supported structural elements. Lift the existing rooftop assembly intact above the new floor. Keep the ground shop and mascot/signage at their current relative heights. Pull the camera back only as needed to retain the ENTIRE taller building, rooftop and sidewalk within the image, with clear top margin; do not crop the top. Keep landscape 3:2 framing. Do not add a second building or a collage. Main sign must still read exactly “밤참 분식” and the small menu “떡볶이”. This is an image edit to correct floor count; preserve the established look."
+    },
+    {
+      "id": "c-midnight-snack-lab",
+      "name": "Midnight Snack Lab",
+      "reference": "c-midnight-snack-lab.png",
+      "prompt": "Use case: precise-object-edit. Edit this exact concept image of the Midnight Snack Lab Seoul snack shop building. Preserve its design identity, materials, colors, signs, mascot/rooftop element, shop interior, lighting, neighboring buildings, and corner-view composition. The current building shows ONLY THREE storeys: a ground-floor shop and TWO upper window rows. Correct this single structural error by adding ONE FULL ADDITIONAL UPPER STOREY between the existing top window row and the rooftop parapet. The completed hero building must clearly show EXACTLY FOUR storeys: the ground-floor shop plus THREE separate upper-floor window rows on BOTH street-facing elevations. The rooftop utility shed is small rooftop equipment and does NOT count as a storey. Extend the architecture coherently using this direction's existing distinct window frames, facade materials, bands and supported structural elements. Lift the existing rooftop assembly intact above the new floor. Keep the ground shop and mascot/signage at their current relative heights. Pull the camera back only as needed to retain the ENTIRE taller building, rooftop and sidewalk within the image, with clear top margin; do not crop the top. Keep landscape 3:2 framing. Do not add a second building or a collage. Main sign must still read exactly “밤참 분식” and the small menu “떡볶이”. This is an image edit to correct floor count; preserve the established look."
+    }
+  ]
+}

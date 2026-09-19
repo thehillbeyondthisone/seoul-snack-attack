@@ -90,3 +90,35 @@ export const RESTAURANTS = [
     ],
   },
 ];
+
+// The building-kit pilot has its own deliberately small roster. Keeping it
+// separate means the three authored Snack Street shops can use their real
+// names and menus without pretending they already exist in the kilometre city.
+// These dishes reuse the current on-demand food catalog; no extra startup
+// payload is introduced for the review world.
+export const SNACK_STREET_RESTAURANTS = [
+  {
+    id: 'patchwork-pocha', district: 'pilot',
+    nameKo: '밤참 분식', nameEn: 'Patchwork Pocha',
+    dishes: [
+      { nameKo: '매운 떡볶이 컵', nameEn: 'Spicy Tteokbokki Cup', type: 'fast', price: 5500, tip: [500, 1500], models: ['tteokbokki-cup'] },
+      { nameKo: '순대 모둠 한판', nameEn: 'Soondae Sharing Platter', type: 'normal', price: 9000, tip: [600, 1800], models: ['soondae-platter', 'ssamjang'] },
+    ],
+  },
+  {
+    id: 'moon-hotteok', district: 'pilot',
+    nameKo: '달밤 호떡', nameEn: 'Moon Hotteok',
+    dishes: [
+      { nameKo: '꿀 호떡 5입', nameEn: 'Honey Hotteok Five-Pack', type: 'melts', price: 5000, tip: [400, 1400], models: ['hotteok'] },
+      { nameKo: '씨앗 호떡 + 생강차', nameEn: 'Seed Hotteok & Ginger Tea', type: 'melts', price: 6500, tip: [500, 1600], models: ['hotteok', 'korean-cans'] },
+    ],
+  },
+  {
+    id: 'cloud-dumpling', district: 'pilot',
+    nameKo: '구름 만두', nameEn: 'Cloud Dumpling House',
+    dishes: [
+      { nameKo: '찐만두 + 컵라면 세트', nameEn: 'Steamed Dumplings & Cup Ramen', type: 'fast', price: 7500, tip: [500, 1700], models: ['jin-ramen-cup'] },
+      { nameKo: '군만두 + 캔음료 세트', nameEn: 'Fried Dumplings & Canned Drink', type: 'fragile', price: 8500, tip: [600, 1900], models: ['korean-cans'] },
+    ],
+  },
+];

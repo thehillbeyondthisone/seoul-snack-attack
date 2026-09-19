@@ -112,7 +112,19 @@ export const DAY = {
   backgroundBlurriness: 0.018,
 };
 
-export const TIME_PRESETS = { night: NIGHT, day: DAY };
+export const MORNING = {
+  ...DAY, mode: 'morning', hemiIntensity: .68, moonIntensity: 1.1,
+  exposure: 1.02, emissiveBoost: .55, lampIntensity: 12, headlightIntensity: 30,
+  fogColor: 0xc1afb1, hemiSkyColor: 0xd0bdc9, keyColor: 0xffc38d,
+  keyPosition: [100, 35, 30], backgroundIntensity: .8,
+};
+export const DUSK = {
+  ...NIGHT, mode: 'dusk', hemiIntensity: .62, moonIntensity: .9,
+  exposure: 1.12, emissiveBoost: 1.2, lampIntensity: 40, headlightIntensity: 70,
+  fogColor: 0x76535d, hemiSkyColor: 0x9b839d, keyColor: 0xffac72,
+  keyPosition: [-100, 22, -35], backgroundIntensity: .6,
+};
+export const TIME_PRESETS = { night: NIGHT, day: DAY, morning: MORNING, dusk: DUSK };
 
 /**
  * Per-block colour temperature.

@@ -287,7 +287,7 @@ export async function loadExpanse2City(scene, _manager, renderer = null, onPhase
   const setPreset = nightRig.setPreset.bind(nightRig);
   nightRig.setPreset = (mode) => {
     const params = setPreset(mode);
-    params.fogDensity = mode === 'day' ? 0.00045 : 0.0012;
+    params.fogDensity = { day: .00045, morning: .00065, dusk: .00095, night: .0012 }[mode] ?? .0012;
     nightRig.apply();
     return params;
   };

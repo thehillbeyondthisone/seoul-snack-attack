@@ -1,0 +1,180 @@
+{
+  "bytes": 4016660,
+  "triangles": 11542,
+  "bounds": {
+    "min": [
+      -12,
+      0,
+      -12
+    ],
+    "max": [
+      12,
+      15.069999694824219,
+      12
+    ],
+    "size": [
+      24,
+      15.069999694824219,
+      24
+    ]
+  },
+  "materials": 21,
+  "images": [
+    {
+      "name": "patchwork-occlusion",
+      "width": 1024,
+      "height": 1024,
+      "encodedBytes": 599153,
+      "rgbaMipBytes": 5592406
+    },
+    {
+      "name": "ivory-normal",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 423295,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "ivory-color",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 236437,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "ivory-orm",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 200051,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "ochre-render-normal",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 68424,
+      "rgbaMipBytes": 349526
+    },
+    {
+      "name": "ochre-render-color",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 56133,
+      "rgbaMipBytes": 349526
+    },
+    {
+      "name": "ochre-render-orm",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 51871,
+      "rgbaMipBytes": 349526
+    },
+    {
+      "name": "plaster-normal",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 71599,
+      "rgbaMipBytes": 349526
+    },
+    {
+      "name": "plaster-color",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 59974,
+      "rgbaMipBytes": 349526
+    },
+    {
+      "name": "plaster-orm",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 51786,
+      "rgbaMipBytes": 349526
+    },
+    {
+      "name": "sage-tile-normal",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 423140,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "sage-tile-color",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 236561,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "sage-tile-orm",
+      "width": 512,
+      "height": 512,
+      "encodedBytes": 200127,
+      "rgbaMipBytes": 1398102
+    },
+    {
+      "name": "stone-normal",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 71713,
+      "rgbaMipBytes": 349526
+    },
+    {
+      "name": "stone-color",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 59873,
+      "rgbaMipBytes": 349526
+    },
+    {
+      "name": "stone-orm",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 51776,
+      "rgbaMipBytes": 349526
+    },
+    {
+      "name": "wood-normal",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 87250,
+      "rgbaMipBytes": 349526
+    },
+    {
+      "name": "wood-color",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 64430,
+      "rgbaMipBytes": 349526
+    },
+    {
+      "name": "wood-orm",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 51847,
+      "rgbaMipBytes": 349526
+    },
+    {
+      "name": "asphalt-normal",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 37536,
+      "rgbaMipBytes": 349526
+    },
+    {
+      "name": "asphalt-color",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 49940,
+      "rgbaMipBytes": 349526
+    },
+    {
+      "name": "asphalt-orm",
+      "width": 256,
+      "height": 256,
+      "encodedBytes": 55412,
+      "rgbaMipBytes": 349526
+    }
+  ],
+  "textureRgbaMipEstimateBytes": 19223908,
+  "occlusionMaterials": 20
+}

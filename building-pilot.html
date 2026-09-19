@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Patchwork Pocha · Building review</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#222725;color:#f4ead6;font:14px system-ui}canvas{display:block;width:100%;height:100vh}header{position:absolute;top:22px;left:26px;pointer-events:none}h1{margin:4px 0;font-size:24px}small{letter-spacing:.12em;color:#d4baa0}footer{position:absolute;bottom:18px;left:18px;right:18px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:#19201de8;padding:12px 16px;border:1px solid #f9dc9b36;border-radius:12px}select,button,a{font:inherit;background:#35493e;color:#f4ead6;border:1px solid #aa9b7459;border-radius:7px;padding:8px;text-decoration:none}label{display:flex;gap:8px;align-items:center}#status{margin-left:auto;font-size:12px;color:#d4cbb9}#error{color:#ffb8a0} @media(max-width:650px){header{left:18px;top:14px}h1{font-size:19px}footer{gap:7px;font-size:12px;padding:9px}#status{display:none}}
+</style></head><body>
+<header><small>SEOUL SNACK ATTACK · BUILDING KIT</small><h1>Building review</h1><div id="hint">Drag to orbit · Scroll to move closer</div><p id="error"></p></header>
+<div style="position:absolute;right:22px;top:22px"><select id="building" aria-label="Building"><option value="patchwork-pocha">Patchwork Pocha</option><option value="moon-hotteok">Moon Hotteok</option></select></div>
+<footer><label>View <select id="view"><option value="corner">Corner</option><option value="front">Front</option><option value="side">Side</option><option value="walking">Walking height</option><option value="truck">Driving height</option><option value="storefront">Shop</option></select></label>
+<label>Light <select id="time"><option value="dusk">Dusk</option><option value="day">Daylight</option><option value="morning">Morning</option><option value="night">Night</option></select></label>
+<label><input type="checkbox" id="wet" checked>Wet road</label><a href="./?world=pilot&intro=off&time=dusk&rain=off&props=off">Drive & walk here</a><span id="status">Loading building…</span></footer>
+<script type="module" src="/src/world/building-review.js"></script></body></html>

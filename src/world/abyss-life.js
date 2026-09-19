@@ -8,9 +8,9 @@
 // Everything here is generated, instanced, and additive:
 //
 //   marine snow   — soft sprites falling through a camera-wrapped cube
-//   light shafts  — additive cones hanging from the mouth, slowly breathing
+//   light shafts  — soft billboards hanging from the mouth, slowly breathing
 //   the Vent      — a gochujang-red glow and bubble column in the trench floor
-//   jellyfish     — pulsing instanced bells with trailing tentacle cones
+//   jellyfish     — translucent instanced bells with five trailing filaments
 //   lanternfish   — six schools that orbit, and scatter when the truck noses in
 //   the Bungeo    — a fifty-metre bungeoppang (fish-shaped pastry) with an
 //                   anglerfish lure, circling the pocket at the edge of the fog
@@ -18,6 +18,8 @@
 // NO GLSL, same rule as the Drain: a shader that fails to compile on somebody's
 // driver has no fallback down here. Canvas textures and MeshBasicMaterial only.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { shaftTexture } from './abyss-art.js';
 
 const TAU = Math.PI * 2;
 
@@ -40,22 +42,6 @@ function dotTexture(size = 64) {
   g.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
-/** Vertical fade: bright at the top of a cylinder's UV (v = 1), gone at v = 0. */
-function fadeTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 4; canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  const g = ctx.createLinearGradient(0, 0, 0, 128);
-  g.addColorStop(0, 'rgba(255,255,255,0.9)');
-  g.addColorStop(0.35, 'rgba(255,255,255,0.35)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 4, 128);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
@@ -110,14 +96,14 @@ export function createAbyssLife(group, { dense = true, floorAt, bounds }) {
   const keep = (...things) => { disposables.push(...things); return things[0]; };
 
   const dot = keep(dotTexture());
-  const fade = keep(fadeTexture());
+  const softShaft = keep(shaftTexture());
 
   // ---- Marine snow ---------------------------------------------------------
   // Positions are recomputed around the camera every frame (wrapped modulo the
   // cube), so the field never pops — the first build snapped it to a 4 m
   // lattice, which teleported every mote at once each time you crossed a cell.
   const SNOW_SPAN = 44;
-  const snowCount = dense ? 2600 : 1000;
+  const snowCount = dense ? 1400 : 600;
   const snowBase = new Float32Array(snowCount * 3);
   const snowDrift = new Float32Array(snowCount * 3);
   for (let i = 0; i < snowCount; i++) {
@@ -132,8 +118,8 @@ export function createAbyssLife(group, { dense = true, floorAt, bounds }) {
   const snowPos = new Float32Array(snowCount * 3);
   snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
   const snowMat = keep(new THREE.PointsMaterial({
-    map: dot, color: 0xa9d8e6, size: 0.26, sizeAttenuation: true,
-    transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending,
+    map: dot, color: 0x89b4c2, size: 0.13, sizeAttenuation: true,
+    transparent: true, opacity: 0.34, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
   const snow = new THREE.Points(snowGeo, snowMat);
   snow.frustumCulled = false;
@@ -142,10 +128,10 @@ export function createAbyssLife(group, { dense = true, floorAt, bounds }) {
 
   // ---- Light shafts from the mouth ------------------------------------------
   const shafts = [];
-  const shaftGeo = keep(new THREE.CylinderGeometry(1, 3.2, 1, 18, 1, true));
+  const shaftGeo = keep(new THREE.PlaneGeometry(1, 1));
   shaftGeo.translate(0, -0.5, 0); // hang from the top
   for (let i = 0; i < (dense ? 9 : 5); i++) {
-    const mat = keep(additive({ map: fade, color: 0x6fc4dc, opacity: 0.08 }));
+    const mat = keep(additive({ map: softShaft, color: 0x6fc4dc, opacity: 0.12 }));
     const mesh = new THREE.Mesh(shaftGeo, mat);
     const a = rand() * TAU;
     // A RING around the axis, never on it: the arrival point is directly under
@@ -155,11 +141,10 @@ export function createAbyssLife(group, { dense = true, floorAt, bounds }) {
     const top = 1.2 + rand() * 1.6;
     const length = 60 + rand() * 55;
     mesh.position.set(centre.x + Math.cos(a) * r, ceilingY + 5, centre.z + Math.sin(a) * r);
-    mesh.scale.set(top, length, top);
-    mesh.rotation.set((rand() - 0.5) * 0.35, 0, (rand() - 0.5) * 0.35);
+    mesh.scale.set(top * 6, length, 1);
     mesh.name = 'abyss_shaft';
     group.add(mesh);
-    shafts.push({ mesh, mat, phase: rand() * TAU, speed: 0.2 + rand() * 0.35, base: 0.05 + rand() * 0.05 });
+    shafts.push({ mesh, mat, phase: rand() * TAU, speed: 0.2 + rand() * 0.35, base: 0.10 + rand() * 0.08 });
   }
 
   // ---- The Vent: the trench floor glows gochujang red -----------------------
@@ -170,7 +155,7 @@ export function createAbyssLife(group, { dense = true, floorAt, bounds }) {
   }));
   const ventGlow = new THREE.Sprite(ventGlowMat);
   ventGlow.position.set(centre.x, ventY + 10, centre.z);
-  ventGlow.scale.setScalar(58);
+  ventGlow.scale.setScalar(18);
   ventGlow.name = 'abyss_vent_glow';
   group.add(ventGlow);
   const ventLight = new THREE.PointLight(0xff5a22, 260, 95, 1.5);
@@ -178,7 +163,7 @@ export function createAbyssLife(group, { dense = true, floorAt, bounds }) {
   group.add(ventLight);
 
   const BUBBLE_H = 70;
-  const bubbleCount = dense ? 420 : 180;
+  const bubbleCount = dense ? 220 : 90;
   const bubbleSeed = new Float32Array(bubbleCount * 4);
   for (let i = 0; i < bubbleCount; i++) {
     const a = rand() * TAU;
@@ -189,7 +174,7 @@ export function createAbyssLife(group, { dense = true, floorAt, bounds }) {
   const bubblePos = new Float32Array(bubbleCount * 3);
   bubbleGeo.setAttribute('position', new THREE.BufferAttribute(bubblePos, 3));
   const bubbleMat = keep(new THREE.PointsMaterial({
-    map: dot, color: 0xffa060, size: 0.7, transparent: true, opacity: 0.8,
+    map: dot, color: 0xa5bac0, size: 0.22, transparent: true, opacity: 0.38,
     depthWrite: false, blending: THREE.AdditiveBlending,
   }));
   const bubbles = new THREE.Points(bubbleGeo, bubbleMat);
@@ -198,13 +183,23 @@ export function createAbyssLife(group, { dense = true, floorAt, bounds }) {
   group.add(bubbles);
 
   // ---- Jellyfish -------------------------------------------------------------
-  const JELLY_HUES = [0xff4fd8, 0x4fe3ff, 0x9d6bff, 0x7dffb0, 0xffb14f];
+  const JELLY_HUES = [0x6db6c9, 0x84c5d4, 0x9c91c7, 0x73bca9, 0xc19aa8];
   const jellyCount = dense ? 34 : 16;
-  const bellGeo = keep(new THREE.SphereGeometry(1, 16, 8, 0, TAU, 0, Math.PI * 0.55));
-  const tentGeo = keep(new THREE.CylinderGeometry(0.55, 0.05, 1, 10, 1, true));
-  tentGeo.translate(0, -0.5, 0);
-  const bellMat = keep(additive({ color: 0xffffff, opacity: 0.55 }));
-  const tentMat = keep(additive({ color: 0xffffff, map: fade, opacity: 0.45 }));
+  const bellGeo = keep(new THREE.SphereGeometry(1, 24, 12, 0, TAU, 0, Math.PI * 0.55));
+  // Five actual filaments replace the solid cone underneath each bell.
+  const strands = [];
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * TAU, points = [];
+    for (let j = 0; j <= 8; j++) points.push(new THREE.Vector3(
+      Math.cos(a) * .52 + Math.sin(j * .7 + a) * .09,
+      -j / 8, Math.sin(a) * .52 + Math.cos(j * .6 + a) * .09));
+    strands.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 12, .018, 4, false));
+  }
+  const tentGeo = keep(mergeGeometries(strands));
+  strands.forEach(g => g.dispose());
+  const bellMat = keep(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true,
+    opacity: 0.24, depthWrite: false, side: THREE.DoubleSide }));
+  const tentMat = keep(additive({ color: 0xffffff, opacity: 0.32 }));
   const bells = new THREE.InstancedMesh(bellGeo, bellMat, jellyCount);
   const tents = new THREE.InstancedMesh(tentGeo, tentMat, jellyCount);
   bells.frustumCulled = tents.frustumCulled = false;
@@ -221,7 +216,7 @@ export function createAbyssLife(group, { dense = true, floorAt, bounds }) {
     const y = THREE.MathUtils.lerp(floor + 12, ceilingY - 10, rand());
     const size = 1.0 + rand() * 2.6;
     jellies.push({ home: new THREE.Vector3(x, y, z), size, phase: rand() * TAU, rate: 0.7 + rand() * 0.7, drift: rand() * TAU });
-    tint.setHex(JELLY_HUES[i % JELLY_HUES.length]).multiplyScalar(1.6);
+    tint.setHex(JELLY_HUES[i % JELLY_HUES.length]);
     bells.setColorAt(i, tint);
     tents.setColorAt(i, tint);
   }
@@ -370,12 +365,12 @@ export function createAbyssLife(group, { dense = true, floorAt, bounds }) {
 
       for (const s of shafts) {
         s.mat.opacity = s.base * (0.65 + 0.35 * Math.sin(t * s.speed + s.phase));
-        s.mesh.rotation.y += dt * 0.02;
+        s.mesh.rotation.y = Math.atan2(camera.position.x - s.mesh.position.x, camera.position.z - s.mesh.position.z);
       }
 
       // Vent flicker and bubbles.
       const flicker = 0.85 + Math.sin(t * 2.3) * 0.08 + Math.sin(t * 5.1) * 0.05;
-      ventGlowMat.opacity = 0.75 * flicker;
+      ventGlowMat.opacity = 0.4 * flicker;
       ventLight.intensity = 260 * flicker;
       for (let i = 0; i < bubbleCount; i++) {
         const j = i * 4;

@@ -1,9 +1,11 @@
-// Coordinates every system affected by a discrete day/night preset.
+// Delivery-driven lighting with cached skies and a short visual transition.
 import * as THREE from 'three';
-import { createTimeSkyboxes } from './skybox.js';
+import { createTimeSkyboxes, createDaySkybox } from './skybox.js';
+import { createSkyBlend } from './sky-blend.js';
+import { dayProgress } from '../game/day-progress.js';
 import { STAGE, NEON, cssHex } from './data/color-bible.js';
 
-export function createTimeOfDay({ scene, renderer, city, van, post, rain, initial = 'night' }) {
+export function createTimeOfDay({ scene, renderer, city, van, post, rain, initial = null, deliveries = 0, skyFactory = null, blendFactory = createSkyBlend }) {
   // Day inherits the parent's lazy overcast-sky generator; night is the fork's
   // own amber sodium stage (see createAmberNightSky below). Both PMREM
   // environments are generated once — the active preset at boot, the other on
@@ -11,21 +13,42 @@ export function createTimeOfDay({ scene, renderer, city, van, post, rain, initia
   // textures and stays allocation-free.
   const inherited = createTimeSkyboxes(renderer);
   let amberNight = null;
-  const skies = {
+  let morning = null, dusk = null;
+  const skies = skyFactory?.() || {
     get night() { return amberNight || (amberNight = createAmberNightSky(renderer)); },
     get day() { return inherited.day; },
+    get morning() { return morning || (morning = createDaySkybox(renderer, 'morning')); },
+    get dusk() { return dusk || (dusk = createDaySkybox(renderer, 'dusk')); },
   };
-  const state = { mode: initial in skies ? initial : 'night' };
+  const state = { mode: initial in skies ? initial : dayProgress(deliveries).mode, source: initial ? 'manual' : 'deliveries', deliveries };
+  let transition = null, skyBlend = null, activeSky = null;
+  const copy = p => ({ ...p, keyPosition: [...p.keyPosition] });
+  const colorA = new THREE.Color(), colorB = new THREE.Color();
 
-  function set(mode) {
+  function set(mode, { seconds = 0, source = 'manual' } = {}) {
     if (!(mode in skies)) return city.nightRig.params;
+    // Only debug completion can finish several deliveries within this blend.
+    if (transition) finish();
     state.mode = mode;
-
+    state.source = source;
+    const from = copy(city.nightRig.params);
     const params = city.nightRig.setPreset(mode);
     const sky = skies[mode];
-    scene.background = sky.texture;
-    scene.environment = sky.environment;
-
+    if (seconds > 0 && activeSky && activeSky !== sky) {
+      skyBlend ||= blendFactory(renderer, sky);
+      transition = { from, to: copy(params), fromSky: activeSky, sky, seconds, elapsed: 0 };
+      update(0);
+    } else {
+      activeSky = sky;
+      scene.background = sky.texture;
+      scene.environment = sky.environment;
+      apply();
+    }
+    return params;
+  }
+  function apply() {
+    const params = city.nightRig.params;
+    city.nightRig.apply();
     // Rain owns the live fog multiplier, so its base must move with the preset.
     rain.baseFog = params.fogDensity;
 
@@ -45,15 +68,51 @@ export function createTimeOfDay({ scene, renderer, city, van, post, rain, initia
     post.bloom.radius = params.bloomRadius;
     post.bloom.threshold = params.bloomThreshold;
 
-    return params;
   }
-
-  set(state.mode);
+  function finish() {
+    const t = transition;
+    Object.assign(city.nightRig.params, t.to);
+    activeSky = t.sky;
+    scene.background = activeSky.texture;
+    scene.environment = activeSky.environment;
+    transition = null;
+    apply();
+  }
+  function update(dt) {
+    if (!transition) return;
+    const t = transition;
+    t.elapsed = Math.min(t.seconds, t.elapsed + Math.max(0, dt));
+    if (t.elapsed >= t.seconds) { finish(); return; }
+    const u = t.elapsed / t.seconds, k = u * u * (3 - 2 * u);
+    for (const [key, value] of Object.entries(t.to)) {
+      if (key.endsWith('Color')) {
+        city.nightRig.params[key] = colorA.setHex(t.from[key]).lerp(colorB.setHex(value), k).getHex();
+      } else if (typeof value === 'number') {
+        city.nightRig.params[key] = THREE.MathUtils.lerp(t.from[key], value, k);
+      } else if (key === 'keyPosition') {
+        city.nightRig.params[key] = value.map((v, i) => THREE.MathUtils.lerp(t.from[key][i], v, k));
+      }
+    }
+    skyBlend.update(t.fromSky, t.sky, k);
+    scene.background = skyBlend.texture;
+    scene.environment = skyBlend.environment;
+    apply();
+  }
+  function setDeliveries(value, { immediate = false } = {}) {
+    const progress = dayProgress(value);
+    state.deliveries = progress.total;
+    set(progress.mode, { seconds: immediate ? 0 : 3, source: 'deliveries' });
+    return progress;
+  }
+  set(state.mode, { source: state.source });
 
   return {
     state,
     skies,
     set,
+    setDeliveries,
+    update,
+    get transitioning() { return !!transition; },
     get mode() { return state.mode; },
   };
 }

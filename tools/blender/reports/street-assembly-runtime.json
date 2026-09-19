@@ -1,0 +1,376 @@
+{
+  "inventory": {
+    "buildings": 12,
+    "stats": {
+      "roadWidth": 12,
+      "sidewalkWidth": 2.4,
+      "bendRadius": 140,
+      "straightLength": 200,
+      "removedStreetMeshes": 22,
+      "removedStreetColliders": 24,
+      "instanceMeshes": 221,
+      "reusedTextures": 88,
+      "uniqueSharedSurfaceTextures": 76
+    },
+    "meshes": 240,
+    "instances": 442,
+    "lights": 8,
+    "roadY": 0.05000000074505806,
+    "walkY": 0.2750000059604645
+  },
+  "physics": {
+    "configuredTopSpeedKmh": 100.8,
+    "straight": [
+      {
+        "wet": 0,
+        "direction": -1,
+        "offset": -0.6,
+        "crashes": 0,
+        "maxDeviation": 0.25194356702479404,
+        "minSpeedKmh": 98.37757675182647,
+        "maxRoll": 1.4383919016726514,
+        "end": [
+          -57.59532265442984,
+          1.3092962250745779,
+          -3.8513699812804543
+        ]
+      },
+      {
+        "wet": 0,
+        "direction": -1,
+        "offset": 0,
+        "crashes": 0,
+        "maxDeviation": 0.25199763342014947,
+        "minSpeedKmh": 98.37757675190501,
+        "maxRoll": 1.438392718646496,
+        "end": [
+          -57.595323819226145,
+          1.3092962250744054,
+          -3.2519847294991187
+        ]
+      },
+      {
+        "wet": 0,
+        "direction": -1,
+        "offset": 0.6,
+        "crashes": 0,
+        "maxDeviation": 0.25201875154708997,
+        "minSpeedKmh": 98.3775767519051,
+        "maxRoll": 1.4383927400743333,
+        "end": [
+          -57.595322194555116,
+          1.3092962250744051,
+          -2.65201875154709
+        ]
+      },
+      {
+        "wet": 0,
+        "direction": 1,
+        "offset": -0.6,
+        "crashes": 0,
+        "maxDeviation": 0.2520187480620093,
+        "minSpeedKmh": 98.37757675188439,
+        "maxRoll": 1.4383923127711484,
+        "end": [
+          57.59532245049339,
+          1.3092962250744509,
+          2.6506621023285373
+        ]
+      },
+      {
+        "wet": 0,
+        "direction": 1,
+        "offset": 0,
+        "crashes": 0,
+        "maxDeviation": 0.25201888426729413,
+        "minSpeedKmh": 98.37757675149946,
+        "maxRoll": 1.4383908478431364,
+        "end": [
+          57.59532412183187,
+          1.3092962250752953,
+          3.2519053693128157
+        ]
+      },
+      {
+        "wet": 0,
+        "direction": 1,
+        "offset": 0.6,
+        "crashes": 0,
+        "maxDeviation": 0.2521008896845274,
+        "minSpeedKmh": 98.37757675190461,
+        "maxRoll": 1.4383926800835851,
+        "end": [
+          57.59532215409627,
+          1.3092962250744065,
+          3.850439340114314
+        ]
+      },
+      {
+        "wet": 1,
+        "direction": -1,
+        "offset": -0.6,
+        "crashes": 0,
+        "maxDeviation": 0.2525814964477999,
+        "minSpeedKmh": 98.3775767377515,
+        "maxRoll": 1.4383784303464864,
+        "end": [
+          -57.59536169100738,
+          1.309296225105457,
+          -3.8525814964478
+        ]
+      },
+      {
+        "wet": 1,
+        "direction": -1,
+        "offset": 0,
+        "crashes": 0,
+        "maxDeviation": 0.25256175614019316,
+        "minSpeedKmh": 98.37757673776083,
+        "maxRoll": 1.438378439664462,
+        "end": [
+          -57.595362146544225,
+          1.3092962251054363,
+          -3.252561756140193
+        ]
+      },
+      {
+        "wet": 1,
+        "direction": -1,
+        "offset": 0.6,
+        "crashes": 0,
+        "maxDeviation": 0.2525104167776928,
+        "minSpeedKmh": 98.37757673779731,
+        "maxRoll": 1.4383784823920815,
+        "end": [
+          -57.595361634957904,
+          1.3092962251053561,
+          -2.6525104167776927
+        ]
+      },
+      {
+        "wet": 1,
+        "direction": 1,
+        "offset": -0.6,
+        "crashes": 0,
+        "maxDeviation": 0.25146812989891165,
+        "minSpeedKmh": 98.37757673775286,
+        "maxRoll": 1.4383784319026922,
+        "end": [
+          57.595361698134916,
+          1.309296225105454,
+          2.6498150348675162
+        ]
+      },
+      {
+        "wet": 1,
+        "direction": 1,
+        "offset": 0,
+        "crashes": 0,
+        "maxDeviation": 0.2525281090523763,
+        "minSpeedKmh": 98.3775767377794,
+        "maxRoll": 1.4383784611665085,
+        "end": [
+          57.59536193871863,
+          1.3092962251053955,
+          3.2525281090523763
+        ]
+      },
+      {
+        "wet": 1,
+        "direction": 1,
+        "offset": 0.6,
+        "crashes": 0,
+        "maxDeviation": 0.2514695927203827,
+        "minSpeedKmh": 98.37757673779971,
+        "maxRoll": 1.4383784851778443,
+        "end": [
+          57.59536162592444,
+          1.3092962251053508,
+          3.8498860595621447
+        ]
+      }
+    ],
+    "laps": [
+      {
+        "wet": 0,
+        "crashes": 0,
+        "maxDeviation": 1.61808113788468,
+        "maxRoll": 4.582674810170482,
+        "distance": 1303.5481617399214,
+        "minBodyClearance": 2.9821758952345174,
+        "minSpeedKmh": 97.39342166677346,
+        "end": [
+          -63.724578693849686,
+          1.3104100958607288,
+          -0.37871987727444534
+        ]
+      },
+      {
+        "wet": 1,
+        "crashes": 0,
+        "maxDeviation": 2.8537504303887173,
+        "maxRoll": 4.460495569707386,
+        "distance": 1300.2209711682267,
+        "minBodyClearance": 1.7182456355762497,
+        "minSpeedKmh": 96.882227791774,
+        "end": [
+          -72.13906510335573,
+          1.3110822921775072,
+          -1.121440710262402
+        ]
+      }
+    ],
+    "doors": [
+      {
+        "id": "north-1",
+        "inside": true,
+        "y": 0.41999998688697815
+      },
+      {
+        "id": "south-4",
+        "inside": true,
+        "y": 0.41999998688697815
+      },
+      {
+        "id": "north-3",
+        "inside": true,
+        "y": 0.32499998807907104
+      },
+      {
+        "id": "south-2",
+        "inside": true,
+        "y": 0.32499998807907104
+      },
+      {
+        "id": "north-4",
+        "inside": true,
+        "y": 0.32499998807907104
+      },
+      {
+        "id": "south-1",
+        "inside": true,
+        "y": 0.32499998807907104
+      },
+      {
+        "id": "north-2",
+        "inside": true,
+        "y": 0.32499998807907104
+      },
+      {
+        "id": "south-3",
+        "inside": true,
+        "y": 0.32499998807907104
+      },
+      {
+        "id": "north-5",
+        "inside": true,
+        "y": 0.32499998807907104
+      },
+      {
+        "id": "south-0",
+        "inside": true,
+        "y": 0.32499998807907104
+      },
+      {
+        "id": "north-0",
+        "inside": true,
+        "y": 0.32499998807907104
+      },
+      {
+        "id": "south-5",
+        "inside": true,
+        "y": 0.32499998807907104
+      }
+    ]
+  },
+  "perf": {
+    "width": 1440,
+    "height": 1100,
+    "drawsIncludingShadowsAndPost": 495,
+    "cpuSubmissionMedianMs": 6.899999998509884,
+    "gpuMedianMs": 96.462848,
+    "gpuMaxMs": 144.606208,
+    "geometryBuffers": 247,
+    "textures": 84
+  },
+  "startup": {
+    "readyMs": 3990.5,
+    "longTasks": [
+      {
+        "start": 486.19999999552965,
+        "duration": 75
+      },
+      {
+        "start": 807.3999999985099,
+        "duration": 57
+      },
+      {
+        "start": 1113.5,
+        "duration": 304
+      },
+      {
+        "start": 1419.5,
+        "duration": 75
+      },
+      {
+        "start": 1552.7999999970198,
+        "duration": 92
+      },
+      {
+        "start": 1933.1000000014901,
+        "duration": 128
+      },
+      {
+        "start": 2216.1999999955297,
+        "duration": 246
+      },
+      {
+        "start": 3174.10000000149,
+        "duration": 70
+      },
+      {
+        "start": 3310.2999999970198,
+        "duration": 87
+      },
+      {
+        "start": 3710.2999999970198,
+        "duration": 284
+      },
+      {
+        "start": 3996.6999999955297,
+        "duration": 55
+      },
+      {
+        "start": 4154.19999999553,
+        "duration": 218
+      },
+      {
+        "start": 4655,
+        "duration": 469
+      }
+    ],
+    "maxTaskMs": 469,
+    "timings": {
+      "startedMs": 1638.2999999970198,
+      "textureUploadMs": 875,
+      "shaderMs": 1183.1000000014901,
+      "textures": 184
+    }
+  },
+  "start": [
+    -80.00008497246546,
+    1.4024732292012954,
+    3.2515464669852236
+  ],
+  "end": [
+    -73.63759175288678,
+    1.394611441516466,
+    3.2514990323313673
+  ],
+  "errors": [],
+  "measurementContext": {
+    "previewRendersActive": false,
+    "gpuTimingIsolated": false,
+    "note": "The RTX 4060 was shared with other open GPU applications. GPU frame-time samples are observations of this session, not a dedicated-renderer budget or a like-for-like regression comparison."
+  }
+}

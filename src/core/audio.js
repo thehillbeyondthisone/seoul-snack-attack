@@ -17,26 +17,10 @@ export class AudioManager {
     this.rainFilter = null;
     this.rainSource = null;
     this.muted = localStorage.getItem('snack-attack-muted') === '1';
-    const saved = (key, fallback) => {
-      const raw = localStorage.getItem(key);
-      if (raw === null || raw === '') return fallback;
-      const value = Number(raw);
-      return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fallback;
-    };
-    this.masterLevel = saved('snack-attack-master', 0.8);
-    this.sfxLevel = saved('snack-attack-sfx', 0.62);
-    this.ambienceLevel = saved('snack-attack-ambience', 0.22);
-    // Versions before audio-settings-v2 interpreted a missing localStorage
-    // value as zero. Recover the resulting all-silent mix once while still
-    // preserving deliberate individual slider choices after migration.
-    if (localStorage.getItem('snack-attack-audio-settings-v2') !== '1') {
-      if (this.masterLevel === 0 && this.sfxLevel === 0 && this.ambienceLevel === 0) {
-        this.masterLevel = 0.8;
-        this.sfxLevel = 0.62;
-        this.ambienceLevel = 0.42;
-      }
-      localStorage.setItem('snack-attack-audio-settings-v2', '1');
-    }
+    // Fixed game balance; retired sliders no longer restore inaudible levels.
+    this.masterLevel = 0.8;
+    this.sfxLevel = 0.62;
+    this.ambienceLevel = 0.22;
     this.started = false;
     this.resumePromise = null;
     this.lastError = null;

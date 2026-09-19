@@ -18,6 +18,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { NIGHT } from '../world/lighting.js';
+import { createPochaMakeover } from './pocha-makeover.js';
 
 const CORNERS = ['fl', 'fr', 'rl', 'rr'];
 
@@ -151,7 +152,9 @@ export async function loadVehicle(manager, def) {
     tailGlow.intensity = on ? 8 : 0;
   }
 
+  const makeover = def.id === 'pocha' ? createPochaMakeover(group, byName.get('body')) : null;
   return {
+    makeover,
     id: def.id,
     group,
     // The shell, exposed so the cockpit view can take it out of the frame.
@@ -167,6 +170,7 @@ export async function loadVehicle(manager, def) {
     length: def.length,
 
     update(dt, phys) {
+      makeover?.update();
       const speed = phys.forwardSpeed;
       const p = phys.params;
       const rayLen = p.suspensionRest + p.suspensionTravel;

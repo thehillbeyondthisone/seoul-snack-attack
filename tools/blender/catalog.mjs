@@ -2,6 +2,48 @@
 // is a build product that `npm run food` copies into public/assets.
 // `preview` is required — a recipe without a PNG is unfinished.
 export const RECIPES = {
+  'ochre-walkup': {
+    script: 'recipes/ochre_walkup.py',
+    out: '_source-assets/world/hero-building/ochre-walkup.glb',
+    public: 'public/assets/world/ochre-walkup.glb',
+    preview: 'tools/blender/previews/ochre-walkup.png',
+    kind: 'building-pilot', budgetTris: 40000, minM: 22, maxM: 28,
+  },
+  'blue-office': {
+    script: 'recipes/blue_office.py',
+    out: '_source-assets/world/hero-building/blue-office.glb',
+    public: 'public/assets/world/blue-office.glb',
+    preview: 'tools/blender/previews/blue-office.png',
+    kind: 'building-pilot', budgetTris: 45000, minM: 24, maxM: 30,
+  },
+  'service-workshop': {
+    script: 'recipes/service_workshop.py',
+    out: '_source-assets/world/hero-building/service-workshop.glb',
+    public: 'public/assets/world/service-workshop.glb',
+    preview: 'tools/blender/previews/service-workshop.png',
+    kind: 'building-pilot', budgetTris: 35000, minM: 24, maxM: 28,
+  },
+  'cloud-dumpling': {
+    script: 'recipes/cloud_dumpling.py',
+    out: '_source-assets/world/hero-building/cloud-dumpling.glb',
+    public: 'public/assets/world/cloud-dumpling.glb',
+    preview: 'tools/blender/previews/cloud-dumpling.png',
+    kind: 'building-pilot', budgetTris: 45000, minM: 24, maxM: 28,
+  },
+  'moon-hotteok': {
+    script: 'recipes/moon_hotteok.py',
+    out: '_source-assets/world/hero-building/moon-hotteok.glb',
+    public: 'public/assets/world/moon-hotteok.glb',
+    preview: 'tools/blender/previews/moon-hotteok.png',
+    kind: 'building-pilot', budgetTris: 35000, minM: 20, maxM: 26,
+  },
+  'patchwork-pocha': {
+    script: 'recipes/patchwork_pocha.py',
+    out: '_source-assets/world/hero-building/patchwork-pocha.glb',
+    public: 'public/assets/world/patchwork-pocha.glb',
+    preview: 'tools/blender/previews/patchwork-pocha.png',
+    kind: 'building-pilot', budgetTris: 70000, minM: 25, maxM: 36,
+  },
   'dash-hippo': {
     script: 'recipes/dash_hippo.py',
     out: '_source-assets/vehicles/dash-hippo.glb',

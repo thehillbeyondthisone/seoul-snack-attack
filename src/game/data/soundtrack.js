@@ -13,8 +13,10 @@
 //
 // `file` is the name inside public/audio/music/; `title` is what the HUD shows.
 //
-// unlockDeliveries uses the existing persisted successful-delivery count.
-// Dive is a separate event cue and never enters shuffle/next or the rack.
+import { DELIVERIES_PER_DAY } from '../day-progress.js';
+
+// One reward per completed working day. Legacy milestones preserve earned tapes.
+export const DIVE_TRACK = { file: 'dive.mp3', title: 'Dive', ko: '다이브', unlockEvent: 'dive' };
 
 export const SOUNDTRACK = [
   { file: 'budae-sizzle-hot.mp3',  title: 'BUDAE (Sizzle Hot)' },
@@ -24,13 +26,13 @@ export const SOUNDTRACK = [
   { file: 'crown-step.mp3',        title: 'Crown Step' },
   { file: 'sizzle.mp3',            title: 'Sizzle' },
   { file: 'countdown.mp3',         title: 'Countdown' },
-  { file: 'abyssal-ramen-submarine.mp3', title: 'Abyssal Ramen Submarine', ko: '심해 라멘 잠수함', unlockDeliveries: 3 },
-  { file: 'blade-of-hatred.mp3', title: 'Blade of Hatred', ko: '증오의 칼날', unlockDeliveries: 6 },
-  { file: 'rapid-fire.mp3', title: 'Rapid-fire', ko: '래피드 파이어', unlockDeliveries: 9 },
-  { file: 'supersonic.mp3', title: 'Supersonic', ko: '초음속', unlockDeliveries: 12 },
+  { file: 'abyssal-ramen-submarine.mp3', title: 'Abyssal Ramen Submarine', ko: '심해 라멘 잠수함', unlockDeliveries: DELIVERIES_PER_DAY, legacyUnlockDeliveries: 3 },
+  { file: 'blade-of-hatred.mp3', title: 'Blade of Hatred', ko: '증오의 칼날', unlockDeliveries: DELIVERIES_PER_DAY * 2, legacyUnlockDeliveries: 6 },
+  { file: 'rapid-fire.mp3', title: 'Rapid-fire', ko: '래피드 파이어', unlockDeliveries: DELIVERIES_PER_DAY * 3, legacyUnlockDeliveries: 9 },
+  { file: 'supersonic.mp3', title: 'Supersonic', ko: '초음속', unlockDeliveries: DELIVERIES_PER_DAY * 4, legacyUnlockDeliveries: 12 },
+  DIVE_TRACK,
 ];
 
-export const DIVE_TRACK = { file: 'dive.mp3', title: 'Dive', ko: '다이브' };
 export const diveTrack = (base = '/') => ({ ...DIVE_TRACK, url: `${base}audio/music/${DIVE_TRACK.file}` });
 
 /**
@@ -45,6 +47,7 @@ export const diveTrack = (base = '/') => ({ ...DIVE_TRACK, url: `${base}audio/mu
  */
 export function soundtrackTracks(baseUrl = '/') {
   return SOUNDTRACK.map(({ file, ...meta }) => ({
+    file,
     url: `${baseUrl}audio/music/${file}`,
     ...meta,
   }));

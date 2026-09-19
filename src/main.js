@@ -1,3 +1,4 @@
+import './ui/mobile.css';
 // Seoul Snack Attack — boot: renderer, loading, module wiring, main loop.
 import * as THREE from 'three';
 import { Input } from './core/input.js';
@@ -9,6 +10,7 @@ import { loadCity } from './world/city.js';
 import { loadProcCity } from './world/proc/city.js';
 import { loadExpanseCity } from './world/expanse-city.js';
 import { loadExpanse2City } from './world/expanse2-city.js';
+import { loadBuildingPilot } from './world/building-pilot.js';
 import { loadExpanseProps } from './world/expanse-props.js';
 import { loadDistrictDressing } from './world/district-dressing.js';
 import { NIGHT } from './world/lighting.js';
@@ -124,7 +126,7 @@ async function boot() {
   // and promoted only at M6 (see CITY-REBUILD.md). `?world=block` keeps the
   // authored repeating Seoul block available for regression comparison.
   const requestedWorld = qp.get('world');
-  const worldId = ['proc', 'block', 'expanse', 'expanse2'].includes(requestedWorld)
+  const worldId = ['proc', 'block', 'expanse', 'expanse2', 'pilot'].includes(requestedWorld)
     ? requestedWorld
     : 'expanse2';
   // Both kilometre-scale worlds need the far plane pushed out or the ring
@@ -137,7 +139,9 @@ async function boot() {
     camera.updateProjectionMatrix();
   }
   const [city, firstVehicle] = await Promise.all([
-    worldId === 'block'
+    worldId === 'pilot'
+      ? loadBuildingPilot(scene, manager, renderer, setLoadingProgress)
+      : worldId === 'block'
       ? loadCity(scene, manager, 'assets/world/seoul-block.glb', renderer, setLoadingProgress)
       : worldId === 'expanse'
         ? loadExpanseCity(scene, manager, renderer, setLoadingProgress)
@@ -172,7 +176,7 @@ async function boot() {
   // Authored-block dressing is only for `?world=block`. The procedural city
   // labels shops with Hangul neon from the colour bible.
   let district = null;
-  if (worldId === 'proc' || kilometreWorld) {
+  if (worldId === 'proc' || worldId === 'pilot' || kilometreWorld) {
     console.log(
       `world: ${worldId} — ${city.stats.buildings} buildings, ` +
       `${city.pickupSites?.length || 0} labelled shops, ` +
@@ -279,6 +283,11 @@ async function boot() {
   rain.bind({ city, physics: phys });
 
   const post = new Post(renderer, scene, camera);
+  if (city.pilot) {
+    const samples = Math.min(4, renderer.capabilities.maxSamples);
+    post.composer.renderTarget1.samples = samples;
+    post.composer.renderTarget2.samples = samples;
+  }
   post.setSize(window.innerWidth, window.innerHeight);
 
   // Time presets own the sky, ambient/key light, practical lights, exposure,
@@ -292,7 +301,7 @@ async function boot() {
       get headlights() { return van.headlights; },
       get heroFill() { return van.heroFill; },
     },
-    initial: qp.get('time') || 'night',
+    initial: qp.get('time'), deliveries: playerSave.deliveries,
   });
 
   // ---- Game systems -----------------------------------------------------------
@@ -301,7 +310,7 @@ async function boot() {
   hud.setControllerStatus(input.supported ? 'waiting' : 'unsupported');
   // Playlist and play ORDER live in src/game/data/soundtrack.js — edit there.
   const soundtrack = new Soundtrack(soundtrackTracks(import.meta.env.BASE_URL), {
-    deliveries: playerSave.deliveries, diveTrack: diveTrack(import.meta.env.BASE_URL),
+    deliveries: playerSave.deliveries, unlockedTapes: playerSave.unlockedTapes, diveTrack: diveTrack(import.meta.env.BASE_URL),
   });
   const audio = new AudioManager({ music: soundtrack });
   hud.bindAudioControls?.({ soundtrack, audio });
@@ -325,6 +334,9 @@ async function boot() {
     }
   };
   const orders = new Orders({ scene, city, phys, hud, camera, audio, player });
+  orders.onTruckMakeover = enabled => van.makeover?.setEnabled(enabled);
+  van.makeover?.setEnabled(orders.save.truckMakeover);
+  orders.onProgress = (deliveries) => timeOfDay.setDeliveries(deliveries);
   // Deferred until here because setCockpit() reads player.isDriving.
   await attachInterior(vehicleDef);
   if (qp.get('view') === 'cockpit') setCockpit(true);
@@ -337,7 +349,7 @@ async function boot() {
     scene, camera, city, phys, van, hud, audio, post,
     lights: city.lights,
     // Forwarded getters, same reason as timeOfDay's: the garage swaps rigs live.
-    vehicle: { get headlights() { return van.headlights; } },
+    vehicle: { get headlights() { return van.headlights; }, get heroFill() { return van.heroFill; } },
     onRumble: (severity) => { chaseCam.onCrash(severity); cockpitCam.onCrash(severity); },
     graphicsQuality,
     enabled: worldId === 'expanse2',
@@ -350,14 +362,14 @@ async function boot() {
   // `?dive=1` drops straight into the abyss, `?dive=ramp` lines the jump up.
   // Same shape as the other probe hooks documented in the README.
   const diveHook = qp.get('dive');
-  if (diveHook) await dive.debugEnter(diveHook === 'ramp' ? 'ramp' : 'abyss');
   let onboardingPaused = hud.isOnboardingVisible?.() ?? false;
   let garagePaused = false;
   let mapPaused = false;
   let settingsPaused = false;
   let cassettePaused = false;
+  let backgroundPaused = document.hidden;
   const syncOverlayPause = () => {
-    const paused = onboardingPaused || garagePaused || mapPaused || settingsPaused || cassettePaused;
+    const paused = backgroundPaused || onboardingPaused || garagePaused || mapPaused || settingsPaused || cassettePaused;
     orders.setPaused?.(paused);
     input.setTouchSuspended(paused);
   };
@@ -409,6 +421,7 @@ async function boot() {
     });
     phys.attach(next);
     van = next;
+    van.makeover?.setEnabled(orders.save.truckMakeover);
     vehicleDef = nextDef;
     phys.place(position, heading);
     scene.add(van.group);
@@ -488,6 +501,13 @@ async function boot() {
     ? initDebug({ orders, rain, phys, post, van, cam: chaseCam, city, scene, timeOfDay, vehicleDef, hud })
     : { toggle() {}, update() {}, attachProps() {}, setEnglishMode() {}, visible: false };
 
+  // Old saved debug lighting cannot pin the delivery cycle to permanent night.
+  if (qp.has('time')) timeOfDay.set(qp.get('time'));
+  else timeOfDay.setDeliveries(orders.save.deliveries, { immediate: true });
+  // Enter after surface settings restore, just as a real ramp crossing does.
+  // Otherwise the boot hook gets the city's sky and light rig reapplied below water.
+  if (diveHook) await dive.debugEnter(diveHook === 'ramp' ? 'ramp' : 'abyss');
+
   // Apply the capability-selected rendering budget after debug settings have
   // restored. Desktop values are the existing defaults; only the active mobile
   // profile reduces visual work. Physics and game state are untouched.
@@ -509,7 +529,7 @@ async function boot() {
   // Decode and actually render one catalog model per idle slice. This warms
   // geometry, textures, and the real gameplay shader variants without one
   // catalog-wide compile spike. Offered dishes jump to the front of the queue.
-  startFoodBackgroundWarmup(renderer, scene);
+  // Started after the first frame below, so food cannot contend with boot.
 
   // ---- Props: loaded AFTER the first frame ---------------------------------
   // The game is fully playable without them, so they must never delay
@@ -529,7 +549,7 @@ async function boot() {
   // layoutWorld() scanner is never invoked over the kilometre-scale map — and
   // the M3 rebuild has no prop pass at all yet, so `?world=expanse2` opts out
   // of it entirely rather than dragging the compact scanner over a kilometre.
-  const greyboxRebuild = worldId === 'expanse2' && propMode !== 'gallery';
+  const greyboxRebuild = (worldId === 'expanse2' || worldId === 'pilot') && propMode !== 'gallery';
   if (propMode !== 'off' && !greyboxRebuild && (!richExpanse || propMode === 'gallery')) {
     const loader = propMode === 'gallery'
       ? loadProps(scene, city, { mode: 'gallery', density: 1 })
@@ -590,7 +610,8 @@ async function boot() {
   // Mouse orbit is opt-in through pointer lock in both driving and on-foot
   // modes, so UI overlays and the tape deck remain ordinary clickable DOM.
   // Escape releases it as browsers expect.
-  renderer.domElement.addEventListener('pointerdown', () => {
+  renderer.domElement.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'touch') return;
     if (!overview && !document.pointerLockElement && !onboardingPaused && !garagePaused && !mapPaused && !settingsPaused && !cassettePaused) {
       renderer.domElement.requestPointerLock?.();
     }
@@ -625,6 +646,17 @@ async function boot() {
     initialPerfOverlay: statsForced ? true : null,
     onOpenDebugMenu: () => debug.toggle(),
     onOpenCassette: hud.deck ? () => hud.deck.open() : null,
+    onOpenGarage: () => hud.setGarageOpen(true),
+    touchControls: input.touch,
+    onChangeCamera: (action) => {
+      if (dive.ownsCamera || !player.isDriving) return;
+      if (action === 'view') setCockpit(!cockpit);
+      else if (cockpit) setCockpit(false);
+      else {
+        const angle = chaseCam.cycleAngle();
+        hud.toast?.(`카메라 각도 · ${angle.ko}`, `Camera angle · ${angle.en}`);
+      }
+    },
     onPerfOverlay: (on) => setStatsVisible(on),
     onToggle: (open) => {
       settingsPaused = open;
@@ -667,7 +699,8 @@ async function boot() {
   // Both kilometre worlds get staged review cameras; the rebuild adds its own
   // because M3 is reviewed before it is played (see CITY-REBUILD.md).
   const expanseView = kilometreWorld ? qp.get('expanseView') : null;
-  const overview = !!qp.get('overview') || !!shopView || !!expanseView;
+  const pilotView = worldId === 'pilot' ? city.metadata.cameras[qp.get('pilotView')] : null;
+  const overview = !!qp.get('overview') || !!shopView || !!expanseView || !!pilotView;
   if (overview) {
     const site = shopView && city.pickupSites.find((p) => p.id === shopView);
     const expanseViews = {
@@ -725,7 +758,12 @@ async function boot() {
       landmarkTower: { camera: [-44.5, 45, -53.3], target: [-194.5, 45.3, -203.3] },
     };
     const staged = expanseView && expanseViews[expanseView];
-    if (staged) {
+    if (pilotView) {
+      camera.position.fromArray(pilotView.position);
+      camera.lookAt(...pilotView.target);
+      camera.fov = 44;
+      camera.updateProjectionMatrix();
+    } else if (staged) {
       camera.position.fromArray(staged.camera);
       camera.lookAt(...staged.target);
       city.cullDistance = 1500;
@@ -753,14 +791,41 @@ async function boot() {
   // With KHR_parallel_shader_compile, wait without blocking the loading UI.
   // Compile against the composer's render target: screen tone mapping creates
   // a different program and would force a second compile on the first frame.
-  if (worldId === 'expanse2' && renderer.extensions.has('KHR_parallel_shader_compile')) {
+  const preparation = { startedMs: performance.now(), textureUploadMs: 0, shaderMs: 0 };
+  if (worldId === 'pilot') {
+    city.update(0, camera);
+    setLoadingProgress(96, '표면 준비 중 · Preparing surfaces');
+    const textures = new Set();
+    scene.traverse(object => {
+      for (const material of [].concat(object.material || [])) {
+        for (const value of Object.values(material)) if (value?.isTexture) textures.add(value);
+      }
+    });
+    // compileAsync prepares programs, but does not upload embedded GLB images.
+    // Upload each shared texture once and yield between short batches so the
+    // loading screen and input event queue keep responding on the test street.
+    let slice = performance.now();
+    for (const texture of textures) {
+      renderer.initTexture(texture);
+      if (performance.now() - slice > 4) {
+        await new Promise(requestAnimationFrame);
+        slice = performance.now();
+      }
+    }
+    preparation.textureUploadMs = performance.now() - preparation.startedMs;
+    preparation.textures = textures.size;
+  }
+  if ((worldId === 'expanse2' || worldId === 'pilot') && renderer.extensions.has('KHR_parallel_shader_compile')) {
     setLoadingProgress(98, '셰이더 준비 중 · Preparing shaders');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const target = renderer.getRenderTarget();
     renderer.setRenderTarget(post.enabled ? post.composer.readBuffer : target);
+    const shaderStart = performance.now();
     try { await renderer.compileAsync(scene, camera); }
     finally { renderer.setRenderTarget(target); }
+    preparation.shaderMs = performance.now() - shaderStart;
   }
+  if (import.meta.env.DEV) window.__seoulStartup = preparation;
   // Devices without parallel compilation retain the visible-first-frame path.
   setLoadingProgress(99, '첫 화면 준비 중 · Preparing first frame');
 
@@ -774,6 +839,8 @@ async function boot() {
   // hence the flag rather than a blind resume().
   let musicPausedByBackground = false;
   const handleVisibility = () => {
+    backgroundPaused = document.hidden;
+    syncOverlayPause();
     if (document.hidden) {
       if (!soundtrack.paused) { soundtrack.pause(); musicPausedByBackground = true; }
       // Silences engine, tyres, rain and impacts too — they run on the
@@ -786,7 +853,10 @@ async function boot() {
   };
   document.addEventListener('visibilitychange', handleVisibility);
   // iOS Safari can background an app without ever firing visibilitychange.
+  window.addEventListener('pageshow', handleVisibility);
   window.addEventListener('pagehide', () => {
+    backgroundPaused = true;
+    syncOverlayPause();
     if (!soundtrack.paused) { soundtrack.pause(); musicPausedByBackground = true; }
     audio.ctx?.suspend?.().catch(() => {});
   });
@@ -804,6 +874,7 @@ async function boot() {
   let acc = 0;
   let firstFrame = true;
   let lastInputMode = input.mode;
+  hud.setInputMode(input.mode);
   let gamepadConnected = false;
 
   // Seed the warm-up queue with the districts — see warmNextDistrict().
@@ -830,7 +901,7 @@ async function boot() {
       lastInputMode = input.mode;
       hud.setInputMode(input.mode);
     }
-    const englishMode = input.held('translate');
+    const englishMode = input.touch.english || input.held('translate');
     hud.setEnglishMode?.(englishMode);
     debug.setEnglishMode?.(englishMode);
     settings.setEnglishMode(englishMode);
@@ -855,6 +926,7 @@ async function boot() {
     // Controls. Written to whichever rig is live, so W/A/S/D mean the same
     // things in the trench that they mean on the ring road — the submarine
     // reinterprets them as thrust and rudder, and adds ballast on Space/Shift.
+    input.touch.setSubmerged(dive.isSubmerged);
     const drive = dive.physics;
     drive.controls.throttle = player.isDriving ? (autoDrive ? 1 : input.actionValue('throttle')) : 0;
     drive.controls.brake = player.isDriving ? input.actionValue('brake') : 0;
@@ -876,7 +948,7 @@ async function boot() {
 
     // Fixed-step physics. Props run on the SAME accumulator, so the van's pose
     // is current before contacts are found and its reaction is drained after.
-    if (!mapPaused && !cassettePaused) acc += dt;
+    if (!backgroundPaused && !onboardingPaused && !garagePaused && !mapPaused && !settingsPaused && !cassettePaused) acc += dt;
     else acc = 0;
     let steps = 0;
     const footForward = onFootCam.forward;
@@ -899,7 +971,7 @@ async function boot() {
       steps++;
     }
     if (props) props.update();
-    if (!cassettePaused) dive.update(dt, input);
+    if (!backgroundPaused && !onboardingPaused && !garagePaused && !mapPaused && !settingsPaused && !cassettePaused) dive.update(dt, input);
     // The rig whose pose is real this frame: the road model on the surface, the
     // submarine below it. Everything downstream reads this rather than `phys`.
     const rig = dive.physics;
@@ -946,6 +1018,8 @@ async function boot() {
     // The second dial is a depth gauge underwater and a parked needle above it —
     // see setDepthMode() in src/vehicle/interior.js.
     interior?.setDepthMode(dive.isSubmerged ? ABYSS_DEPTH_M : null);
+    interior?.setUnderwater(dive.underwaterLook);
+    hud.setDiveState?.(dive.state, dive.depthM);
     // Cheap while hidden: update() rides the dome lamp to zero and returns
     // before touching an instrument the player cannot see.
     interior?.update(dt, rig);
@@ -970,6 +1044,7 @@ async function boot() {
     // so its chunk culling and streetlight pool have nothing to decide, and the
     // delivery loop's navigation would be routing a submarine along a road.
     if (!dive.suspendRoadPhysics) {
+      if (!orders.paused) timeOfDay.update(dt);
       city.update(dt, camera);
       rain.update(dt, camera);
       orders.update(dt, input);
@@ -1019,6 +1094,7 @@ async function boot() {
       setLoadingProgress(100, '준비 완료 · Ready');
       loadingEl.setAttribute('aria-busy', 'false');
       loadingEl.classList.add('done');
+      startFoodBackgroundWarmup(renderer, scene);
     } else {
       warmNextDistrict();
     }
