@@ -2,6 +2,8 @@
 
 A third-person late-night street-snack delivery driving game set in a rainy, neon-lit Seoul district. Crazy Taxi–style timed orders with semi-realistic driving physics, built with Three.js. You are running 야식 (late-night snacks) across the city — tteokbokki, hotteok, eomuk, gimbap, chimaek, bingsu, gilgeori toast and pocha plates — before they go cold, spill, or melt.
 
+**Play live:** [https://thehillbeyondthisone.github.io/seoul-snack-attack/](https://thehillbeyondthisone.github.io/seoul-snack-attack/)
+
 The default city is the **Expanse rebuild** (`expanse2`): a kilometre of Seoul,
 1,211 buildings, six colour-bible districts, eight delivery restaurants, three
 bridges, surfaced roads, Hangul signage and original street details. Optional
