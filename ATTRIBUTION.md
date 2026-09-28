@@ -188,6 +188,18 @@ generated from the street graph, coloured from this project's own colour bible
 The four noise primitives are imported from `src/world/proc/textures.js`, which
 is also original to this project.
 
+## Optional Overdub visualizer
+
+- `butterchurn` 2.6.7 by Jordan Berg and contributors, MIT license, implements
+  the browser MilkDrop visualizer. Source: https://github.com/jberg/butterchurn
+- `butterchurn-presets` 2.4.7, MIT package license. This prototype loads only
+  `flexi - flow`, `Geiss - Liquid Beats`, or `Geiss - Aurora` at runtime; the
+  preset titles retain their original creator credits. Source:
+  https://www.npmjs.com/package/butterchurn-presets
+- The street projection placement, feathering and landing ripple are original
+  project code in `src/world/overdub-visuals.js`. No Winamp binary or bundled
+  music was copied for this effect; it analyses the game's existing cassette.
+
 ## Generated district textures
 
 - `public/assets/district/textures/seoul-facade-weathered.webp` — tileable

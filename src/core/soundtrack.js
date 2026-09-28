@@ -59,6 +59,20 @@ export class Soundtrack {
   get currentTrack() { return this.cueActive ? this.diveTrack : this.tracks[this.index] || { title: 'No track' }; }
   get paused() { return this.activeAudio.paused; }
   get playPending() { return this.pending.has(this.activeAudio); }
+  // Optional visualizers sample the audible cassette mix in this context.
+  // The zero-gain sink keeps the analysis branch running without doubling sound.
+  getVisualizerAudio() {
+    this._ensureGraph();
+    if (!this.ctx) return null;
+    if (!this.visualizerTap) {
+      this.visualizerTap = this.ctx.createGain();
+      this.visualizerSink = this.ctx.createGain();
+      this.visualizerSink.gain.value = 0;
+      this.visualizerTap.connect(this.visualizerSink).connect(this.ctx.destination);
+      for (const gain of this.gains.values()) gain.connect(this.visualizerTap);
+    }
+    return { context: this.ctx, node: this.visualizerTap };
+  }
   isLocked(i) {
     const t = this.tracks[i];
     return !t || !!t.locked || (!this.unlockedTapes.has(t.file) &&

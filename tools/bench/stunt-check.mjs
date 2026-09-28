@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { MeshBVH } from 'three-mesh-bvh';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { stuntPayout } from '../../src/game/stunt-scoring.js';
+import { OverdubPowerup } from '../../src/game/overdub-powerup.js';
 import { SAVE_KEY, STUNT_SAVE_KEY, loadSave, persistSave } from '../../src/game/save.js';
 import { PropWorld } from '../../src/physics/prop-world.js';
 import { StuntOrders } from '../../src/game/stunt-orders.js';
@@ -66,10 +67,30 @@ console.log('PASS pickup needs an on-foot courier within 2 m and a clear path');
 
 const full = stuntPayout(1200, 90, 90, new Set(['drift', 'jump', 'courier']));
 const late = stuntPayout(1200, -10, 90, new Set(['courier']));
-assert.deepEqual(full, { base: 1200, timeTip: 300, styleBonus: 300, total: 1800 });
+assert.deepEqual(full, { base: 1200, timeTip: 300, styleBonus: 300, overdubBonus: 0, total: 1800 });
 assert.equal(late.total, 1300);
 assert.equal(stuntPayout(1200, 900, 90, new Set(['drift', 'jump', 'courier'])).total, 1800);
 console.log('PASS base guarantee and capped time/style tips');
+
+const overdub = new OverdubPowerup();
+assert.equal(overdub.activate(), true);
+assert.equal(overdub.activate(), false);
+overdub.update(4, { paused: true });
+assert.equal(overdub.remaining, 30);
+assert.equal(overdub.awardStyle('jump'), true);
+assert.equal(overdub.awardStyle('jump'), false);
+assert.deepEqual(stuntPayout(1200, 90, 90, new Set(['drift', 'jump']), overdub.boostedStyles),
+  { base: 1200, timeTip: 300, styleBonus: 200, overdubBonus: 100, total: 1800 });
+overdub.update(30);
+assert.equal(overdub.active, false);
+assert.equal(overdub.awardStyle('drift'), false);
+overdub.completeDelivery();
+assert.equal(overdub.charges, 1);
+assert.equal(overdub.boostedStyles.size, 1);
+overdub.beginOrder();
+assert.equal(overdub.boostedStyles.size, 0);
+assert.equal(overdub.activate(), true);
+console.log('PASS optional Overdub charge, pause, expiry, one-time style bonus and refill');
 
 const driveSample = {
   state: 'delivering', completedStyles: new Set(), driftSeconds: 0,

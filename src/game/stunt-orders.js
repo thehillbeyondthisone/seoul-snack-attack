@@ -73,6 +73,7 @@ export class StuntOrders extends Orders {
 
   _accept() {
     super._accept();
+    this.overdub?.beginOrder();
     this.completedStyles.clear();
     this.driftSeconds = 0;
     this.jumpSeconds = 0;
@@ -92,8 +93,9 @@ export class StuntOrders extends Orders {
   _awardStyle(category) {
     if (this.state !== 'delivering' || this.completedStyles.has(category)) return;
     this.completedStyles.add(category);
+    const doubled = this.overdub?.awardStyle(category);
     const bonus = Math.round(this.order.payout * 0.25 / 3);
-    this._showCallout?.(`${STYLE_NAMES[category]}  +₩${bonus.toLocaleString()}`);
+    this._showCallout?.(`${STYLE_NAMES[category]}  +₩${bonus.toLocaleString()}${doubled ? ' · OVERDUB ×2' : ''}`);
     this.audio?.event('accept');
     this.styleHudTimer = 0;
   }
@@ -115,14 +117,14 @@ export class StuntOrders extends Orders {
     }
     const categories = ['drift', 'jump', 'courier'];
     const earned = categories.filter((category) => this.completedStyles.has(category)).length;
-    const styleMoney = stuntPayout(this.order.payout, 0, this.order.timerMax, this.completedStyles).styleBonus;
+    const payout = stuntPayout(this.order.payout, 0, this.order.timerMax, this.completedStyles, this.overdub?.boostedStyles);
     const marks = categories.map((category) => `${this.completedStyles.has(category) ? '✓' : '○'} ${STYLE_NAMES[category]}`).join(' · ');
     const hint = this.player.isDriving
       ? this.jumpSeconds > 0 ? `AIRTIME ${this.jumpSeconds.toFixed(1)} / 0.3 s`
         : this.driftSeconds > 0 ? `DRIFT ${this.driftSeconds.toFixed(1)} / 0.6 s`
           : 'Cyan/right: ramp + props · Gold/left: clear road'
       : 'Q / LT dive · Space / A recover to bank courier style';
-    this.stylePanel.innerHTML = `<b>STYLE ${earned}/3 · +₩${styleMoney.toLocaleString()}</b><br>${marks}<br>${hint}`;
+    this.stylePanel.innerHTML = `<b>STYLE ${earned}/3 · +₩${payout.styleBonus.toLocaleString()}${payout.overdubBonus ? ` · OVERDUB +₩${payout.overdubBonus.toLocaleString()}` : ''}</b><br>${marks}<br>${hint}`;
   }
 
   _canInteract(point) {
@@ -230,7 +232,8 @@ export class StuntOrders extends Orders {
   _deliver() {
     if (this.state !== 'delivering' || !this.order) return;
     const o = this.order;
-    const payout = stuntPayout(o.payout, o.timer, o.timerMax, this.completedStyles);
+    const payout = stuntPayout(o.payout, o.timer, o.timerMax, this.completedStyles, this.overdub?.boostedStyles);
+    this.overdub?.completeDelivery();
     this.save.cash += payout.total;
     this.save.deliveries += 1;
     this._persist();
@@ -253,7 +256,7 @@ export class StuntOrders extends Orders {
     this.order = null;
     this.state = 'result';
     this.result.querySelector('[data-breakdown]').innerHTML =
-      `<p>Base pay: ₩${payout.base.toLocaleString()}</p><p>Time tip: ₩${payout.timeTip.toLocaleString()}</p><p>Style bonus: ₩${payout.styleBonus.toLocaleString()} (${this.completedStyles.size}/3)</p><strong>Total: ₩${payout.total.toLocaleString()}</strong>`;
+      `<p>Base pay: ₩${payout.base.toLocaleString()}</p><p>Time tip: ₩${payout.timeTip.toLocaleString()}</p><p>Style bonus: ₩${payout.styleBonus.toLocaleString()} (${this.completedStyles.size}/3)</p>${payout.overdubBonus ? `<p>Overdub: ₩${payout.overdubBonus.toLocaleString()}</p>` : ''}<strong>Total: ₩${payout.total.toLocaleString()}</strong>`;
     this.result.style.display = 'flex';
     document.exitPointerLock?.();
   }
@@ -273,6 +276,7 @@ export class StuntOrders extends Orders {
   }
 
   restartPrototype() {
+    this.overdub?.reset();
     const current = this.order || this.lastOrder;
     this.result.style.display = 'none';
     this.prompt.style.display = 'none';

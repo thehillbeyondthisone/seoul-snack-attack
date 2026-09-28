@@ -1,5 +1,31 @@
 # 서울 스낵 어택 — Seoul Snack Attack — development handoff
 
+## 2026-09-28 — Overdub opt-in first slice
+
+Before changing the game, the 52-file stunt/Bamnae work-in-progress snapshot
+was committed as `d50870f` and pushed to `origin/codex/overdub`; `main` was
+left untouched. The isolated stunt route now has a session-only Overdub charge:
+K / controller Menu or the prototype panel activates 30 seconds, and a
+successful delivery refills it. A style category first earned while Overdub
+is active gets one extra style-sized payout line, retained even if the visual
+timer expires before delivery. Full / Gentle / Off changes visuals only and
+is saved under `snack-attack-stunt-overdub-v1`.
+
+Full mode lazily loads Butterchurn and one classic MilkDrop preset, taps the
+post-mix cassette audio, and projects its canvas into a few road puddles and
+upper windows with a landing ripple. `&overdub=review` puts the truck by the
+ramp and shows the source canvas for diagnosis. In local browser review the
+source canvas animated with music on and the road edge was visible; the
+projection is still subtle and needs a deliberate visual-feel pass before
+calling the environment treatment finished. Mute/quiet passages can leave the
+MilkDrop image mostly black. The user has not yet played this slice, nor has
+the physical gamepad or sustained performance been checked. No custom 3D model
+was authored.
+
+Focused validation: `npm run stunt-check` and
+`node tools/bench/audio-check.mjs` passed. Run the production build after any
+final changes; the exact local review route is in README.
+
 ## 2026-09-27 — First truck-to-foot interaction slice
 
 The user's next-phase direction joins substantial, recoverable driving with

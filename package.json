@@ -50,6 +50,8 @@
     "runtime-check": "node tools/bench/expanse-runtime-check.mjs"
   },
   "dependencies": {
+    "butterchurn": "2.6.7",
+    "butterchurn-presets": "2.4.7",
     "lil-gui": "^0.20.0",
     "three": "^0.180.0",
     "three-mesh-bvh": "^0.9.0"

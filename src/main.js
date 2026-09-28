@@ -34,6 +34,8 @@ import { PlayerCharacter } from './character/controller.js';
 import { OnFootCamera } from './character/camera.js';
 import { Orders } from './game/orders.js';
 import { StuntOrders } from './game/stunt-orders.js';
+import { OverdubPowerup } from './game/overdub-powerup.js';
+import { OverdubVisuals } from './world/overdub-visuals.js';
 import { startFoodBackgroundWarmup } from './game/food-display.js';
 import { HUD3 } from './ui/hud3.js';
 import { CityMap } from './ui/city-map.js';
@@ -358,10 +360,44 @@ async function boot() {
     }
   };
   const orders = new (stunt ? StuntOrders : Orders)({ scene, city, phys, hud, camera, audio, player, gameplayProfile, saveKey });
+  const overdub = stunt ? new OverdubPowerup() : null;
+  const overdubVisuals = stunt ? new OverdubVisuals({ scene, city, soundtrack, preset: qp.get('overdubPreset') }) : null;
+  let overdubMode = stunt
+    ? (localStorage.getItem('snack-attack-stunt-overdub-v1') || (graphicsQuality.mobile || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'gentle' : 'full'))
+    : 'off';
+  if (!['full', 'gentle', 'off'].includes(overdubMode)) overdubMode = 'full';
+  if (stunt) orders.overdub = overdub;
+  let overdubButton = null;
+  let overdubModeButton = null;
+  const refreshOverdubControls = () => {
+    if (!overdubButton) return;
+    const label = overdub.active ? `OVERDUB · ${Math.ceil(overdub.remaining)}s`
+      : overdub.charges ? 'K / MENU · ACTIVATE OVERDUB' : 'OVERDUB · SPENT';
+    if (overdubButton.textContent !== label) overdubButton.textContent = label;
+    overdubButton.disabled = overdub.active || !overdub.charges;
+    overdubButton.setAttribute('aria-pressed', String(overdub.active));
+    overdubModeButton.textContent = `VISUALS · ${overdubMode.toUpperCase()}`;
+    if (qp.get('overdub') === 'review') {
+      overdubButton.dataset.visualReady = String(overdubVisuals.ready);
+      overdubButton.dataset.visualFrames = String(overdubVisuals.frames);
+      overdubButton.dataset.puddleOpacity = String(overdubVisuals.puddles[2]?.material.opacity ?? 0);
+      overdubButton.dataset.visualError = String(overdubVisuals.error || '');
+    }
+  };
+  const activateOverdub = async () => {
+    if (!overdub || orders.paused || orders.state === 'result' || overdub.active || !overdub.charges) return;
+    if (overdubMode === 'full') await overdubVisuals.prepare();
+    if (orders.paused || orders.state === 'result') return;
+    if (overdub.activate()) {
+      hud.toast('오버더브', 'Overdub — style rewards doubled for 30 seconds', 'win');
+      refreshOverdubControls();
+    }
+  };
   if (stunt) player.stuntCompleted = () => orders.courierRecovered();
   if (stunt) orders.onLanding = (severity) => {
     chaseCam.onCrash(severity);
     audio.event('impact', severity);
+    if (overdub.active) overdubVisuals.onLanding(phys.position);
   };
   if (stunt) {
     const panel = document.createElement('div');
@@ -370,7 +406,24 @@ async function boot() {
     panel.innerHTML = '<strong>STUNT DELIVERY PROTOTYPE</strong><br>E / X use at door · F / B exit or bail<br>Q / LT dive · G / RT shove · H / D-down grab or throw<br>Space / A recover · <button data-restart>Restart prototype</button> <a data-regular href="?world=expanse2&intro=off" style="color:#29e6ff">Regular game</a>';
     panel.querySelector('[data-restart]').addEventListener('click', () => restartPrototype());
     panel.append(orders.stylePanel);
+    const tapeControls = document.createElement('div');
+    tapeControls.style.cssText = 'margin-top:8px;padding-top:7px;border-top:1px solid #29e6ff88;display:flex;gap:5px;align-items:center;flex-wrap:wrap';
+    tapeControls.innerHTML = '<button type="button" data-overdub-activate></button><button type="button" data-overdub-mode></button>';
+    overdubButton = tapeControls.querySelector('[data-overdub-activate]');
+    overdubModeButton = tapeControls.querySelector('[data-overdub-mode]');
+    overdubButton.addEventListener('click', activateOverdub);
+    overdubModeButton.addEventListener('click', () => {
+      overdubMode = { full: 'gentle', gentle: 'off', off: 'full' }[overdubMode];
+      localStorage.setItem('snack-attack-stunt-overdub-v1', overdubMode);
+      refreshOverdubControls();
+    });
+    panel.append(tapeControls);
+    if (qp.get('overdub') === 'review') {
+      overdubVisuals.canvas.style.cssText = 'display:block;width:108px;height:108px;margin-top:6px;border:1px solid #29e6ff66';
+      panel.append(overdubVisuals.canvas);
+    }
     document.body.append(panel);
+    refreshOverdubControls();
   }
   orders.onTruckMakeover = enabled => van.makeover?.setEnabled(enabled);
   van.makeover?.setEnabled(orders.save.truckMakeover);
@@ -590,6 +643,7 @@ async function boot() {
     player._setMode('driving');
     props?.reset();
     orders.restartPrototype();
+    refreshOverdubControls();
     chaseCam.snapTo(phys);
   }
   const propMode = qp.get('props');
@@ -648,10 +702,15 @@ async function boot() {
   // the same switch as the menu, so tools/probe.mjs works against an internal
   // dist build and not just the dev server.
   if (debugEnabled) {
-    window.__seoul = { city, district, van, phys, dive, player, onFootCam, orders, input, cityMap, camera, scene, renderer, grid: city.grid, timeOfDay, debug, audio, soundtrack, graphicsQuality, THREE };
+    window.__seoul = { city, district, van, phys, dive, player, onFootCam, orders, overdub, overdubVisuals, input, cityMap, camera, scene, renderer, grid: city.grid, timeOfDay, debug, audio, soundtrack, graphicsQuality, THREE };
   }
 
   // ---- Apply test hooks ---------------------------------------------------
+  if (stunt && qp.get('overdub') === 'review') {
+    const line = city.metadata.stuntFixture.line;
+    phys.place(new THREE.Vector3(line.rampX - 8, .85, line.safeZ), Math.PI / 2);
+    chaseCam.snapTo(phys);
+  }
   if (qp.get('rain')) rain.setLevel(qp.get('rain'));
   if (qp.get('offer')) {
     orders.offerNow(qp.get('restaurant'));
@@ -969,6 +1028,12 @@ async function boot() {
       }
     }
 
+    if (overdub) {
+      overdub.update(dt, { paused: orders.paused || dive.suspendRoadPhysics });
+      if (input.pressed('overdub')) activateOverdub();
+      refreshOverdubControls();
+    }
+
     if (input.pressed('cassette')) hud.deck?.toggle();
     if (!cassettePaused && input.pressed('map')) {
       if (cityMap.isOpen) cityMap.hide();
@@ -1130,6 +1195,14 @@ async function boot() {
     hud.setSpeed(player.isDriving ? rig.speedKmh : 0);
     uiSlice?.update(dt, rig);
     debug.update(dt);
+
+    overdubVisuals?.update(dt, {
+      active: overdub.active,
+      remaining: overdub.remaining,
+      mode: overdubMode,
+      position: player.activePosition,
+      paused: orders.paused || dive.suspendRoadPhysics,
+    });
 
     post.render(dt);
     input.endFrame();

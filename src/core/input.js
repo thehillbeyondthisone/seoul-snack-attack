@@ -24,6 +24,7 @@ const KEY_ACTIONS = {
   settings: ['F3'],
   debug: ['Backquote'],        // direct tuning-menu shortcut
   cassette: ['KeyP'],          // release the mouse and choose an unlocked tape
+  overdub: ['KeyK'],           // optional stunt cassette powerup
   map: ['KeyM'],
   view: ['KeyC'],
   camAngle: ['KeyV'],
@@ -44,6 +45,7 @@ const PAD_BUTTONS = {
   translate: 4, // LB
   view: 10,     // right stick click
   camAngle: 12, // D-pad up (left/right steer; see steerAxis)
+  overdub: 9,  // Menu, unused by the other game actions
 };
 
 const TRIGGER_THRESHOLD = 0.08;
