@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { assemblyPath } from './building-assembly.js';
 
 const VISUAL_SIZE = 384;
 const FRAME_INTERVAL = 1 / 30;
@@ -8,22 +9,38 @@ const PRESETS = {
   aurora: () => import('butterchurn-presets/presets/converted/Geiss - Aurora.json'),
 };
 
-function featherMask() {
-  const size = 64;
-  const pixels = new Uint8Array(size * size * 4);
-  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const radius = Math.hypot((x + .5) / size * 2 - 1, (y + .5) / size * 2 - 1);
-    const edge = THREE.MathUtils.smoothstep(radius, .78, 1);
-    const value = Math.round(255 * (1 - edge));
-    const offset = (y * size + x) * 4;
-    pixels[offset] = value;
-    pixels[offset + 1] = value;
-    pixels[offset + 2] = value;
-    pixels[offset + 3] = 255;
+// Match the level's road centreline, but give the visualizer its own UVs.
+// Mirrored repeats meet without a visible cut as the image flows down the road.
+function roadFilmGeometry(path, height) {
+  const vertices = [], uvs = [], indices = [];
+  let distance = 0;
+  for (let i = 0; i <= path.length; i++) {
+    const index = i % path.length;
+    const point = path[index];
+    const previous = path[(index + path.length - 1) % path.length];
+    const next = path[(index + 1) % path.length];
+    const dx = next[0] - previous[0], dz = next[1] - previous[1];
+    const length = Math.hypot(dx, dz);
+    const nx = -dz / length, nz = dx / length;
+    if (i) {
+      const last = path[i - 1];
+      distance += Math.hypot(point[0] - last[0], point[1] - last[1]);
+    }
+    for (const [offset, side] of [[-5.9, 0], [5.9, 1]]) {
+      vertices.push(point[0] + nx * offset, height, point[1] + nz * offset);
+      uvs.push(distance / 18, side);
+    }
+    if (i < path.length) {
+      const j = i * 2;
+      indices.push(j, j + 1, j + 2, j + 2, j + 1, j + 3);
+    }
   }
-  const texture = new THREE.DataTexture(pixels, size, size, THREE.RGBAFormat);
-  texture.needsUpdate = true;
-  return texture;
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
 export class OverdubVisuals {
@@ -42,50 +59,29 @@ export class OverdubVisuals {
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.minFilter = THREE.LinearFilter;
-    this.mask = featherMask();
-    this.puddles = [];
+    this.texture.wrapS = THREE.MirroredRepeatWrapping;
+    this.roadWash = null;
+    this.roadFilm = null;
     this.windows = [];
 
-    const road = city.metadata?.stuntFixture?.line;
-    if (road) {
-      const positions = [
-        [road.approachX - 27, -3.8, 3.6, 1.3],
-        [road.approachX - 5, 3.7, 2.8, 1.1],
-        [road.rampX - 1, 3.8, 4.2, 1.5],
-        [road.rampX - 2, -4.1, 4.3, 1.55],
-        [road.landingX - 3, -3.8, 3.8, 1.35],
-        [road.landingX + 8, -3.8, 3.9, 1.4],
-        [road.landingX + 31, 3.8, 3.3, 1.2],
-      ];
-      for (const [x, z, width, depth] of positions) {
-        const material = new THREE.MeshBasicMaterial({
-          map: this.texture, alphaMap: this.mask, transparent: true,
-          depthWrite: false, side: THREE.DoubleSide, opacity: 0, color: 0xffffff,
-          blending: THREE.AdditiveBlending,
-        });
-        const mesh = new THREE.Mesh(new THREE.CircleGeometry(1, 48).rotateX(-Math.PI / 2), material);
-        mesh.name = 'Overdub puddle';
-        mesh.position.set(x, .078, z);
-        mesh.scale.set(width, 1, depth);
-        mesh.renderOrder = 2;
-        this.group.add(mesh);
-        this.puddles.push(mesh);
-        // A fine neon edge makes the cassette's presence legible even during
-        // a quiet passage of music; the MilkDrop image remains the fill.
-        const edge = new THREE.Mesh(
-          new THREE.RingGeometry(.91, 1, 64).rotateX(-Math.PI / 2),
-          new THREE.MeshBasicMaterial({ color: 0x41d8ec, transparent: true,
-            opacity: 0, depthWrite: false, side: THREE.DoubleSide,
-            blending: THREE.AdditiveBlending }),
-        );
-        edge.name = 'Overdub puddle edge';
-        edge.position.set(x, .082, z);
-        edge.scale.set(width, 1, depth);
-        edge.renderOrder = 3;
-        this.group.add(edge);
-        this.edges ??= [];
-        this.edges.push(edge);
-      }
+    if (city.metadata?.stuntFixture) {
+      const path = assemblyPath();
+      this.roadWash = new THREE.Mesh(
+        roadFilmGeometry(path, .058),
+        new THREE.MeshBasicMaterial({ color: 0x176b8a, transparent: true,
+          depthWrite: false, opacity: 0, side: THREE.DoubleSide,
+          blending: THREE.AdditiveBlending }),
+      );
+      this.roadWash.name = 'Overdub road wash';
+      this.group.add(this.roadWash);
+      this.roadFilm = new THREE.Mesh(
+        roadFilmGeometry(path, .063),
+        new THREE.MeshBasicMaterial({ map: this.texture, color: 0xd7f4ff,
+          transparent: true, depthWrite: false, opacity: 0,
+          side: THREE.DoubleSide, blending: THREE.AdditiveBlending }),
+      );
+      this.roadFilm.name = 'Overdub full-road visualizer';
+      this.group.add(this.roadFilm);
     }
 
     for (const [index, lot] of (city.metadata?.placements || [])
@@ -192,19 +188,19 @@ export class OverdubVisuals {
       }
     }
     const showImage = mode === 'full' && this.ready;
-    for (const mesh of [...this.puddles, ...this.windows]) {
-      const distance = Math.hypot(mesh.position.x - position.x, mesh.position.z - position.z);
-      const proximity = 1 - THREE.MathUtils.smoothstep(distance, 35, 65);
-      mesh.visible = showImage && proximity > 0;
-      mesh.material.opacity = mesh.name === 'Overdub puddle'
-        ? fade * proximity * (.55 + this.bass * .4)
-        : fade * proximity * (.27 + this.bass * .22);
+    if (this.roadWash) {
+      this.roadWash.visible = mode === 'full';
+      this.roadWash.material.opacity = fade * (.12 + this.bass * .1);
     }
-    for (const mesh of this.edges || []) {
+    if (this.roadFilm) {
+      this.roadFilm.visible = showImage;
+      this.roadFilm.material.opacity = fade * (.44 + this.bass * .24);
+    }
+    for (const mesh of this.windows) {
       const distance = Math.hypot(mesh.position.x - position.x, mesh.position.z - position.z);
       const proximity = 1 - THREE.MathUtils.smoothstep(distance, 35, 65);
       mesh.visible = showImage && proximity > 0;
-      mesh.material.opacity = fade * proximity * (.45 + this.bass * .45);
+      mesh.material.opacity = fade * proximity * (.27 + this.bass * .22);
     }
     if (this.ring.visible) {
       this.ringAge = Math.min(1, this.ringAge + dt / .95);
@@ -218,8 +214,7 @@ export class OverdubVisuals {
     if (this.audioNode && this.analyser) this.audioNode.disconnect(this.analyser);
     this.visualizer?.disconnectAudio?.(this.audioNode);
     this.texture.dispose();
-    this.mask.dispose();
-    for (const mesh of [...this.puddles, ...(this.edges || []), ...this.windows, this.ring]) {
+    for (const mesh of [this.roadWash, this.roadFilm, ...this.windows, this.ring].filter(Boolean)) {
       mesh.geometry.dispose();
       mesh.material.dispose();
     }

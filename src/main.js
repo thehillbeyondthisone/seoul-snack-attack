@@ -380,7 +380,7 @@ async function boot() {
     if (qp.get('overdub') === 'review') {
       overdubButton.dataset.visualReady = String(overdubVisuals.ready);
       overdubButton.dataset.visualFrames = String(overdubVisuals.frames);
-      overdubButton.dataset.puddleOpacity = String(overdubVisuals.puddles[2]?.material.opacity ?? 0);
+      overdubButton.dataset.roadOpacity = String(overdubVisuals.roadFilm?.material.opacity ?? 0);
       overdubButton.dataset.visualError = String(overdubVisuals.error || '');
     }
   };
@@ -415,6 +415,7 @@ async function boot() {
     overdubModeButton.addEventListener('click', () => {
       overdubMode = { full: 'gentle', gentle: 'off', off: 'full' }[overdubMode];
       localStorage.setItem('snack-attack-stunt-overdub-v1', overdubMode);
+      if (overdubMode === 'full' && overdub.active) overdubVisuals.prepare();
       refreshOverdubControls();
     });
     panel.append(tapeControls);

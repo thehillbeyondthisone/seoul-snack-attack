@@ -63,6 +63,7 @@ the graphics/weather/vehicle controls — or via the terminal: `npm run quicksta
 rebuild straight into the pocha's first-person cab; `C` toggles it in any mode).
 It closes only processes listening on port 5273, installs dependencies when
 needed, then starts the game on all local network interfaces and opens it.
+Use `http://<this-computer-LAN-IP>:5273/` from another device on the same LAN.
 
 ### Optional Overdub cassette (stunt prototype)
 
@@ -72,13 +73,14 @@ prototype panel button). Overdub spends one session-only charge for 30 seconds.
 Each newly earned drift, landing, or courier style award during that window
 gets a matching bonus at delivery; a completed delivery refills the charge.
 The **VISUALS** button cycles **Full / Gentle / Off**. Full lazily runs one
-MilkDrop preset through Butterchurn using the cassette mix; Gentle keeps the
-landing ripple; Off hides the visuals while keeping the same gameplay reward.
+MilkDrop preset through Butterchurn using the cassette mix. Its visual flows
+over the stunt road as one continuous, non-colliding layer beneath the route
+paint. Gentle keeps the landing ripple; Off hides the visuals while keeping
+the same gameplay reward.
 The regular game, save data and existing cassette selections are unchanged.
 For a reproducible visual check, add `&overdub=review` to spawn by the ramp
 and show the source canvas in the prototype panel. See
 [the Overdub plan](REACTIVE-CITY-POWERUP-PLAN.md) for the intended larger pass.
-Use `http://<this-computer-LAN-IP>:5273/` from another device on the same LAN.
 
 ### Stunt Delivery Prototype
 

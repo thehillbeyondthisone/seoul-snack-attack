@@ -1,10 +1,12 @@
 # Overdub — the city becomes the visualizer
 
-Design proposal · 2026-09-28 · researched against the current game source.
-This document is a plan; the powerup, dependencies and proposed review flags are not implemented.
+Design and implementation notes · 2026-09-28. The optional stunt powerup is
+implemented on `codex/overdub`; wider art direction and performance acceptance
+remain open. Player review replaced the isolated puddle circles with a single
+continuous road treatment.
 
 **A special cassette gives the courier thirty seconds inside a living mixtape.**
-Puddles open onto flowing colour, the upper windows answer the drums, and a
+The whole asphalt ribbon carries flowing colour, upper windows answer the drums, and a
 clean landing sends a ripple around the block. The player can still read the
 road, hit the ramp, leave the truck and find the delivery door.
 
@@ -16,7 +18,7 @@ appears, how strongly it appears, and how the courier's actions disturb it.
 
 | Candidate | Role in this project | Decision |
 | --- | --- | --- |
-| MilkDrop through Butterchurn | Browser implementation with an audio-node input, canvas output and preset blending | First implementation candidate |
+| MilkDrop through Butterchurn | Browser implementation with an audio-node input, canvas output and preset blending | Implemented in the stunt slice |
 | Acidspunk | Artistic reference for flowing, evolving compositions | Keep as a reference; a usable source licence and browser port were not established in this research |
 | projectM | MilkDrop-compatible C++ library with OpenGL rendering and an Emscripten build route | Reserve for a later native integration or a concrete Butterchurn limitation |
 
@@ -41,32 +43,32 @@ Choosing Butterchurn here is an engineering judgment based on this game's browse
 ## 2. What thirty seconds should feel like
 
 **0–2 seconds: the tape catches.** A small cassette click accompanies a soft
-wave travelling outward from the truck or courier. Nearby puddles acquire
-depth and moving ink. Window bays begin responding in sequence. Keep the
+wave travelling outward from the truck or courier. The road gains a restrained
+blue sheen and moving ink. Window bays begin responding in sequence. Keep the
 current song playing; Overdub is an effect cassette attached to the deck, not
 another soundtrack lane or a replacement song.
 
 **2–27 seconds: Seoul performs with you.** One coherent preset runs through
 the whole activation. Surface placement and the courier's actions provide
-variety. A local envelope follows the active player, strongest within roughly
-40 metres and fading out by 60 metres. Those distances are tuning proposals.
+variety. The road carries the effect continuously; selected window accents
+follow the active player, strongest within roughly 35 metres and fading by 65.
 
 | Surface or action | Response | What makes it readable |
 | --- | --- | --- |
-| Puddles and wet gutter strips | Actual MilkDrop imagery flows below a restrained surface sheen | Asphalt grain, lane paint and kerb edges stay visible |
+| Whole stunt road | One MilkDrop texture follows the exact road centreline with mirrored repeats and a restrained wash | Asphalt, ramp, lane paint and kerb edges stay visible |
 | Selected upper windows | Vertical samples of the same image move between window bays; midrange energy controls their brightness | Doorways, Hangul shop names and objective markers retain their normal treatment |
 | Sky above the roofline | A broad, slow ribbon carries the same visual flow across the skyline | The horizon stays level; the effect does not rotate the camera |
-| Bass hits | A soft ring travels across eligible ground surfaces from the player's position | Rounded pulses with limited brightness, not abrupt exposure changes |
+| Bass hits | A soft brightness wave travels through the road treatment | Rounded pulses with limited brightness, not abrupt exposure changes |
 | Controlled drift | A short luminous wake curls behind the truck and bends the nearby texture flow | It follows the driven path and fades promptly |
-| Ramp landing | A circular disturbance expands through puddles and window accents | Triggered by the landing event, even between musical beats |
+| Ramp landing | A brief disturbance expands across the road and window accents | Triggered by the landing event, even between musical beats |
 | Courier dive and recovery | A brief decorative echo follows the tumble; recovery gathers it back into the courier | The actual character remains crisp and fully visible |
 
 **27–30 seconds: the tape runs out.** Effects recede in reverse order. The last
-moving pattern lingers in a puddle before returning to the normal material.
+moving pattern lingers in the road before returning to the normal material.
 The powerup meter gives the exact expiry; visual fading never obscures it.
 
 These are the eventual layers. The first playable demonstration contains only
-**puddles, one window group and the landing ripple**. Sky ribbons, drift wakes
+**the whole road, one window group and the landing ripple**. Sky ribbons, drift wakes
 and character echoes follow only if that small scene feels good to drive.
 
 ## 3. A powerup with a simple benefit
@@ -145,16 +147,16 @@ Render the visualizer before the game samples its canvas in the same animation
 frame. Mark the Three.js texture dirty only when a new visualizer frame exists.
 Avoid CPU pixel readback, screenshots or image encoding in the frame loop.
 
-Register eligible surfaces explicitly in a small world adapter: puddle areas,
+Register eligible surfaces explicitly in a small world adapter: the stunt road,
 selected window bays and, later, sky decoration. The existing building assembly
 shares materials and uses instancing. Scope shader additions to registered
 batches and instance/world-space masks; cloning every building material would
 discard those savings. Verify the world-to-surface mapping across rotated lots.
 
-Sample the flow through wetness and surface masks. Use one shared texture with
-different UV projections and blends, not a separate visualizer for each facade.
-Where there are no puddles, window and action layers still provide the effect;
-do not change rain or tyre grip to create an artificial wet road.
+Use one shared texture with different UV projections and blends, not a separate
+visualizer for each facade. The road overlay follows the assembly centreline
+without entering collision data; do not change rain or tyre grip to create an
+artificial wet road.
 
 The current post chain is **scene → bloom → output** in
 [post.js](src/core/post.js). Keep the first version in scene materials so it
@@ -207,7 +209,7 @@ without interrupting music, orders or an already-active reward.
 
 **M0 — prove one genuine visualizer surface.** On the existing two-block stunt
 street, feed the current cassette mix to one pinned Butterchurn preset and show
-it in one puddle. Check Vite production packaging, any required WASM assets,
+it on the existing road. Check Vite production packaging, any required WASM assets,
 deployment base paths, audio unlock and canvas transfer. Record the exact preset,
 engine version, licence and baseline/active frame times. Gate: recognisable
 MilkDrop motion, unchanged sound, fresh frames and affordable transfer.
@@ -232,9 +234,8 @@ changes and illegible surfaces. Add sky/wake/character layers individually,
 keeping only those that improve the drive. Test physical controller use,
 day/night, wet/dry, mobile fallback, background return and repeated activations.
 
-Likely new modules: `src/core/music-features.js`,
-`src/render/visualizer-texture.js`, `src/world/reactive-city.js`, and
-`src/game/overdub-powerup.js`. Integrate through the existing Soundtrack,
+The first slice uses `src/world/overdub-visuals.js` and
+`src/game/overdub-powerup.js`. It integrates through the existing Soundtrack,
 StuntOrders/style payout, input, cassette/settings UI and main loop. Keep
 world-specific surface registration separate from powerup rules.
 
@@ -244,11 +245,12 @@ relevant code changes. Add a narrow visualizer browser check for texture updates
 fallback and lifecycle; use one foreground tab on real hardware for performance.
 Build and automated results remain separate from visual and player acceptance.
 
-First proposed review route:
+Current review route:
 `?world=pilot&building=stunt-block&gameplay=stunt&intro=off&overdub=review`.
-The `overdub` flag and a matching Night Tour entry are future work. Keep initial
-feature settings under an isolated `snack-attack-stunt-overdub-v1` key. Expand
+The flag is implemented; a matching Night Tour entry is future work. Keep
+feature settings under the isolated `snack-attack-stunt-overdub-v1` key. Expand
 to other cities after this route passes; preserve their saves and world data.
 
-**Current gate:** plan complete; M0 is the next implementation step. No game
-code, dependencies, custom models or saved defaults were changed for this plan.
+**Current gate:** user rejected the circular road portals; the continuous-road
+replacement is in browser review. M0–M2 functionality exists, but sustained
+performance, physical gamepad use and the broader M3 art pass remain open.

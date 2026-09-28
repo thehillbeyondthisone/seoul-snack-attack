@@ -1,5 +1,19 @@
 # 서울 스낵 어택 — Seoul Snack Attack — development handoff
 
+## 2026-09-28 — Overdub road treatment after player review
+
+The user confirmed the MilkDrop effect works but found the isolated circular
+road projections ugly and suggested using the whole road. The permanent puddle
+and edge meshes are removed. Full mode now lays one mirrored, audio-reactive
+canvas texture across the entire 12 m stunt road, matched to the assembly
+centreline, with a low blue wash beneath it. The overlay has no collision and
+sits below the cyan/gold stunt lane paint. Windows and the transient landing
+ripple remain; Gentle and Off still remove the full-road layer. The local
+chase-camera browser comparison showed a continuous colored road in Full and
+the original asphalt in Off, with no browser warnings. Switching from Off to
+Full during an active charge now prepares the visualizer immediately. Player
+feel, physical gamepad behavior and measured frame cost still need checking.
+
 ## 2026-09-28 — Overdub opt-in first slice
 
 Before changing the game, the 52-file stunt/Bamnae work-in-progress snapshot
