@@ -189,10 +189,20 @@ export class VehiclePhysics {
     // hubs below the road, where the downward suspension rays can never catch,
     // and fall through the world. Lift the drop to clear the lowest hub;
     // rigs that already clear it are unaffected.
+    //
+    // The clearance is measured from the GROUND, not from y = 0. It used to be
+    // `0.05 - lowestHub`, an absolute world height, which is the same thing
+    // only while the road is at zero — true of every world here until 밤내 put
+    // a valley floor at 3 m and a ridge at 100. There the clamp silently
+    // stopped applying, the pocha's hubs started 1.2 m under the road with
+    // their rays pointing into nothing, and it fell through the planet on
+    // spawn and on every reset. Flat worlds are unaffected: findGround returns
+    // ~0 and the arithmetic is what it always was.
     let dropY = position.y;
     if (this._initialized && this.wheels.length) {
       const lowestHub = Math.min(...this.wheels.map((w) => w.localPos.y + this.comOffset.y));
-      dropY = Math.max(dropY, 0.05 - lowestHub);
+      const groundY = this.world?.findGround?.(position.x, position.z)?.point.y ?? 0;
+      dropY = Math.max(dropY, groundY + 0.05 - lowestHub);
     }
     // Callers pass a model-origin position; convert to the CoM we integrate.
     this.position.copy(position).setY(dropY)

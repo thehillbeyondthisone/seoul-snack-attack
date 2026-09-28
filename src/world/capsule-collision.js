@@ -17,10 +17,14 @@ const _cellBox = new THREE.Box3();
 const _startPosition = new THREE.Vector3();
 const _horizontalCorrection = new THREE.Vector3();
 const _down = new THREE.Vector3(0, -1, 0);
+const _axisLocal = new THREE.Vector3();
 
-function capsuleWorldBox(position, height, radius, target) {
-  target.min.set(position.x - radius, position.y - 0.05, position.z - radius);
-  target.max.set(position.x + radius, position.y + height, position.z + radius);
+function capsuleWorldBox(position, height, radius, target, axis = null) {
+  const start = new THREE.Vector3(position.x, position.y + radius, position.z);
+  const end = axis ? start.clone().addScaledVector(axis, height - radius * 2)
+    : new THREE.Vector3(position.x, position.y + height - radius, position.z);
+  target.setFromPoints([start, end]).expandByScalar(radius);
+  target.min.y -= 0.05;
   return target;
 }
 
@@ -32,6 +36,7 @@ export function resolveCapsule(city, position, velocity, {
   height = 1.72,
   radius = 0.32,
   passes = 3,
+  axis = null,
 } = {}) {
   const grid = city.grid;
   const bvh = city.bvh;
@@ -44,7 +49,7 @@ export function resolveCapsule(city, position, velocity, {
 
   for (let pass = 0; pass < passes; pass++) {
     let movedThisPass = false;
-    capsuleWorldBox(position, height, radius, _worldBox);
+    capsuleWorldBox(position, height, radius, _worldBox, axis);
 
     for (let tile = 0; tile < grid.count; tile++) {
       if (!_cellBox.copy(grid.cellBounds[tile]).expandByScalar(radius).intersectsBox(_worldBox)) continue;
@@ -52,7 +57,9 @@ export function resolveCapsule(city, position, velocity, {
       const inverse = grid.inverses[tile];
       const matrix = grid.matrices[tile];
       _localSegment.start.set(position.x, position.y + radius, position.z).applyMatrix4(inverse);
-      _localSegment.end.set(position.x, position.y + height - radius, position.z).applyMatrix4(inverse);
+      _localSegment.end.copy(_localSegment.start);
+      if (axis) _localSegment.end.addScaledVector(_axisLocal.copy(axis).transformDirection(inverse), height - radius * 2);
+      else _localSegment.end.set(position.x, position.y + height - radius, position.z).applyMatrix4(inverse);
       _originalStart.copy(_localSegment.start);
       _segmentBox.setFromPoints([_localSegment.start, _localSegment.end]).expandByScalar(radius);
 
@@ -91,7 +98,7 @@ export function resolveCapsule(city, position, velocity, {
       const into = velocity.dot(normal);
       if (into < 0) velocity.addScaledVector(normal, -into);
       movedThisPass = true;
-      capsuleWorldBox(position, height, radius, _worldBox);
+      capsuleWorldBox(position, height, radius, _worldBox, axis);
     }
     if (!movedThisPass) break;
   }
@@ -121,6 +128,20 @@ export function resolveCapsule(city, position, velocity, {
   }
 
   return { grounded, contacts, correction: largestCorrection, ground };
+}
+
+/** Integrate and resolve each short travel slice, so a fast dive cannot skip a thin wall. */
+export function moveCapsuleSwept(city, position, velocity, dt, options = {}) {
+  const radius = options.radius ?? 0.32;
+  const slices = Math.min(16, Math.max(1, Math.ceil(velocity.length() * dt / (radius * 0.45))));
+  let result = null;
+  let contacts = 0;
+  for (let i = 0; i < slices; i++) {
+    position.addScaledVector(velocity, dt / slices);
+    result = resolveCapsule(city, position, velocity, options);
+    contacts += result.contacts;
+  }
+  return { ...result, contacts };
 }
 
 /** Check a candidate spawn without permanently moving the caller's vectors. */

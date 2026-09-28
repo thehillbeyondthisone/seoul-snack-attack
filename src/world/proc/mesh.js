@@ -253,7 +253,7 @@ function installUvScaleChunk(material, { withVariant = false } = {}) {
   material.customProgramCacheKey = () => withVariant ? 'uvScale_v2_variant' : 'uvScale_v2_roof';
 }
 
-export function buildCityMesh(layout, textures, seed = PROC_SEED, { detailIntensity = 1, decals = true } = {}) {
+export function buildCityMesh(layout, textures, seed = PROC_SEED, { detailIntensity = 1, decals = true, stunt = false } = {}) {
   const rng = mulberry32(seed ^ 0x51ed);
   const group = new THREE.Group();
   group.name = 'proc_city';
@@ -526,6 +526,19 @@ export function buildCityMesh(layout, textures, seed = PROC_SEED, { detailIntens
 
   const plaza = layout.plaza;
   appendBox(plazaVisual, { w: 26, h: 0.03, d: 26, x: plaza.x, y: ROAD_Y, z: plaza.z, uvTile: 2 });
+  if (stunt) {
+    // A shallow slab on the plaza's east side. Its lower lip meets the paving;
+    // visual and collision use the same transform before the BVH is built.
+    const ramp = new THREE.BoxGeometry(3.4, 0.34, 4.2);
+    ramp.rotateX(-0.14);
+    ramp.translate(plaza.x + 7.3, ROAD_Y + 0.31, plaza.z + 3.4);
+    collision.push(ramp.clone());
+    const rampMesh = new THREE.Mesh(ramp, new THREE.MeshStandardMaterial({
+      color: 0xd88736, roughness: 0.8, metalness: 0.04,
+    }));
+    rampMesh.name = 'stunt_plaza_ramp';
+    group.add(rampMesh);
+  }
 
   // ---- Roundabout island --------------------------------------------------
   const island = layout.roundabout;

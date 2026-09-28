@@ -385,12 +385,23 @@ export class FoodDisplay {
   followVehicle(position) {
     this._mode = 'vehicle';
     if (this.root.parent !== this.scene) this.scene.add(this.root);
+    this.root.scale.setScalar(1);
     if (position) this.root.position.copy(position).add(_vehicleHover);
+  }
+
+  followCourier(courier) {
+    this._mode = 'courier';
+    const bagRig = courier.userData.rig?.visual || courier;
+    if (this.root.parent !== bagRig) bagRig.add(this.root);
+    this.root.position.set(0, 1.06, -0.32);
+    this.root.rotation.y = 0;
+    this.root.scale.setScalar(0.23);
   }
 
   _moveToMarker() {
     this._mode = 'marker';
     if (this.root.parent !== this.marker) this.marker.add(this.root);
+    this.root.scale.setScalar(1);
     this.root.position.set(0, 0.55, 0);
   }
 

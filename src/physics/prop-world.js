@@ -24,6 +24,7 @@
 // ===========================================================================
 import * as THREE from 'three';
 import { boxInertia, cylinderInertia, obbOverlap, supportPoint } from './shapes.js';
+import { moveCapsuleSwept } from '../world/capsule-collision.js';
 
 const GRAVITY = -9.81;
 const CONTACT_SKIN = 0.04;   // m of allowed overlap before we push out
@@ -57,6 +58,7 @@ const _iw = new THREE.Vector3();
 const _corner = new THREE.Vector3();
 const _contact = new THREE.Vector3();
 const DOWN = new THREE.Vector3(0, -1, 0);
+const UP = new THREE.Vector3(0, 1, 0);
 
 let nextHandle = 1;
 
@@ -75,10 +77,12 @@ export class PropWorld {
     this.van = null;              // { half, position, quaternion, velocity, mass }
     this._vanReaction = { dv: new THREE.Vector3(), dw: new THREE.Vector3() };
     this._center = new THREE.Vector3();
+    this._activityCentres = [this._center];
     this._awakeScratch = [];
     this._rebuild = 0;
     this.enabled = true;
     this.propVsProp = true;
+    this.heldHandle = null;
   }
 
   /**
@@ -143,7 +147,11 @@ export class PropWorld {
     return handle;
   }
 
-  remove(handle) { this.bodies.delete(handle); this._rebuild = 0; }
+  remove(handle) {
+    if (this.heldHandle === handle) this.heldHandle = null;
+    this.bodies.delete(handle);
+    this._rebuild = 0;
+  }
 
   /** Force a body awake (settling a freshly placed prop, debug tools, tests). */
   wake(handle) {
@@ -188,6 +196,119 @@ export class PropWorld {
     this._center.copy(position);
   }
 
+  setActivityCentres(positions) {
+    if (!positions?.length) {
+      this._activityCentres.length = 1;
+      this._activityCentres[0] = this._center;
+      return;
+    }
+    for (let i = 0; i < positions.length; i++) {
+      if (!this._activityCentres[i] || this._activityCentres[i] === this._center) this._activityCentres[i] = new THREE.Vector3();
+      this._activityCentres[i].copy(positions[i]);
+    }
+    this._activityCentres.length = positions.length;
+  }
+
+  applyImpulse(handle, impulse) {
+    const b = this.bodies.get(handle);
+    if (!b || b.static) return false;
+    b.velocity.addScaledVector(impulse, b.invMass);
+    this._wake(b);
+    b.moved = true;
+    return true;
+  }
+
+  /** Find a small movable object in front of the courier. The static city is
+   * queried only for occlusion; movable props remain outside city.raycast(). */
+  findGrabCandidate(position, direction, range = 1.8) {
+    let best = null;
+    let bestDistance = range;
+    for (const b of this.bodies.values()) {
+      if (b.static || b.mass > 18 || b.handle === this.heldHandle) continue;
+      _v1.copy(b.position).sub(position);
+      if (Math.abs(_v1.y - 1) > 1.4) continue;
+      _v1.y = 0;
+      const distance = _v1.length();
+      if (distance < 0.15 || distance >= bestDistance) continue;
+      if (_v1.multiplyScalar(1 / distance).dot(direction) < 0.25) continue;
+      const eye = _v2.copy(position).addScaledVector(UP, 1.05);
+      const toward = _v3.copy(b.position).sub(eye);
+      const length = toward.length();
+      if (length > 0.01 && this.world.raycast?.(eye, toward.divideScalar(length), length - 0.08)) continue;
+      best = { handle: b.handle, mass: b.mass, key: b.userData, distance };
+      bestDistance = distance;
+    }
+    return best;
+  }
+
+  grab(handle) {
+    const b = this.bodies.get(handle);
+    if (this.heldHandle != null || !b || b.static || b.mass > 18) return false;
+    this.heldHandle = handle;
+    this._wake(b);
+    return true;
+  }
+
+  /** Pull with a capped spring. The held body's sphere sweep in step() stops
+   * it at walls while the rest of the prop solver handles ground and van hits. */
+  holdAt(handle, target, dt) {
+    if (this.heldHandle !== handle) return false;
+    const b = this.bodies.get(handle);
+    if (!b) { this.heldHandle = null; return false; }
+    _v1.copy(target).sub(b.position);
+    if (_v1.lengthSq() > 9) { this.releaseHeld(); return false; }
+    _v1.multiplyScalar(5).clampLength(0, 7);
+    b.velocity.lerp(_v1, Math.min(1, dt * 18));
+    b.angularVelocity.multiplyScalar(Math.max(0, 1 - dt * 8));
+    this._wake(b);
+    return true;
+  }
+
+  releaseHeld(throwDirection = null) {
+    const b = this.bodies.get(this.heldHandle);
+    this.heldHandle = null;
+    if (!b) return false;
+    if (throwDirection) {
+      _v1.copy(throwDirection).normalize().multiplyScalar(b.mass * 6);
+      this.applyImpulse(b.handle, _v1);
+    }
+    return true;
+  }
+
+  shove(position, direction, range = 1.6) {
+    let count = 0;
+    for (const b of this.bodies.values()) {
+      if (b.static) continue;
+      const delta = b.position.clone().sub(position);
+      delta.y = 0;
+      const distance = delta.length();
+      if (distance > range + b.half.length() || distance < 0.01) continue;
+      if (delta.normalize().dot(direction) < 0.35) continue;
+      if (this.applyImpulse(b.handle, direction.clone().multiplyScalar(38))) count++;
+    }
+    return count;
+  }
+
+  contactCharacter(position, velocity, radius = 0.42, dt = 1 / 120) {
+    let contacts = 0;
+    for (const b of this.bodies.values()) {
+      if (b.static) continue;
+      b.characterCooldown = Math.max(0, (b.characterCooldown || 0) - dt);
+      if (b.characterCooldown > 0) continue;
+      const delta = b.position.clone().sub(position).setY(0);
+      const reach = radius + Math.max(b.half.x, b.half.z);
+      if (delta.lengthSq() > reach * reach || Math.abs(b.position.y - position.y) > b.half.y + 1) continue;
+      const normal = delta.lengthSq() > 1e-6 ? delta.normalize() : new THREE.Vector3(0, 0, 1);
+      const closing = velocity.dot(normal);
+      if (closing <= 0.5) continue;
+      this.applyImpulse(b.handle, normal.multiplyScalar(Math.min(100, b.mass * closing * 0.7)));
+      b.characterCooldown = 0.18;
+      velocity.multiplyScalar(0.78);
+      contacts++;
+    }
+    return contacts;
+  }
+
   /** Drain the accumulated van reaction into VehiclePhysics. */
   applyVanReaction(phys) {
     const { dv, dw } = this._vanReaction;
@@ -223,7 +344,12 @@ export class PropWorld {
 
       // --- integrate forces ------------------------------------------------
       b.velocity.y += this.gravity * dt;
-      b.position.addScaledVector(b.velocity, dt);
+      if (b.handle === this.heldHandle && this.world.grid && this.world.bvh) {
+        const radius = Math.max(b.half.x, b.half.y, b.half.z);
+        _v3.copy(b.position).addScaledVector(DOWN, radius);
+        moveCapsuleSwept(this.world, _v3, b.velocity, dt, { height: radius * 2, radius });
+        b.position.copy(_v3).addScaledVector(UP, radius);
+      } else b.position.addScaledVector(b.velocity, dt);
       // dq = 0.5 * omega * q — same integrator as VehiclePhysics.
       _q.set(b.angularVelocity.x * dt * 0.5, b.angularVelocity.y * dt * 0.5, b.angularVelocity.z * dt * 0.5, 1)
         .multiply(b.quaternion);
@@ -237,7 +363,7 @@ export class PropWorld {
       b.moved = true;
 
       if (this.world.killY != null && b.position.y < this.world.killY) this._goHome(b);
-      this._maybeSleep(b, dt);
+      if (b.handle !== this.heldHandle) this._maybeSleep(b, dt);
     }
 
     if (this.van) this._vanContacts(dt);
@@ -440,13 +566,15 @@ export class PropWorld {
   // ---- activity management ---------------------------------------------------
 
   _refreshActive() {
-    const c = this._center;
     const r2 = SIM_RADIUS * SIM_RADIUS;
     this.active.length = 0;
     for (const b of this.bodies.values()) {
-      const dx = b.position.x - c.x;
-      const dz = b.position.z - c.z;
-      if (dx * dx + dz * dz > r2) {
+      const nearby = this._activityCentres.some((c) => {
+        const dx = b.position.x - c.x;
+        const dz = b.position.z - c.z;
+        return dx * dx + dz * dz <= r2;
+      });
+      if (!nearby) {
         if (!b.static && b.awake) { b.awake = false; b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); }
         continue;
       }
@@ -461,10 +589,11 @@ export class PropWorld {
   }
 
   _maybeWake(b) {
-    if (!this.van) return;
-    const dx = b.position.x - this.van.position.x;
-    const dz = b.position.z - this.van.position.z;
-    if (dx * dx + dz * dz < WAKE_RADIUS * WAKE_RADIUS) this._wake(b);
+    if (this._activityCentres.some((c) => {
+      const dx = b.position.x - c.x;
+      const dz = b.position.z - c.z;
+      return dx * dx + dz * dz < WAKE_RADIUS * WAKE_RADIUS;
+    })) this._wake(b);
   }
 
   _maybeSleep(b, dt) {
@@ -525,5 +654,8 @@ export class PropWorld {
     b.invInertia.set(1 / I.x, 1 / I.y, 1 / I.z);
   }
 
-  resetAll() { for (const b of this.bodies.values()) if (!b.static) this._goHome(b); }
+  resetAll() {
+    this.heldHandle = null;
+    for (const b of this.bodies.values()) if (!b.static) this._goHome(b);
+  }
 }

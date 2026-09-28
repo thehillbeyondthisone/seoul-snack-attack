@@ -52,18 +52,49 @@ npm run preview    # serve the production build locally
 
 ### Windows Quick Start
 
-Double-click [Quick Start.cmd](Quick%20Start.cmd) and choose one of three: play
-the current rebuild (`?world=expanse2`), the previous Expanse, or the classic
-procedural circuit. It defaults to the current game after 15 seconds.
+Double-click [Quick Start.cmd](Quick%20Start.cmd) and choose the current rebuild
+(`?world=expanse2`), the previous Expanse, the classic procedural circuit, or
+**[4] Stunt Delivery Prototype**. It defaults to the current game after 15 seconds.
 
 Everything else is in-game — **Escape** (or F3) opens **설정 · Settings**, and
 the **튜닝 메뉴 · Tuning menu** inside it has a **도시 · World** switcher and all
 the graphics/weather/vehicle controls — or via the terminal: `npm run quickstart -- --launch=<name>`, where `<name>` is
-`expanse-review`, `expanse-mobile`, `plan`, `expanse2`, or `cockpit` (boots the
+`expanse-review`, `expanse-mobile`, `plan`, `expanse2`, `stunt`, or `cockpit` (boots the
 rebuild straight into the pocha's first-person cab; `C` toggles it in any mode).
 It closes only processes listening on port 5273, installs dependencies when
 needed, then starts the game on all local network interfaces and opens it.
 Use `http://<this-computer-LAN-IP>:5273/` from another device on the same LAN.
+
+### Stunt Delivery Prototype
+
+Launch with Quick Start **[4]**, the Night Tour's **Stunt Delivery Prototype**
+entry, or `?world=pilot&building=stunt-block&gameplay=stunt&intro=off` on the local dev server. This
+isolated two-block Blender test street starts in the pocha truck with its own handling,
+save, and tuning settings. The regular game remains available from the small
+prototype panel's **Regular game** link.
+
+Accept the fixed Patchwork Pocha order with **E** (Xbox **X**), drive to the shop, exit
+with **F** (**B**), and collect on foot within two metres. Drive to Cloud Dumpling in the second block,
+exit, and deliver on foot. The timer starts at collection.
+The small ring at each shop door shows the two-metre interaction area; press **E** or **X**
+when the nearby prompt says **Collect order** or **Deliver order**. Being in the truck or
+walking up to the tall beacon alone does not complete the interaction.
+
+The result shows base pay, time tip, and three possible style bonuses; choose **Repeat delivery**
+or **Free play**. The panel's **Restart prototype** button restores the starting
+truck, courier, props, and order without reloading the city.
+
+On foot, **Shift/RB** sprints, **Space/A** jumps or recovers from a tumble,
+**Q/LT** dives, **G/RT** shoves, **H/D-pad down** grabs or throws a nearby movable
+object, and **R/Y** resets the courier. The object follows with physical lag and
+stops at walls; diving, entering the truck, or resetting releases it. Driving controls
+retain their usual bindings. For a quick prop test, open Debug (`) → Vehicle →
+**Stunt prop playground**; the courier starts beside a light cone with a grab
+prompt. After pickup, the **cyan/right lane** runs through
+the ramp and two knockable objects; the **gold/left lane** stays clear. The panel
+tracks controlled drift, ramp landing, and courier recovery as they earn style
+pay. Press **F/B while moving** to bail out in this prototype, then **Space/A**
+to recover. The gap has six knockable objects in total. [Ramp preview](tools/blender/previews/stunt-plaza-ramp.png).
 
 The live `?world=expanse` mode is currently the last validated 25-node/35-edge,
 1,000 × 720 m playable city. A trial that directly substituted the separate

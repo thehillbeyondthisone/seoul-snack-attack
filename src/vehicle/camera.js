@@ -44,6 +44,8 @@ export class ChaseCamera {
     this.orbitYaw = 0;
     this.orbitPitch = 0;
     this.angleIndex = savedAngleIndex();
+    this.followRate = 5.5;
+    this.lookRate = 9;
     this._initialized = false;
 
     this._fwd = new THREE.Vector3();
@@ -143,8 +145,8 @@ export class ChaseCamera {
       this._initialized = true;
     } else {
       // Exponential damping; look point tracks tighter than position.
-      const kp = 1 - Math.exp(-dt * 5.5);
-      const kl = 1 - Math.exp(-dt * 9.0);
+      const kp = 1 - Math.exp(-dt * this.followRate);
+      const kl = 1 - Math.exp(-dt * this.lookRate);
       this.pos.lerp(this._desired, kp);
       this.look.lerp(this._lookTarget, kl);
     }

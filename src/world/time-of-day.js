@@ -50,7 +50,11 @@ export function createTimeOfDay({ scene, renderer, city, van, post, rain, initia
     const params = city.nightRig.params;
     city.nightRig.apply();
     // Rain owns the live fog multiplier, so its base must move with the preset.
-    rain.baseFog = params.fogDensity;
+    // Read what the rig APPLIED, not what the preset asked for: a world can
+    // scale fog for its own sightlines (createNightRig's `fogScale`), and
+    // taking the raw preset here silently threw 밤내's scale away every time
+    // the clock moved — the valley re-fogged itself back to city density.
+    rain.baseFog = city.nightRig.fog.density;
 
     const streetlights = city.lights.streetlights;
     streetlights.intensity = params.lampIntensity;

@@ -13,10 +13,11 @@ import { SNACK_STREET_RESTAURANTS } from '../game/data/restaurants.js';
 export async function loadBuildingPilot(scene, manager, renderer, onPhase) {
   const started = performance.now();
   const requested=new URLSearchParams(location.search).get('building');
-  const assembly=requested==='street-assembly';
+  const stuntBlock=requested==='stunt-block';
+  const assembly=requested==='street-assembly'||stuntBlock;
   const assetId=BUILDINGS.find(b=>b.id===requested)?.id||BUILDINGS[0].id;
   onPhase?.(20, 'Loading building');
-  const loaded=assembly?await (await import('./building-assembly.js')).loadAssembly(manager,renderer):null;
+  const loaded=assembly?await (await import('./building-assembly.js')).loadAssembly(manager,renderer,{stuntBlock}):null;
   const [gltf, response] = loaded?[loaded.gltf,null]:await Promise.all([
     new GLTFLoader(manager).loadAsync(`assets/world/${assetId}.glb`),
     fetch(`assets/world/${assetId}.json`),
@@ -102,7 +103,7 @@ export async function loadBuildingPilot(scene, manager, renderer, onPhase) {
   // One bounded sun shadow is part of this pilot's measured quality cost.
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   nightRig.moon.castShadow=true;nightRig.moon.shadow.mapSize.set(2048,2048);
-  const shadowExtent=assembly?65:24;
+  const shadowExtent=stuntBlock?100:assembly?65:24;
   Object.assign(nightRig.moon.shadow.camera,{left:-shadowExtent,right:shadowExtent,top:shadowExtent,bottom:-shadowExtent,near:1,far:360});
   nightRig.moon.shadow.bias=-.00015;nightRig.moon.shadow.normalBias=.025;
   group.traverse(o=>{if(o.isMesh){o.castShadow=!o.material?.transparent;o.receiveShadow=true;}});

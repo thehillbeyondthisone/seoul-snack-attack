@@ -10,6 +10,7 @@ import { loadCity } from './world/city.js';
 import { loadProcCity } from './world/proc/city.js';
 import { loadExpanseCity } from './world/expanse-city.js';
 import { loadExpanse2City } from './world/expanse2-city.js';
+import { loadTownCity } from './world/town-city.js';
 import { loadBuildingPilot } from './world/building-pilot.js';
 import { loadExpanseProps } from './world/expanse-props.js';
 import { loadDistrictDressing } from './world/district-dressing.js';
@@ -20,9 +21,10 @@ import { Rain } from './world/rain.js';
 import { loadVan } from './vehicle/van.js';
 import { loadVehicle } from './vehicle/vehicle.js';
 import { VehiclePhysics, DEFAULT_PARAMS } from './vehicle/physics.js';
+import { STUNT_POCHA_PARAMS } from './vehicle/stunt-profile.js';
 import { getVehicle, VEHICLE_IDS, DEFAULT_VEHICLE } from './game/data/vehicles.js';
 import { soundtrackTracks, diveTrack } from './game/data/soundtrack.js';
-import { loadSave } from './game/save.js';
+import { loadSave, STUNT_SAVE_KEY } from './game/save.js';
 import { ChaseCamera } from './vehicle/camera.js';
 import { CockpitCamera } from './vehicle/cockpit-camera.js';
 import { loadInterior } from './vehicle/interior.js';
@@ -31,6 +33,7 @@ import { ABYSS_DEPTH_M } from './world/abyss.js';
 import { PlayerCharacter } from './character/controller.js';
 import { OnFootCamera } from './character/camera.js';
 import { Orders } from './game/orders.js';
+import { StuntOrders } from './game/stunt-orders.js';
 import { startFoodBackgroundWarmup } from './game/food-display.js';
 import { HUD3 } from './ui/hud3.js';
 import { CityMap } from './ui/city-map.js';
@@ -105,13 +108,18 @@ loadretry.addEventListener('click', () => location.reload());
 
 async function boot() {
   const qp = new URLSearchParams(location.search);
+  const gameplayProfile = qp.get('gameplay') === 'stunt'
+    && ((qp.get('world') === 'pilot' && qp.get('building') === 'stunt-block') || qp.get('world') === 'proc')
+    ? 'stunt' : 'normal';
+  const stunt = gameplayProfile === 'stunt';
+  const saveKey = stunt ? STUNT_SAVE_KEY : undefined;
   setLoadingProgress(2, '렌더러 시작 중 · Starting renderer');
 
   // ---- Which vehicle -------------------------------------------------------
   // ?car= remains an unrestricted test override. Normal boot uses the player's
   // selected owned vehicle; a fresh save starts with the hero pocha truck.
-  const playerSave = loadSave();
-  const requestedCarId = qp.get('car') ?? playerSave.vehicle ?? DEFAULT_VEHICLE;
+  const playerSave = loadSave(saveKey);
+  const requestedCarId = stunt ? 'pocha' : qp.get('car') ?? playerSave.vehicle ?? DEFAULT_VEHICLE;
   const carId = VEHICLE_IDS.includes(requestedCarId) ? requestedCarId : DEFAULT_VEHICLE;
   if (carId !== requestedCarId) {
     console.warn(`?car=${requestedCarId} is not a known vehicle (have: ${VEHICLE_IDS.join(', ')}); using ${DEFAULT_VEHICLE}`);
@@ -126,7 +134,7 @@ async function boot() {
   // and promoted only at M6 (see CITY-REBUILD.md). `?world=block` keeps the
   // authored repeating Seoul block available for regression comparison.
   const requestedWorld = qp.get('world');
-  const worldId = ['proc', 'block', 'expanse', 'expanse2', 'pilot'].includes(requestedWorld)
+  const worldId = ['proc', 'block', 'expanse', 'expanse2', 'pilot', 'town'].includes(requestedWorld)
     ? requestedWorld
     : 'expanse2';
   // Both kilometre-scale worlds need the far plane pushed out or the ring
@@ -137,12 +145,24 @@ async function boot() {
     // frustum while leaving the normal city's depth precision unchanged.
     camera.far = 1600;
     camera.updateProjectionMatrix();
+  } else if (worldId === 'town') {
+    // 밤내 is only 720 m across including its margin, but the ridge behind it
+    // tops out over 100 m and is the thing you are meant to see from the far
+    // end of 중앙로. A 1 km far plane would clip the skyline off the world.
+    camera.far = 1400;
+    camera.updateProjectionMatrix();
   }
   const [city, firstVehicle] = await Promise.all([
     worldId === 'pilot'
       ? loadBuildingPilot(scene, manager, renderer, setLoadingProgress)
       : worldId === 'block'
       ? loadCity(scene, manager, 'assets/world/seoul-block.glb', renderer, setLoadingProgress)
+      : worldId === 'town'
+        // T1: valley, water and roads. No plots, no buildings, no props — the
+        // surface pool is the only texture work it does. See TOWN-BUILD.md.
+        ? loadTownCity(scene, manager, renderer, setLoadingProgress, {
+          detailIntensity: graphicsQuality.profile.detailIntensity,
+        })
       : worldId === 'expanse'
         ? loadExpanseCity(scene, manager, renderer, setLoadingProgress)
       : worldId === 'expanse2'
@@ -160,6 +180,7 @@ async function boot() {
       : loadProcCity(scene, manager, renderer, setLoadingProgress, undefined, {
         // Detail-map bump strength scales with the gfx profile (mobile dials it down).
         detailIntensity: graphicsQuality.profile.detailIntensity,
+        stunt,
       }),
     // Assets built through tools/build-vehicle.mjs carry a baked rig and go
     // through the thin loader; the van is still on its runtime heuristics.
@@ -176,7 +197,7 @@ async function boot() {
   // Authored-block dressing is only for `?world=block`. The procedural city
   // labels shops with Hangul neon from the colour bible.
   let district = null;
-  if (worldId === 'proc' || worldId === 'pilot' || kilometreWorld) {
+  if (worldId === 'proc' || worldId === 'pilot' || worldId === 'town' || kilometreWorld) {
     console.log(
       `world: ${worldId} — ${city.stats.buildings} buildings, ` +
       `${city.pickupSites?.length || 0} labelled shops, ` +
@@ -212,11 +233,13 @@ async function boot() {
     collisionHalf: vehicleDef.collisionHalf,
     bumperY: vehicleDef.bumperY,
   });
+  if (stunt) Object.assign(phys.params, STUNT_POCHA_PARAMS);
   phys.attach(van);
   phys.place(city.spawn.position, city.spawn.heading);
   scene.add(van.group);
 
   const chaseCam = new ChaseCamera(camera, city);
+  if (stunt) { chaseCam.followRate = 6.2; chaseCam.lookRate = 10; }
   chaseCam.snapTo(phys);
 
   // ---- Cockpit view --------------------------------------------------------
@@ -318,6 +341,7 @@ async function boot() {
   const player = new PlayerCharacter({
     scene, city, phys, hud,
     getVehicleDef: () => vehicleDef,
+    gameplayProfile,
   });
   const onFootCam = new OnFootCamera(camera, city);
   player.onModeChange = (mode) => {
@@ -333,7 +357,21 @@ async function boot() {
       onFootCam.setHeading(player.heading);
     }
   };
-  const orders = new Orders({ scene, city, phys, hud, camera, audio, player });
+  const orders = new (stunt ? StuntOrders : Orders)({ scene, city, phys, hud, camera, audio, player, gameplayProfile, saveKey });
+  if (stunt) player.stuntCompleted = () => orders.courierRecovered();
+  if (stunt) orders.onLanding = (severity) => {
+    chaseCam.onCrash(severity);
+    audio.event('impact', severity);
+  };
+  if (stunt) {
+    const panel = document.createElement('div');
+    panel.id = 'stunt-prototype-controls';
+    panel.style.cssText = 'position:fixed;left:16px;top:16px;z-index:45;padding:9px 11px;background:#07131ddf;color:#eef4ff;border:1px solid #29e6ff;border-radius:5px;font:12px Segoe UI';
+    panel.innerHTML = '<strong>STUNT DELIVERY PROTOTYPE</strong><br>E / X use at door · F / B exit or bail<br>Q / LT dive · G / RT shove · H / D-down grab or throw<br>Space / A recover · <button data-restart>Restart prototype</button> <a data-regular href="?world=expanse2&intro=off" style="color:#29e6ff">Regular game</a>';
+    panel.querySelector('[data-restart]').addEventListener('click', () => restartPrototype());
+    panel.append(orders.stylePanel);
+    document.body.append(panel);
+  }
   orders.onTruckMakeover = enabled => van.makeover?.setEnabled(enabled);
   van.makeover?.setEnabled(orders.save.truckMakeover);
   orders.onProgress = (deliveries) => timeOfDay.setDeliveries(deliveries);
@@ -498,7 +536,8 @@ async function boot() {
   // `?debug=off` opts out, for a build handed to someone outside the team.
   const debugEnabled = qp.get('debug') !== 'off';
   const debug = debugEnabled
-    ? initDebug({ orders, rain, phys, post, van, cam: chaseCam, city, scene, timeOfDay, vehicleDef, hud })
+    ? initDebug({ orders, rain, phys, player, onFootCam, post, van, cam: chaseCam, city, scene, timeOfDay, vehicleDef, hud, gameplayProfile,
+      restartPrototype: stunt ? () => restartPrototype() : null })
     : { toggle() {}, update() {}, attachProps() {}, setEnglishMode() {}, visible: false };
 
   // Old saved debug lighting cannot pin the delivery cycle to permanent night.
@@ -541,6 +580,18 @@ async function boot() {
   const warmQueue = [];
 
   let props = null;
+  function restartPrototype() {
+    if (!stunt) return;
+    phys.place(city.spawn.position, city.spawn.heading);
+    phys.steerAngle = 0;
+    player.velocity.set(0, 0, 0);
+    player.stuntTime = 0;
+    player.state = 'driving';
+    player._setMode('driving');
+    props?.reset();
+    orders.restartPrototype();
+    chaseCam.snapTo(phys);
+  }
   const propMode = qp.get('props');
   const richExpanse = worldId === 'expanse'
     && city.expanseData?.layout?.source === 'seoul-expanse-authoring-contract';
@@ -549,16 +600,18 @@ async function boot() {
   // layoutWorld() scanner is never invoked over the kilometre-scale map — and
   // the M3 rebuild has no prop pass at all yet, so `?world=expanse2` opts out
   // of it entirely rather than dragging the compact scanner over a kilometre.
-  const greyboxRebuild = (worldId === 'expanse2' || worldId === 'pilot') && propMode !== 'gallery';
+  const greyboxRebuild = (worldId === 'expanse2' || (worldId === 'pilot' && !stunt) || worldId === 'town')
+    && propMode !== 'gallery';
   if (propMode !== 'off' && !greyboxRebuild && (!richExpanse || propMode === 'gallery')) {
     const loader = propMode === 'gallery'
       ? loadProps(scene, city, { mode: 'gallery', density: 1 })
       : worldId === 'expanse'
         ? loadExpanseProps(scene, city, { density: graphicsQuality.profile.propDensity })
-        : loadProps(scene, city, { mode: 'world', density: graphicsQuality.profile.propDensity });
+      : loadProps(scene, city, { mode: stunt ? 'stunt' : 'world', density: graphicsQuality.profile.propDensity });
     loader
       .then((p) => {
         props = p;
+        if (stunt) player.propFacade = p;
         p.world.setVehicle({
           half: new THREE.Vector3(
             vehicleDef.collisionHalf.x, vehicleDef.collisionHalf.y, vehicleDef.collisionHalf.z,
@@ -569,6 +622,7 @@ async function boot() {
         p.world.onImpact = (handle, impulse, point) => {
           const severity = impulse / phys.params.mass;
           if (severity > 1.2) phys.onCrash?.(severity, point);
+          if (stunt) orders.propImpact(severity);
         };
         // Real streetlamp props are better anchors than sampled road points.
         if (p.lampAnchors.length >= 8) city.lights.streetlights.setAnchors(p.lampAnchors);
@@ -613,7 +667,8 @@ async function boot() {
   renderer.domElement.addEventListener('pointerdown', (event) => {
     if (event.pointerType === 'touch') return;
     if (!overview && !document.pointerLockElement && !onboardingPaused && !garagePaused && !mapPaused && !settingsPaused && !cassettePaused) {
-      renderer.domElement.requestPointerLock?.();
+      try { renderer.domElement.requestPointerLock?.()?.catch?.(() => {}); }
+      catch { /* browser may reject pointer lock during a tab/document transition */ }
     }
   });
   // On-screen physics/spawn readout. It used to be `?stats=1` and nothing else,
@@ -815,7 +870,8 @@ async function boot() {
     preparation.textureUploadMs = performance.now() - preparation.startedMs;
     preparation.textures = textures.size;
   }
-  if ((worldId === 'expanse2' || worldId === 'pilot') && renderer.extensions.has('KHR_parallel_shader_compile')) {
+  if ((worldId === 'expanse2' || worldId === 'pilot' || worldId === 'town')
+    && renderer.extensions.has('KHR_parallel_shader_compile')) {
     setLoadingProgress(98, '셰이더 준비 중 · Preparing shaders');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const target = renderer.getRenderTarget();
@@ -941,14 +997,17 @@ async function boot() {
       drive.controls.handbrake = !player.isDriving;
     }
 
-    if (!garagePaused && !mapPaused && !settingsPaused && !cassettePaused && input.pressed('interact')) {
-      if (player.isDriving) player.exitVehicle();
+    if (!garagePaused && !mapPaused && !settingsPaused && !cassettePaused && orders.state !== 'result' && input.pressed('interact')) {
+      if (player.isDriving) {
+        if (stunt && phys.speedKmh > 10) player.bailVehicle();
+        else player.exitVehicle();
+      }
       else if (player.mode === 'onFoot') player.beginEnterVehicle();
     }
 
     // Fixed-step physics. Props run on the SAME accumulator, so the van's pose
     // is current before contacts are found and its reaction is drained after.
-    if (!backgroundPaused && !onboardingPaused && !garagePaused && !mapPaused && !settingsPaused && !cassettePaused) acc += dt;
+    if (!backgroundPaused && !onboardingPaused && !garagePaused && !mapPaused && !settingsPaused && !cassettePaused && orders.state !== 'result') acc += dt;
     else acc = 0;
     let steps = 0;
     const footForward = onFootCam.forward;
@@ -964,9 +1023,11 @@ async function boot() {
       // chasing the truck down the hole.
       if (props && !dive.suspendRoadPhysics) {
         props.world.setVehiclePose(phys.position, phys.quaternion, phys.velocity, phys.angularVelocity);
+        if (stunt) props.world.setActivityCentres([phys.position, player.position]);
         props.world.step(FIXED);
         props.world.applyVanReaction(phys);
       }
+      if (stunt) orders.sampleDriving(FIXED);
       acc -= FIXED;
       steps++;
     }
@@ -1039,20 +1100,25 @@ async function boot() {
       else chaseCam.update(dt, rig, lookAxes);
       dive.afterCamera(dt, camera);
     }
-    player.updateVisual(dt);
+    player.updateVisual(orders.paused || orders.state === 'result' ? 0 : dt);
     // Surface-city systems. The city is hidden while the dive owns the camera,
     // so its chunk culling and streetlight pool have nothing to decide, and the
     // delivery loop's navigation would be routing a submarine along a road.
     if (!dive.suspendRoadPhysics) {
-      if (!orders.paused) timeOfDay.update(dt);
+      if (!orders.paused && orders.state !== 'result') timeOfDay.update(dt);
       city.update(dt, camera);
       rain.update(dt, camera);
       orders.update(dt, input);
     }
     const rainAmount = rain.level === 'heavy' ? 1 : rain.level === 'light' ? 0.48 : 0;
+    const lateralSlip = stunt ? (() => {
+      const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(rig.quaternion);
+      return Math.abs(forward.x * rig.velocity.z - forward.z * rig.velocity.x);
+    })() : 0;
     const skid = Math.min(1, Math.max(
       rig.controls.handbrake ? 0.75 : 0,
-      rig.speedKmh > 18 ? Math.abs(rig.latG) * 0.9 : 0
+      rig.speedKmh > 18 ? Math.abs(rig.latG) * 0.9 : 0,
+      lateralSlip > 1.5 ? lateralSlip / 7 : 0,
     ));
     audio.update({
       speed: player.isDriving && !mapPaused ? rig.forwardSpeed : 0,

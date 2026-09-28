@@ -39,6 +39,9 @@ check('mobile launch profile resolves its graphics hook',
   resolveLaunchProfile(['--launch=expanse-mobile']).path.includes('gfx=mobile'), true);
 check('classic launch profile preserves the procedural world',
   resolveLaunchProfile(['--launch=classic']).path.includes('world=proc'), true);
+check('stunt launch profile uses the two-block Blender test street',
+  resolveLaunchProfile(['--launch=stunt']).path,
+  '/?world=pilot&building=stunt-block&gameplay=stunt&intro=off');
 check('city-plan launch profile opens the reviewable plan',
   resolveLaunchProfile(['--launch=plan']).path.includes('expanse-city-plan'), true);
 check('rebuild launch profile drives the rebuild, not the live Expanse',

@@ -4,6 +4,7 @@ import { SOUNDTRACK } from './data/soundtrack.js';
 import { deliveryCount } from './day-progress.js';
 
 export const SAVE_KEY = 'snack-attack-save';
+export const STUNT_SAVE_KEY = 'snack-attack-stunt-save-v1';
 
 export const DEFAULT_SAVE = Object.freeze({
   cash: 0,
@@ -16,9 +17,9 @@ export const DEFAULT_SAVE = Object.freeze({
   owned: ['van', DEFAULT_VEHICLE],
 });
 
-export function loadSave() {
+export function loadSave(key = SAVE_KEY) {
   try {
-    const value = JSON.parse(localStorage.getItem(SAVE_KEY));
+    const value = JSON.parse(localStorage.getItem(key));
     if (value && typeof value.cash === 'number') {
       const save = { ...DEFAULT_SAVE, ...value };
       save.deliveries = deliveryCount(save.deliveries);
@@ -43,6 +44,6 @@ export function loadSave() {
   return { ...DEFAULT_SAVE, ratings: [], unlockedTapes: [], owned: ['van', DEFAULT_VEHICLE] };
 }
 
-export function persistSave(save) {
-  localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+export function persistSave(save, key = SAVE_KEY) {
+  localStorage.setItem(key, JSON.stringify(save));
 }

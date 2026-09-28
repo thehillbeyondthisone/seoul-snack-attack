@@ -12,6 +12,28 @@ export const SNACK_STREET_SHOPS = [
   {id:'moon-hotteok',entranceId:'north-3'},
   {id:'cloud-dumpling',entranceId:'south-1'},
 ];
+export const STUNT_BLOCK_DROPOFF_ID = 'east-south-1';
+export const STUNT_LINE = Object.freeze({
+  approachX: -31, rampX: 0, rampZ: 3.4, landingX: 13,
+  safeZ: -3.4,
+  // Two light objects sit beyond the ramp; the other four frame the gap.
+  propPositions: [[9, 3.5], [14, 4.4], [-9, -7.1], [-6, -7.1], [-9, 7.1], [-6, 7.1]],
+});
+export function assemblyPlacements({stuntBlock=false}={}){
+  const placements=[];
+  const order=['service-workshop','patchwork-pocha','ochre-walkup','moon-hotteok','cloud-dumpling','blue-office'];
+  for(const block of stuntBlock?[0,1]:[0]){
+    for(const side of [-1,1]){
+      let x=-31+(stuntBlock?(block===0?-45:45):0);
+      for(let i=0;i<order.length;i++){
+        const id=order[side===-1?i:order.length-1-i],w=BUILDINGS.find(b=>b.id===id).footprint[0];
+        const sideName=side<0?'north':'south';
+        placements.push({id,key:`${block===1?'east-':''}${sideName}-${i}`,x:x+w/2,z:side*13.4,angle:side<0?0:Math.PI});x+=w+1;
+      }
+    }
+  }
+  return placements;
+}
 // Explicit compatibility manifest for the authored exports. New exports
 // must declare their review-only components here before joining this assembly.
 const REVIEW = {
@@ -43,8 +65,38 @@ export function ribbon(path,inner,outer,y){
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(ix);g.computeVertexNormals();return g;
 }
 
-export async function loadAssembly(manager,renderer){
-  const group=new THREE.Group();group.name='Snack Street · test assembly';
+function addStuntLinePaint(group){
+  const cyan=new THREE.MeshBasicMaterial({color:0x29e6ff,transparent:true,opacity:.88,side:THREE.DoubleSide,depthWrite:false});
+  const cream=new THREE.MeshBasicMaterial({color:0xffe1a0,transparent:true,opacity:.75,side:THREE.DoubleSide,depthWrite:false});
+  function stripe(x,z,width,depth,material){
+    const mesh=new THREE.Mesh(new THREE.PlaneGeometry(width,depth),material);
+    mesh.rotation.x=-Math.PI/2;mesh.position.set(x,.071,z);mesh.name='stunt lane paint';group.add(mesh);
+  }
+  // The south lane takes the ramp and lands among light props. The north lane
+  // stays clear, so the risk is a visible choice before reaching the gap.
+  for(const x of [-25,-19,-13,-7,8,20])stripe(x,STUNT_LINE.rampZ,3,.13,cyan);
+  for(const x of [-25,-17,-9,0,9,17])stripe(x,STUNT_LINE.safeZ,3,.12,cream);
+  for(const x of [-22,-12,17]){
+    stripe(x,STUNT_LINE.rampZ-1.05,1.7,.13,cyan);
+    stripe(x,STUNT_LINE.rampZ+1.05,1.7,.13,cyan);
+  }
+  for(const z of [1.9,5.15])stripe(STUNT_LINE.landingX,z,11,.14,cyan);
+  for(const x of [7.5,18.5])stripe(x,3.52,.14,3.4,cyan);
+  function label(word,x,z,color){
+    const canvas=document.createElement('canvas');canvas.width=512;canvas.height=128;
+    const context=canvas.getContext('2d');
+    context.font='900 76px Segoe UI, sans-serif';context.textAlign='center';context.textBaseline='middle';
+    context.fillStyle=color;context.fillText(word,256,68);
+    const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+    const mesh=new THREE.Mesh(new THREE.PlaneGeometry(6,1.5),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false,side:THREE.DoubleSide}));
+    mesh.rotation.x=-Math.PI/2;mesh.position.set(x,.074,z);mesh.name=`${word} road cue`;group.add(mesh);
+  }
+  label('STUNT  >',STUNT_LINE.approachX,STUNT_LINE.rampZ,'#29e6ff');
+  label('SAFE  >',STUNT_LINE.approachX,STUNT_LINE.safeZ,'#ffe1a0');
+}
+
+export async function loadAssembly(manager,renderer,{stuntBlock=false}={}){
+  const group=new THREE.Group();group.name=stuntBlock?'Stunt Delivery · two-block test street':'Snack Street · test assembly';
   const assets=await Promise.all(BUILDINGS.map(async spec=>{
     const [gltf,r]=await Promise.all([new GLTFLoader(manager).loadAsync(`assets/world/${spec.id}.glb`),fetch(`assets/world/${spec.id}.json`)]);
     if(!r.ok)throw new Error(`Assembly metadata ${spec.id}: ${r.status}`);
@@ -61,17 +113,9 @@ export async function loadAssembly(manager,renderer){
       if(textures.has(key)&&textures.get(key)!==t){m[slot]=textures.get(key);reusedTextures++;}else textures.set(key,t);
     }
   });
-  const placements=[];
   // Two restaurant shells, two mixed-use shells and two explicitly non-retail
   // uses per side. Opposing order reversal prevents a mirrored clone row.
-  const order=['service-workshop','patchwork-pocha','ochre-walkup','moon-hotteok','cloud-dumpling','blue-office'];
-  for(const side of [-1,1]){
-    let x=-31;
-    for(let i=0;i<order.length;i++){
-      const id=order[side===-1?i:order.length-1-i],w=BUILDINGS.find(b=>b.id===id).footprint[0];
-      placements.push({id,key:`${side<0?'north':'south'}-${i}`,x:x+w/2,z:side*13.4,angle:side<0?0:Math.PI});x+=w+1;
-    }
-  }
+  const placements=assemblyPlacements({stuntBlock});
   const collision=[],collisionMeshes=[],lights=[],entrances=[];
   let removedStreetMeshes=0,removedStreetColliders=0,instanceMeshes=0;
   for(const {spec,gltf,meta} of assets){
@@ -119,15 +163,26 @@ export async function loadAssembly(manager,renderer){
   }
   const paint=new THREE.MeshStandardMaterial({color:0xbba76a,roughness:.9,side:THREE.DoubleSide});
   surface('Centre line',ribbon(path,-.045,.045,.055),paint,false);
+  if(stuntBlock){
+    // Same optional ramp model as the first prototype, now beside the centre
+    // gap between the two building rows. It shares its exact visual/collider.
+    const ramp=new THREE.BoxGeometry(3.4,.34,4.2);
+    ramp.rotateX(-.14);ramp.rotateY(Math.PI/2);ramp.translate(0,.31,3.4);
+    const rampMesh=new THREE.Mesh(ramp,new THREE.MeshStandardMaterial({color:0xd88736,roughness:.8,metalness:.04}));
+    rampMesh.name='stunt_plaza_ramp';group.add(rampMesh);
+    collisionMeshes.push({name:'stunt_plaza_ramp',positions:Array.from({length:ramp.attributes.position.count},(_,i)=>[ramp.attributes.position.getX(i),ramp.attributes.position.getY(i),ramp.attributes.position.getZ(i)]),indices:Array.from(ramp.index.array)});
+    addStuntLinePaint(group);
+  }
   const land=new THREE.Mesh(new THREE.PlaneGeometry(620,420),new THREE.MeshStandardMaterial({color:0x626957,roughness:1}));
   land.rotation.x=-Math.PI/2;land.position.set(0,-.02,140);group.add(land);
   collision.push({name:'Test terrain',center:[0,-.07,140],size:[620,.10,420]});
   // Pavement beneath each retained threshold remains at its original height.
   for(const p of placements)collision.push({name:p.key+'/foundation',center:[p.x,.12,p.z],size:[BUILDINGS.find(b=>b.id===p.id).footprint[0],.31,10]});
-  const cameras={corner:{position:[-58,18,2],target:[3,5,0]},front:{position:[-65,6,1],target:[20,5,0]},side:{position:[0,180,350],target:[0,0,110]},walking:{position:[-12,1.72,-6.9],target:[7,2,-8.4]},truck:{position:[-43,4.5,3],target:[12,3,0]},storefront:{position:[-22,2.3,-2],target:[-25,2,-8.4]}};
+  const cameras={corner:{position:[-58,18,2],target:[3,5,0]},front:{position:[-65,6,1],target:[20,5,0]},side:{position:[0,180,350],target:[0,0,110]},walking:{position:[-12,1.72,-6.9],target:[7,2,-8.4]},truck:{position:[-43,4.5,3],target:[12,3,0]},storefront:{position:[-22,2.3,-2],target:[-25,2,-8.4]},stuntLine:{position:[-34,8,5.4],target:[4,1,2]},stuntOverhead:{position:[2,34,18],target:[2,0,1]}};
   const nodes=path.map(([x,z],i)=>({id:`assembly-${i}`,position:[x,.05,z],district:0}));
-  return {gltf:{scene:group},metadata:{id:'street-assembly',name:group.name,assembly:true,buildings:placements.length,placements,entrances,collision,collisionMeshes,lights,cameras,
+  return {gltf:{scene:group},metadata:{id:stuntBlock?'stunt-block':'street-assembly',name:group.name,assembly:true,stuntBlock,buildings:placements.length,placements,entrances,collision,collisionMeshes,lights,cameras,
     bounds:[[-310,-2,-65],[310,35,345]],roadNodes:nodes,roadWidth:12,spawn:{position:[-80,.85,3],heading:Math.PI/2},
+    stuntFixture:stuntBlock?{propPositions:STUNT_LINE.propPositions,dropoffEntranceId:STUNT_BLOCK_DROPOFF_ID,line:STUNT_LINE}:null,
     assemblyStats:{...ASSEMBLY,removedStreetMeshes,removedStreetColliders,instanceMeshes,reusedTextures,uniqueSharedSurfaceTextures:textures.size},
   }};
 }

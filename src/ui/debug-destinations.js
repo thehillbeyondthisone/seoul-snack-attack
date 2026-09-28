@@ -10,6 +10,12 @@ export const DEBUG_DESTINATIONS = Object.freeze([
     params: { world: 'pilot', building: 'street-assembly', intro: 'off', props: 'off' },
   },
   {
+    id: 'stunt-delivery',
+    label: '스턴트 배달 프로토타입 · Stunt Delivery Prototype',
+    path: './',
+    params: { world: 'pilot', building: 'stunt-block', gameplay: 'stunt', intro: 'off' },
+  },
+  {
     id: 'street-orbit',
     label: '스낵 스트리트 둘러보기 · Orbit Snack Street',
     path: 'building-pilot.html',

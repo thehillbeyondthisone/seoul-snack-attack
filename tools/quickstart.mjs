@@ -51,6 +51,15 @@ export const LAUNCH_PROFILES = Object.freeze({
   // (or right-stick click) toggles back to the chase camera.
   cockpit: '/?world=expanse2&view=cockpit&intro=off',
   classic: '/?world=proc&intro=off',
+  stunt: '/?world=pilot&building=stunt-block&gameplay=stunt&intro=off',
+  // 밤내 Bamnae, the valley town. T1: terrain, water and roads only — no
+  // buildings, no props, no signage. See TOWN-BUILD.md.
+  town: '/?world=town&intro=off',
+  // The same valley in clear daylight, which is how the landform is judged.
+  // Rain plus the day rig's haze is most of what a greybox has to hide behind.
+  'town-review': '/?world=town&intro=off&time=day&rain=off&stats=1',
+  // Not a world: orbit the height field with no HUD and no truck.
+  'town-preview': '/town-preview.html',
   // Not a world: the M1/M2 city plan, regenerated on launch. The rebuild is
   // reviewed as a drawing before any of it is extruded.
   plan: '/_work/expanse-city-plan.html',

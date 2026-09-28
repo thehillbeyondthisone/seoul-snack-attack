@@ -60,7 +60,7 @@ export function createCourierModel() {
   return root;
 }
 
-export function animateCourier(root, dt, { speed = 0, state = 'idle', grounded = true, turn = 0 } = {}) {
+export function animateCourier(root, dt, { speed = 0, state = 'idle', grounded = true, turn = 0, impact = 0, tumbleSide = 1 } = {}) {
   const rig = root.userData.rig;
   if (!rig) return;
   root.userData.phase = (root.userData.phase || 0) + dt * (3.2 + speed * 1.35);
@@ -75,5 +75,19 @@ export function animateCourier(root, dt, { speed = 0, state = 'idle', grounded =
   rig.visual.position.y += (bob - rig.visual.position.y) * Math.min(1, dt * 14);
   rig.visual.rotation.z += (THREE.MathUtils.clamp(-turn * 0.08, -0.12, 0.12) - rig.visual.rotation.z) * Math.min(1, dt * 10);
   rig.visual.rotation.x += ((state === 'sprint' ? -0.09 : 0) - rig.visual.rotation.x) * Math.min(1, dt * 8);
+  const low = state === 'dive' || state === 'tumble' || state === 'recovering';
+  const tilt = state === 'dive' ? 1.12 : state === 'tumble' ? 1.25 + Math.sin(root.userData.phase * 2) * (0.18 + impact * 0.24) : 0.4;
+  rig.visual.rotation.x += ((low ? tilt : 0) - rig.visual.rotation.x) * Math.min(1, dt * 12);
+  if (state === 'tumble') {
+    const flail = Math.sin(root.userData.phase * 2.7);
+    const flailSize = 0.22 + impact * 0.42;
+    rig.leftArm.rotation.x = 0.75 + flail * flailSize;
+    rig.rightArm.rotation.x = -0.6 - flail * flailSize;
+    rig.leftLeg.rotation.x = -0.5 + flail * flailSize * 0.6;
+    rig.rightLeg.rotation.x = 0.55 - flail * flailSize * 0.6;
+    rig.visual.rotation.z += (tumbleSide * flail * (0.1 + impact * 0.32) - rig.visual.rotation.z) * Math.min(1, dt * 9);
+  }
+  rig.visual.scale.y += ((low ? 0.55 : 1) - rig.visual.scale.y) * Math.min(1, dt * 12);
+  rig.visual.position.y += ((low ? 0.4 : bob) - rig.visual.position.y) * Math.min(1, dt * 12);
   rig.shadow.material.opacity = grounded ? 0.28 : 0.13;
 }

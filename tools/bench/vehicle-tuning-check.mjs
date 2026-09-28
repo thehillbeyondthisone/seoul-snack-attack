@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import * as THREE from 'three';
 import { VehiclePhysics } from '../../src/vehicle/physics.js';
 import { getVehicle } from '../../src/game/data/vehicles.js';
+import { STUNT_POCHA_PARAMS } from '../../src/vehicle/stunt-profile.js';
 import * as W from './worlds.js';
 import * as M from './metrics.js';
 
@@ -21,15 +22,17 @@ const rig = {
   }])),
 };
 
-function makePocha() {
+function makePocha(extra = {}, wetness = 0) {
   const phys = new VehiclePhysics(W.flatPlane());
   Object.assign(phys.params, def.params, {
     collisionHalf: def.collisionHalf,
     bumperY: def.bumperY,
+    ...extra,
   });
   phys.attach(rig);
   phys.place(new THREE.Vector3(0, 3.2, 0), 0);
   for (let i = 0; i < 6 / FIXED; i++) phys.step(FIXED);
+  phys.wetness = wetness;
   return phys;
 }
 
@@ -40,8 +43,8 @@ function accelerateTo(phys, targetKmh) {
   }
 }
 
-function abruptTurnAt(targetKmh, steer) {
-  const phys = makePocha();
+function abruptTurnAt(targetKmh, steer, extra = {}, wetness = 0) {
+  const phys = makePocha(extra, wetness);
   accelerateTo(phys, targetKmh);
   const entryKmh = phys.speedKmh;
   let peakRoll = 0;
@@ -80,6 +83,31 @@ check('pocha remains controllable in abrupt near-maximum-speed turns',
   !maximumRight.flipped && !maximumLeft.flipped &&
     maximumRight.peakRoll < 30 && maximumLeft.peakRoll < 30,
   `right=${maximumRight.peakRoll.toFixed(1)} deg, left=${maximumLeft.peakRoll.toFixed(1)} deg`);
+
+for (const [name, wetness] of [['dry', 0], ['wet', 1]]) {
+  const right = abruptTurnAt(60, 1, STUNT_POCHA_PARAMS, wetness);
+  const left = abruptTurnAt(60, -1, STUNT_POCHA_PARAMS, wetness);
+  check(`stunt pocha remains upright in ${name} 60 km/h turns`,
+    !right.flipped && !left.flipped && right.peakRoll < 30 && left.peakRoll < 30,
+    `right=${right.peakRoll.toFixed(1)} deg, left=${left.peakRoll.toFixed(1)} deg`);
+}
+
+{
+  const phys = makePocha(STUNT_POCHA_PARAMS);
+  let ticks = 0;
+  while (phys.speedKmh < 60 && ticks < 20 / FIXED) {
+    phys.controls = { throttle: 1, brake: 0, steer: 0, handbrake: false };
+    phys.step(FIXED); ticks++;
+  }
+  check('stunt pocha accelerates to 60 km/h', phys.speedKmh >= 60 && ticks * FIXED < 12,
+    `${(ticks * FIXED).toFixed(1)} s`);
+  const from = phys.meshPosition.clone();
+  phys.controls = { throttle: 0, brake: 1, steer: 0, handbrake: false };
+  for (let i = 0; i < 10 / FIXED && phys.speedKmh > 2; i++) phys.step(FIXED);
+  const distance = from.distanceTo(phys.meshPosition);
+  check('stunt pocha stops from 60 km/h', phys.speedKmh <= 2 && distance < 28,
+    `${distance.toFixed(1)} m`);
+}
 
 if (failed) process.exitCode = 1;
 else console.log('\nall pocha handling checks passed');

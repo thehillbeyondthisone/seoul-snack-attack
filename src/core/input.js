@@ -13,6 +13,9 @@ const KEY_ACTIONS = {
   handbrake: ['Space'],
   jump: ['Space'],
   sprint: ['ShiftLeft', 'ShiftRight'],
+  dive: ['KeyQ'],
+  shove: ['KeyG'],
+  grab: ['KeyH'],
   interact: ['KeyF'],
   accept: ['KeyE'],
   reset: ['KeyR'],
@@ -32,6 +35,9 @@ const PAD_BUTTONS = {
   jump: 0,      // A (on foot)
   interact: 1,  // B
   sprint: 5,    // RB
+  dive: 6,      // LT on foot
+  shove: 7,     // RT on foot
+  grab: 13,     // D-pad down on foot
   accept: 2,    // X
   reset: 3,     // Y
   settings: 8,  // View / Back — settings menu
@@ -78,6 +84,7 @@ export class Input {
     this.keys = new Set();
     this.edge = new Set();
     this.gamepadEdge = new Set();
+    this.consumedActions = new Set();
     this.previousButtons = [];
     this.gamepad = null;
     this.gamepadIndex = null;
@@ -192,9 +199,12 @@ export class Input {
 
   /** Edge-triggered action, true once per physical press. */
   pressed(action) {
+    if (this.consumedActions.has(action)) return false;
     const keyboardPressed = (KEY_ACTIONS[action] || [action]).some((code) => this.edge.has(code));
     const button = PAD_BUTTONS[action];
-    return keyboardPressed || this.touch.pressed(action) || (button != null && this.gamepadEdge.has(button));
+    const pressed = keyboardPressed || this.touch.pressed(action) || (button != null && this.gamepadEdge.has(button));
+    if (pressed) this.consumedActions.add(action);
+    return pressed;
   }
 
   /** Steering axis -1 (left) .. +1 (right). */
@@ -212,7 +222,9 @@ export class Input {
   /** Camera-relative movement: x right, y forward, each in -1..1. */
   moveAxes() {
     let x = (this.isDown('right') ? 1 : 0) - (this.isDown('left') ? 1 : 0);
-    let y = (this.isDown('throttle') ? 1 : 0) - (this.isDown('brake') ? 1 : 0);
+    // On foot the triggers belong to stunt actions; walking uses keys/stick.
+    let y = (KEY_ACTIONS.throttle.some((code) => this.keys.has(code)) ? 1 : 0)
+      - (KEY_ACTIONS.brake.some((code) => this.keys.has(code)) ? 1 : 0);
     if (this.touch.enabled && !this.touch.suspended) {
       x = this.touch.steerAxis() || x;
       y = (this.touch.actionValue('throttle') - this.touch.actionValue('brake')) || y;
@@ -247,6 +259,7 @@ export class Input {
   setTouchSuspended(suspended) { this.touch.setSuspended(suspended); }
 
   endFrame() {
+    this.consumedActions.clear();
     this.edge.clear();
     this.gamepadEdge.clear();
     this.touch.endFrame();

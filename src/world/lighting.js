@@ -158,7 +158,14 @@ export function blockPalette(tileIndex, cols = 5) {
  * Build the ambient rig. Returns the lights plus an `apply()` so the debug
  * menu can retune everything live without a reload.
  */
-export function createNightRig(scene, renderer) {
+export function createNightRig(scene, renderer, { fogScale = 1 } = {}) {
+  // `fogScale` multiplies whatever density the time-of-day preset asks for,
+  // and survives setPreset because it is applied inside apply() rather than
+  // written into params. A world needs it when its sightlines are not the
+  // ones the presets were tuned for: the Expanse is dense streets and half
+  // visibility at 113 m is atmosphere, but 밤내's whole premise is a ridge
+  // 220 m away and a valley wall at 300, and at that density the town is a
+  // pale sheet with a road on it.
   // Pre-skybox fallback only — time-of-day.js swaps in the sky cube, but the
   // clear colour should already sit in the stage palette.
   scene.background = new THREE.Color(STAGE.background);
@@ -176,7 +183,7 @@ export function createNightRig(scene, renderer) {
   moon.position.fromArray(params.keyPosition);
   scene.add(moon);
 
-  const fog = new THREE.FogExp2(params.fogColor, params.fogDensity);
+  const fog = new THREE.FogExp2(params.fogColor, params.fogDensity * fogScale);
   scene.fog = fog;
 
   function apply() {
@@ -189,7 +196,7 @@ export function createNightRig(scene, renderer) {
     moon.intensity = params.moonIntensity;
     moon.position.fromArray(params.keyPosition);
     fog.color.setHex(params.fogColor);
-    fog.density = params.fogDensity;
+    fog.density = params.fogDensity * fogScale;
     scene.environmentIntensity = params.envIntensity;
     scene.backgroundIntensity = params.backgroundIntensity;
     scene.backgroundBlurriness = params.backgroundBlurriness;

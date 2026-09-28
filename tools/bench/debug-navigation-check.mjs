@@ -15,6 +15,10 @@ assert.equal(
   'https://example.test/snack/?world=pilot&building=street-assembly&intro=off&props=off',
 );
 assert.equal(
+  destinationUrl(base, byId.get('stunt-delivery')),
+  'https://example.test/snack/?world=pilot&building=stunt-block&gameplay=stunt&intro=off',
+);
+assert.equal(
   destinationUrl(base, byId.get('street-orbit')),
   'https://example.test/snack/building-pilot.html?building=street-assembly',
 );

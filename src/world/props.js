@@ -82,6 +82,8 @@ export async function loadProps(scene, city, { mode = 'world', seed = BASE_SEED,
 
   const placements = mode === 'gallery'
     ? layoutGallery(defs, city)
+    : mode === 'stunt'
+      ? layoutStunt(defs, city)
     : layoutWorld(defs, city, seed, lampAnchors, t, density);
   mark = t(`placed ${placements.length}`, mark);
 
@@ -110,7 +112,7 @@ export async function loadProps(scene, city, { mode = 'world', seed = BASE_SEED,
 
   // ---- Physics bodies ----------------------------------------------------
   const handleToPlacement = new Map();
-  if (mode === 'world') {
+  if (mode === 'world' || mode === 'stunt') {
     for (const pl of placements) {
       const def = defs.get(pl.key);
       const meta = def.meta;
@@ -152,9 +154,37 @@ export async function loadProps(scene, city, { mode = 'world', seed = BASE_SEED,
     setMass(key, kg) {
       for (const pl of placements) if (pl.key === key && pl.handle) propWorld.setMass(pl.handle, kg);
     },
+    shove: (...args) => propWorld.shove(...args),
+    contactCharacter: (...args) => propWorld.contactCharacter(...args),
+    findGrabCandidate: (...args) => propWorld.findGrabCandidate(...args),
+    grab: (...args) => propWorld.grab(...args),
+    holdAt: (...args) => propWorld.holdAt(...args),
+    releaseHeld: (...args) => propWorld.releaseHeld(...args),
     reset() { propWorld.resetAll(); update(); },
     dispose() { scene.remove(group); },
   };
+}
+
+function layoutStunt(defs, city) {
+  const keys = ['street:0', 'street:2', 'street:0', 'street:2', 'street:13', 'bikes:2'];
+  if (keys.some((key) => !defs.has(key))) return [];
+  if (city.metadata?.stuntFixture) {
+    return city.metadata.stuntFixture.propPositions.map(([x, z], i) => ({
+      key: keys[i],
+      position: new THREE.Vector3(x, city.findGround(x, z)?.point.y ?? 0, z),
+      quaternion: new THREE.Quaternion().setFromAxisAngle(UP, i * 0.41),
+      tile: 0,
+    }));
+  }
+  if (!city.layout?.plaza) return [];
+  const plaza = city.layout.plaza;
+  const offsets = [[-8, -7], [-6, -7], [-4, -7], [-8, 7], [-6, 7], [-4, 7]];
+  return offsets.map(([x, z], i) => ({
+    key: keys[i],
+    position: new THREE.Vector3(plaza.x + x, city.findGround(plaza.x + x, plaza.z + z)?.point.y ?? 0, plaza.z + z),
+    quaternion: new THREE.Quaternion().setFromAxisAngle(UP, i * 0.41),
+    tile: 0,
+  }));
 }
 
 function withBase(url) {

@@ -1,5 +1,145 @@
 # 서울 스낵 어택 — Seoul Snack Attack — development handoff
 
+## 2026-09-27 — First truck-to-foot interaction slice
+
+The user's next-phase direction joins substantial, recoverable driving with
+physical-comedy exploration after leaving the truck. On the existing stunt
+street, H / D-pad down now grabs or throws nearby light movable props. The
+selection is directional and line-of-sight checked. A held object follows by
+a capped spring inside `PropWorld`; its sphere sweep stops at static walls.
+Diving, entering the truck, resetting, or moving too far releases it. Existing
+props and courier geometry are reused, so no new custom model was authored.
+This is a first interaction system, not yet a rooftop delivery, trolley ride,
+or climbable table route.
+
+Debug (`) → Vehicle → **Stunt prop playground** places the courier beside the
+light cone with a grab prompt. `npm run stunt-check` passes with a light/heavy
+selection, wall-blocked carry, throw impulse, and reset fixture. In the local
+browser the grab prompt, H pickup, throw prompt, H throw, moving cone, and
+absence of console errors were verified. Continuous carry movement and a
+physical gamepad pass still need player testing.
+
+## 2026-09-27 — M2 courier playability follow-up
+
+After reporting the stunt route is fun, the user selected the original M2
+physical-comedy checklist as the next focus. The dive, prone swept capsule,
+shove, recovery, prop activity, and level on-foot camera were already present.
+This pass fixed two interaction holes: exiting no longer falls back to an
+obstructed door-side spawn or a roof hit far above the truck, and entry now
+uses swept collision and gives control back if a wall blocks the walk to the
+door. Clear entry from the outer interaction range has enough travel time.
+Prop contact now starts a tumble directly, with limb flail and side roll
+scaled by the speed and direction lost at impact. No geometry or new model was
+authored; the existing courier rig supplies the animation.
+
+`npm run stunt-check`, `npm run character-check`, and
+`npm run build -- --configLoader runner` pass. The local browser showed an
+on-foot dive and recovery, entry followed by exit, and no console errors.
+Blocked door entry/exit, outer-range entry, and prop-contact severity are
+covered by focused Node fixtures. Repeated free-roam play beside walls and
+props and a physical gamepad pass remain for player acceptance of this M2
+follow-up.
+
+## 2026-09-27 — Player feedback after stunt showcase
+
+The user played the updated two-block stunt prototype and said it is fun now.
+This is positive player feedback on the combined loop and showcase. The prior
+browser and automated checks remain separate technical evidence; a physical
+gamepad pass and measured ramp/landing behavior are still unverified.
+
+## 2026-09-27 — Stunt showcase pass
+
+After the user confirmed the delivery loop works but found it uneventful, the
+two-block stunt route gained a painted cyan/right ramp line with two light props
+on its landing and a gold/left clear lane. These use the existing ramp/prop
+assets; the normal street assembly and regular mode do not get the paint or
+relocated props. The prototype panel now shows live drift, landing, and courier
+recovery progress and earned style pay. One-time callouts mark each award; prop
+strikes and the ramp approach have brief feedback. F/B above 10 km/h now makes
+the stunt courier bail from the truck into a bounded, collision-checked dive;
+normal-game vehicle exit is unchanged.
+
+Focused stunt checks, character checks, and the production build pass. The
+local browser showed both lanes and landing props, the active style panel, and
+an on-road moving bailout into a tumble without a console error. The fixed
+review camera is `pilotView=stuntOverhead`. These are technical and visible
+checks, not a controlled assessment of ramp launch height, five-minute driving
+feel, repeatability at full speed, or physical gamepad handling. Those need the
+next user play pass before the stunt showcase is accepted.
+
+## 2026-09-27 — Stunt pickup guidance
+
+The stunt job still requires an accepted order, an on-foot courier within 2 m
+of the named shop door, a clear path, and E/X to collect or deliver. The shared
+marker previously drew the regular game's roughly 9 m vehicle circle, which
+made standing in the visible zone look sufficient. Stunt mode now draws a small
+door ring matching its 2 m reach and shows a nearby instruction for exiting,
+walking closer, recovering, or pressing E/X. The prototype panel and README
+state the full sequence. Standing exactly on the target point is now valid.
+
+`npm run stunt-check` and `npm run build -- --configLoader runner` pass. A local
+browser loaded the two-block street, accepted the Patchwork Pocha offer, and
+showed the exit/walk prompt after the debug pickup teleport and on-foot exit.
+That browser pass did not complete a continuous pickup-to-delivery run; normal
+driving feel and full route completion still need player review.
+
+## 2026-09-27 — Stunt prototype moved to the Blender test street
+
+The user found the procedural city difficult to drive. Quick Start **[4]** and
+the Night Tour now target `?world=pilot&building=stunt-block&gameplay=stunt&intro=off`.
+This variant repeats the six-model Blender street kit into two adjacent building
+blocks (24 placements total) on the existing 12 m test road and open return
+loop. The ordinary `street-assembly` review and regular game are unchanged.
+The stunt order binds Patchwork Pocha's authored entrance in block one to Cloud
+Dumpling's authored entrance in block two. The central gap carries the existing
+shallow ramp and six movable props. Isolated stunt save and handling remain.
+The older procedural stunt URL remains available for comparison, but is no
+longer the launcher destination.
+
+Validation: the stunt layout test confirms 24 unique placement IDs, both
+authored order bindings, and a straight-road footprint under 200 m. The
+launcher, Night Tour, stunt, character, encoding, and production build checks
+pass. The live browser loads the two-block version with a Patchwork Pocha
+offer and six dynamic props (two awake immediately after load); it renders at
+about 540 draw calls/1.03 million triangles in the observed spawn view. Route
+completion in this new layout and player driving feel still need a play pass.
+
+## 2026-09-24 — Stunt Delivery Prototype technical slice
+
+Open `?world=proc&gameplay=stunt&intro=off`, Quick Start **[4]**, or the Night
+Tour entry. The mode starts in the pocha with isolated save and debug tuning
+keys. A plaza-derived shallow ramp is in the static mesh/collider, and six
+deterministic movable props stay outside the static raycast geometry. The
+prototype panel restores the truck, courier, props, and job without asset reload
+and links back to the regular game.
+
+The pocha uses a prototype-only handling profile and chase-camera response.
+The courier has bounded directional dive, prone swept capsule collision,
+tumbling animation, short-range shove, standing-clearance recovery, and a level
+follow camera. The fixed pocha-to-plaza job requires on-foot line-of-sight
+collection/delivery within two metres. Timer begins at collection; base pay is
+guaranteed, with capped time and drift/jump/courier style tips. The result has a
+separate breakdown, repeat, and free play; normal spill/crash penalties and
+ratings do not apply to this job. Food follows the bag on foot and the truck
+while driving. Deliveries feed the isolated day/cassette progression once.
+
+Focused stunt, character, props, procedural city, launcher, progression, and
+vehicle tuning checks pass. The production build passes with Vite's runner
+config loader. A real browser verified launch, dive/recovery, restart, pocha
+collection, plaza delivery, result and repeat. Its route legs used debug
+teleport before walking into the interaction zones; a continuous ordinary
+five-minute drive, physical gamepad, controlled dry/wet driving-feel review,
+sustained prop performance comparison, and user play acceptance are pending.
+The ramp image is `tools/blender/previews/stunt-plaza-ramp.png`.
+
+The same procedural spawn in the in-app browser gave a brief 60-read frame
+sample of 22.3 ms median/31.3 ms p95 in normal mode and 29.3 ms median/47.6 ms
+p95 in prototype mode after warmup. Several browser tabs were open, so this is
+diagnostic only; the prototype's six props were asleep at spawn. The separate
+Snack Street browser harness could not attach to its isolated Chromium session
+(`Runtime.enable timeout`); its delivery regression remains unverified in that
+harness. The core Node checks and production build completed successfully.
+
 ## 2026-09-13 — Three-shop Snack Street delivery loop
 
 Patchwork Pocha (`밤참 분식`), Moon Hotteok (`달밤 호떡`) and Cloud Dumpling

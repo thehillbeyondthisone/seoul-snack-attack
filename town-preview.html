@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>밤내 Bamnae — valley preview</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #0a0d14; overflow: hidden; }
+  canvas { display: block; }
+  #hud {
+    position: fixed; top: 12px; left: 14px; z-index: 2;
+    font: 11px/1.6 ui-monospace, Menlo, Consolas, monospace;
+    color: #cfdcec; text-shadow: 0 1px 3px #000a; pointer-events: none;
+    max-width: 44ch;
+  }
+  #hud h1 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
+  #hud .dim { color: #7d91aa; }
+  #views {
+    position: fixed; bottom: 14px; left: 14px; z-index: 3; display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  #views button {
+    font: 11px ui-monospace, Menlo, Consolas, monospace;
+    background: #16202e; color: #cfdcec; border: 1px solid #2b3a4d;
+    border-radius: 4px; padding: 5px 9px; cursor: pointer;
+  }
+  #views button:hover { background: #1f2c3e; border-color: #4a6076; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <h1>밤내 Bamnae</h1>
+  <div class="dim" id="stats">building…</div>
+  <div class="dim">drag to orbit · wheel to zoom · right-drag to pan</div>
+</div>
+<div id="views"></div>
+<script type="module" src="/src/world/town-preview.js"></script>
+</body>
+</html>

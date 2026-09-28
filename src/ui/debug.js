@@ -7,10 +7,12 @@ import { HUD, cssHex } from '../world/data/color-bible.js';
 import { DEBUG_DESTINATIONS, destinationUrl } from './debug-destinations.js';
 
 const SETTINGS_KEY = 'seoul-snack-attack-debug-settings-v1';
+const STUNT_SETTINGS_KEY = 'seoul-snack-attack-stunt-debug-settings-v1';
+let activeSettingsKey = SETTINGS_KEY;
 
 function loadSettings() {
   try {
-    const value = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    const value = JSON.parse(localStorage.getItem(activeSettingsKey) || '{}');
     return value && typeof value === 'object' ? value : {};
   } catch {
     return {};
@@ -18,7 +20,7 @@ function loadSettings() {
 }
 
 function saveSettings(settings) {
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage may be blocked */ }
+  try { localStorage.setItem(activeSettingsKey, JSON.stringify(settings)); } catch { /* storage may be blocked */ }
 }
 
 function copySettings(settings, section, source, keys) {
@@ -52,7 +54,8 @@ function migrateMapConvention(settings) {
   return settings;
 }
 
-export function initDebug({ orders, rain, phys, post, van, cam, city, scene, timeOfDay, vehicleDef, hud }) {
+export function initDebug({ orders, rain, phys, player, onFootCam, post, van, cam, city, scene, timeOfDay, vehicleDef, hud, gameplayProfile = 'normal', restartPrototype = null }) {
+  activeSettingsKey = gameplayProfile === 'stunt' ? STUNT_SETTINGS_KEY : SETTINGS_KEY;
   const settings = migrateMapConvention(loadSettings());
   const persist = (section, source, keys) => () => copySettings(settings, section, source, keys);
   const gui = new GUI({ title: '서울 스낵 어택 디버그 · Debug' });
@@ -127,6 +130,7 @@ export function initDebug({ orders, rain, phys, post, van, cam, city, scene, tim
   gGame.add({ done: () => orders.completeNow() }, 'done').name('주문 즉시 완료 · Complete order');
   gGame.add({ cash: () => orders.addCash(100000) }, 'cash').name('+₩100,000');
   gGame.add({ reset: () => orders.resetSave() }, 'reset').name('세이브 초기화 · Reset save');
+  if (restartPrototype) gGame.add({ restart: restartPrototype }, 'restart').name('스턴트 재시작 · Restart prototype');
   if (settings.game?.freezeTimers !== undefined) orders.freezeTimers = !!settings.game.freezeTimers;
   gGame.add(orders, 'freezeTimers').name('타이머 정지 · Freeze timers')
     .onChange(persist('game', orders, ['freezeTimers']));
@@ -259,6 +263,28 @@ export function initDebug({ orders, rain, phys, post, van, cam, city, scene, tim
   ]) gVeh.add(p, key, min, max, step).name(label).onChange(saveVehicle);
   gVeh.add({ tp1: () => orders.teleportPickup() }, 'tp1').name('픽업지로 텔레포트');
   gVeh.add({ tp2: () => orders.teleportDropoff() }, 'tp2').name('배달지로 텔레포트');
+  if (gameplayProfile === 'stunt' && city.metadata?.stuntBlock) {
+    gVeh.add({ tpProps: () => {
+      const truckX = -13, truckZ = -3.4;
+      const truckY = city.findGround(truckX, truckZ)?.point.y ?? 0;
+      phys.teleport(new THREE.Vector3(truckX, truckY, truckZ), 0);
+      if (player) {
+        player._dropHeld();
+        if (player.isDriving && !player.exitVehicle({ force: true })) player._setMode('onFoot');
+        // Start beside the light traffic cone beyond the ramp, facing it.
+        const x = 7.5, z = 3.5;
+        player.position.set(x, city.findGround(x, z)?.point.y ?? 0, z);
+        player._lastSafe.copy(player.position);
+        player.velocity.set(0, 0, 0);
+        player.heading = Math.PI / 2;
+        player.state = 'idle';
+        player.grounded = true;
+        player.group.position.copy(player.position);
+        player.group.rotation.y = player.heading;
+        onFootCam?.setHeading(player.heading);
+      }
+    } }, 'tpProps').name('스턴트 소품 구역으로 · Stunt prop playground');
+  }
   gVeh.add({
     tpRamp: () => phys.teleport(
       new THREE.Vector3(DIVE_RAMP.x, 0, DIVE_RAMP.stagingZ),
@@ -532,7 +558,7 @@ export function initDebug({ orders, rain, phys, post, van, cam, city, scene, tim
   return {
     gui,
     getSettings() { return JSON.parse(JSON.stringify(settings)); },
-    settingsKey: SETTINGS_KEY,
+    settingsKey: activeSettingsKey,
     setEnglishMode(active) { localizeMenu(!!active); },
     toggle() { gui._hidden ? gui.show() : gui.hide(); },
     get visible() { return !gui._hidden; },

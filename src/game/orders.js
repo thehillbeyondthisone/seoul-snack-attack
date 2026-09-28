@@ -24,7 +24,7 @@ const PAYOUT_PENALTY_INTERVAL = 12;
 const PAYOUT_FLOOR = 0.35;
 
 export class Orders {
-  constructor({ scene, city, phys, hud, camera, audio = null, player = null }) {
+  constructor({ scene, city, phys, hud, camera, audio = null, player = null, gameplayProfile = 'normal', saveKey = undefined }) {
     this.scene = scene;
     this.city = city;
     this.phys = phys;
@@ -38,8 +38,10 @@ export class Orders {
     // Optional on-foot/vehicle mode provider. Delivery zone completion stays
     // vehicle-based, but bearing, route and mini-map follow whoever is active.
     this.player = player;
+    this.gameplayProfile = gameplayProfile;
+    this.saveKey = saveKey;
 
-    this.save = loadSave();
+    this.save = loadSave(saveKey);
     this.truckUpgrade = new TruckUpgrade(this);
     this.state = 'idle';
     this.idleTimer = 4;   // first offer lands quickly
@@ -211,6 +213,7 @@ export class Orders {
       payout: o.payout,
       distanceKm: o.dist / 1000,
       condition: this.quality / 100,
+      conditionEnabled: this.gameplayProfile !== 'stunt',
       timed: true,
       ...this._noteFields('deliver'),
     });
@@ -267,7 +270,7 @@ export class Orders {
   }
 
   _persist() {
-    persistSave(this.save);
+    persistSave(this.save, this.saveKey);
   }
 
   // ------------------------------------------------------------------ offers

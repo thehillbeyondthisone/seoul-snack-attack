@@ -16,7 +16,7 @@ import { loadAsphaltTexturePack, applyAsphaltTextureDefaults } from './texture-p
 const DOWN = new THREE.Vector3(0, -1, 0);
 const UP = new THREE.Vector3(0, 1, 0);
 
-export async function loadProcCity(scene, manager, renderer = null, onPhase = null, seed = PROC_SEED, { detailIntensity } = {}) {
+export async function loadProcCity(scene, manager, renderer = null, onPhase = null, seed = PROC_SEED, { detailIntensity, stunt = false } = {}) {
   const startedAt = performance.now();
   onPhase?.(8, '컬러 바이블 적용 중 · Applying colour bible');
 
@@ -25,7 +25,7 @@ export async function loadProcCity(scene, manager, renderer = null, onPhase = nu
 
   onPhase?.(18, '한글 간판 그리는 중 · Painting Hangul signs');
   onPhase?.(36, '도시 생성 중 · Generating city');
-  const built = buildCityMesh(layout, {}, seed, { detailIntensity });
+  const built = buildCityMesh(layout, {}, seed, { detailIntensity, stunt });
   scene.add(built.group);
 
   // Downloaded asphalt pack loads in parallel with the BVH build. The road
@@ -276,6 +276,7 @@ export async function loadProcCity(scene, manager, renderer = null, onPhase = nu
 
   return {
     proc: true,
+    layout,
     group: built.group, tiles, grid, bvh, colliderGeo,
     connectors: { drivableBounds: districtBounds, worldBounds, roadMaterials: [], stats: { collisionTriangles: 0 }, raycast: () => null },
     endZones: { bounds, roadMaterials: [], stats: { collisionTriangles: 0 }, raycast: () => null },

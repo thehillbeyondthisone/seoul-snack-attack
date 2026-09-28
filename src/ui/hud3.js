@@ -297,6 +297,7 @@ const CSS = `
 #hud3 .ticket.dwell-paused .dwellbar i { background: var(--alarm); box-shadow: 0 0 10px var(--alarm); }
 #hud3 .ticket.timed .bar { display: block; }
 #hud3 .ticket.timed .cond { display: block; }
+#hud3 .ticket.timed.no-condition .cond { display: none; }
 #hud3 .ticket .clock { margin-top: 10px; align-items: baseline; gap: 8px; }
 #hud3 .ticket .clock .t {
   font-size: 26px; font-weight: 800; line-height: 1; letter-spacing: 0.01em;
@@ -1229,13 +1230,14 @@ export class HUD3 {
    * @param {string}  [noteLabel] whose request it is — kitchen on the pickup leg,
    *                              rider on the delivery leg
    */
-  showTicket({ to, toEn = to, stage, stageEn = stage, seconds = 0, totalSeconds = 0, payout = 0, distanceKm, condition = 1, timed = true, dish, dishEn = dish, order, note, noteEn = note, noteLabel = '배달 요청사항', noteLabelEn = 'Delivery note' }) {
+  showTicket({ to, toEn = to, stage, stageEn = stage, seconds = 0, totalSeconds = 0, payout = 0, distanceKm, condition = 1, conditionEnabled = true, timed = true, dish, dishEn = dish, order, note, noteEn = note, noteLabel = '배달 요청사항', noteLabelEn = 'Delivery note' }) {
     this.setDwell(null);
     this._setLocalized(this.$.to, to, toEn);
     this._setLocalized(this.$.tstage, stage, stageEn);
     this.$.tdist.textContent = `${distanceKm.toFixed(1)} km`;
     this._setNote(this.$.ticket, this.$.treq, note, noteEn, this.$.treqLabel, noteLabel, noteLabelEn);
     this.$.ticket.classList.toggle('timed', timed);
+    this.$.ticket.classList.toggle('no-condition', !conditionEnabled);
     this.$.ticket.classList.toggle('has-dish', !!dish);
     if (dish) {
       this._setLocalized(this.$.tdish, dish, dishEn);
@@ -1245,7 +1247,7 @@ export class HUD3 {
     }
     if (timed) {
       this.updateTicket({ seconds, totalSeconds, payout });
-      this.setCondition(condition);
+      if (conditionEnabled) this.setCondition(condition);
     } else {
       this.$.ticket.classList.remove('warn');
     }
