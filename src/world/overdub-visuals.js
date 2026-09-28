@@ -13,7 +13,7 @@ function featherMask() {
   const pixels = new Uint8Array(size * size * 4);
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const radius = Math.hypot((x + .5) / size * 2 - 1, (y + .5) / size * 2 - 1);
-    const edge = THREE.MathUtils.smoothstep(radius, .48, .98);
+    const edge = THREE.MathUtils.smoothstep(radius, .78, 1);
     const value = Math.round(255 * (1 - edge));
     const offset = (y * size + x) * 4;
     pixels[offset] = value;
